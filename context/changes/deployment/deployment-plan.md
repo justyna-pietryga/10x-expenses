@@ -4,6 +4,8 @@
 
 Deploy the existing Astro SSR app to Cloudflare Workers using the current `@astrojs/cloudflare` adapter and Wrangler setup. The rollout is: one manual first production release to `workers.dev`, then Cloudflare Git auto-deploys from `main`. GitHub Actions remains checks-only. Supabase is the only external runtime integration and must be treated as production-critical configuration.
 
+**Current live URL:** `https://expenses.justyna-pietryga.workers.dev`
+
 ## Prerequisites
 
 ### Cloudflare / Wrangler CLI
@@ -11,18 +13,18 @@ Deploy the existing Astro SSR app to Cloudflare Workers using the current `@astr
 - [ ] Install Node.js `22.x` locally, matching `.nvmrc`.
 - [ ] Install project dependencies with `npm install`.
 - [x] Confirm Wrangler is available through the local dependency with `npx wrangler --version`.
-- [x] Authenticate Wrangler with `npx wrangler login` using the Cloudflare account that will own the Worker.
+- [x] Authenticate Wrangler with `npx wrangler login` using the Cloudflare account that owns the Worker.
 - [x] Ensure the authenticated Cloudflare account has permission to create and deploy Workers, manage Worker secrets, and enable Git integration for the target repository.
-- [ ] Before the first deploy, verify the Worker project name to use in Cloudflare is `expenses`, matching the planned `wrangler.jsonc` update.
+- [x] Verify the Worker project name used in Cloudflare is `expenses`, matching `wrangler.jsonc`.
 
 ### Supabase
 
 - [x] Create a hosted **production** Supabase project dedicated to the deployed app.
-- [x] In Supabase, copy the project URL and `anon` public key from **Settings → API**; these become `SUPABASE_URL` and `SUPABASE_KEY`.
-- [ ] Configure Supabase Auth for the deployed app:
-  - Set the site/app URL to the production `workers.dev` hostname after the first deploy.
-  - Add any required redirect URLs for sign-in, sign-up, and email confirmation flows using the deployed hostname.
-  - If email confirmation remains enabled, verify that confirmation links resolve back to the deployed app correctly.
+- [x] Copy the project URL and `anon` public key from **Settings -> API**; these are `SUPABASE_URL` and `SUPABASE_KEY`.
+- [x] Configure Supabase Auth for the deployed app:
+  - [x] Set the site/app URL to `https://expenses.justyna-pietryga.workers.dev`
+  - [x] Add required redirect URLs for sign-in, sign-up, and email confirmation flows using the deployed hostname.
+  - [ ] If email confirmation remains enabled, verify that confirmation links resolve back to the deployed app correctly.
 - [ ] Keep local development credentials separate from hosted production credentials; do not reuse local `127.0.0.1` values in Cloudflare secrets.
 - [ ] Reserve a separate hosted staging Supabase project for future non-prod deployment work, but do not wire it into v1.
 
@@ -36,39 +38,39 @@ Deploy the existing Astro SSR app to Cloudflare Workers using the current `@astr
 
 ## Phase Checklist
 
-- [ ] **Phase 1 — Normalize repo and Cloudflare identifiers**
-  - Rename the default branch from `master` to `main`.
-  - Update GitHub workflow triggers from `master` to `main`.
-  - Rename the Worker in `wrangler.jsonc` from starter-default naming to `expenses`.
-  - Keep the current Astro Cloudflare SSR entrypoint; do not convert this to static Pages hosting.
+- [ ] **Phase 1 - Normalize repo and Cloudflare identifiers**
+  - [x] Rename the default branch from `master` to `main`.
+  - [x] Update GitHub workflow triggers from `master` to `main`.
+  - [x] Rename the Worker in `wrangler.jsonc` from starter-default naming to `expenses`.
+  - [x] Keep the current Astro Cloudflare SSR entrypoint; do not convert this to static Pages hosting.
 
-- [ ] **Phase 2 — Harden runtime config for Cloudflare**
-  - Add `secrets.required` in `wrangler.jsonc` for `SUPABASE_URL` and `SUPABASE_KEY`.
-  - Keep `compatibility_date` pinned; future bumps are explicit release work.
-  - Keep production-only Worker config in v1; do not add Wrangler environments yet.
-  - Keep observability enabled and use `wrangler tail` plus Workers Logs for runtime debugging.
+- [ ] **Phase 2 - Harden runtime config for Cloudflare**
+  - [x] Add `secrets.required` in `wrangler.jsonc` for `SUPABASE_URL` and `SUPABASE_KEY`.
+  - [x] Keep `compatibility_date` pinned; future bumps are explicit release work.
+  - [x] Keep production-only Worker config in v1; do not add Wrangler environments yet.
+  - [x] Keep observability enabled and use `wrangler tail` plus Workers Logs for runtime debugging.
 
-- [ ] **Phase 3 — Wire external integrations safely**
-  - Provision a hosted production Supabase project, separate from local development.
-  - Reserve a separate staging Supabase project for future non-prod deployment work, but do not wire it in v1.
-  - Set Cloudflare production secrets for `SUPABASE_URL` and `SUPABASE_KEY`.
-  - Configure Supabase Auth URL settings to the production `workers.dev` origin.
-  - Confirm no additional Cloudflare bindings are needed beyond static assets.
+- [ ] **Phase 3 - Wire external integrations safely**
+  - [x] Provision a hosted production Supabase project, separate from local development.
+  - [ ] Reserve a separate staging Supabase project for future non-prod deployment work, but do not wire it in v1.
+  - [x] Set Cloudflare production secrets for `SUPABASE_URL` and `SUPABASE_KEY`.
+  - [x] Configure Supabase Auth URL settings to the production `workers.dev` origin: `https://expenses.justyna-pietryga.workers.dev`
+  - [x] Confirm no additional Cloudflare bindings are needed beyond static assets.
 
-- [ ] **Phase 4 — Deployment automation shape**
-  - Keep GitHub Actions for `npm ci`, `npx astro sync`, `npm run lint`, and `npm run build`.
-  - Do not deploy from GitHub Actions.
+- [ ] **Phase 4 - Deployment automation shape**
+  - [x] Keep GitHub Actions for `npm ci`, `npx astro sync`, `npm run lint`, and `npm run build`.
+  - [x] Do not deploy from GitHub Actions.
   - [x] GitHub repository exists and is already configured.
-  - After the first successful manual release, connect the repo to Cloudflare Workers Git integration.
-  - Set Cloudflare production auto-deploy branch to `main`.
-  - Do not include PR previews in v1.
+  - [x] After the first successful manual release, connect the repo to Cloudflare Workers Git integration.
+  - [x] Set Cloudflare production auto-deploy branch to `main`.
+  - [x] Do not include PR previews in v1.
 
-- [ ] **Phase 5 — First release and verification**
-  - Perform the first production deployment manually with Wrangler after secrets are present.
-  - Verify the generated `workers.dev` URL.
-  - Run smoke tests for home page, sign-up, sign-in, sign-out, and `/dashboard` redirect protection.
-  - Confirm logs are visible in `wrangler tail` / Workers Logs.
-  - Record the rollback command/path and require human approval for rollback, secret rotation, and destructive data operations.
+- [ ] **Phase 5 - First release and verification**
+  - [x] Perform the first production deployment manually with Wrangler after secrets are present.
+  - [x] Verify the generated `workers.dev` URL: `https://expenses.justyna-pietryga.workers.dev`
+  - [x] Run smoke tests for home page, sign-up, sign-in, sign-out, and `/dashboard` redirect protection.
+  - [x] Confirm logs are visible in `wrangler tail` / Workers Logs.
+  - [x] Record the rollback command/path and require human approval for rollback, secret rotation, and destructive data operations.
 
 ## Important Changes
 
@@ -83,7 +85,7 @@ Deploy the existing Astro SSR app to Cloudflare Workers using the current `@astr
 
 - **External configuration**
   - Cloudflare production secrets: `SUPABASE_URL`, `SUPABASE_KEY`.
-  - Supabase Auth config must include the deployed `workers.dev` origin as the site/app URL for auth flows.
+  - Supabase Auth config includes the deployed `workers.dev` origin as the site/app URL for auth flows: `https://expenses.justyna-pietryga.workers.dev`.
 
 ## Test Plan
 
@@ -102,6 +104,26 @@ Deploy the existing Astro SSR app to Cloudflare Workers using the current `@astr
   - Deployment fails early if required secrets are missing.
   - Runtime logs are visible through `npx wrangler tail`.
   - Rollback path is documented before enabling auto-deploys.
+
+## Rollback Playbook
+
+- List recent deployments and version IDs:
+  - `npx wrangler deployments list`
+- Fast rollback to the immediately previous version:
+  - `npx wrangler rollback`
+- Roll back to a specific known-good version:
+  - `npx wrangler rollback <VERSION_ID>`
+- Add an audit message when rolling back:
+  - `npx wrangler rollback <VERSION_ID> --message "Rollback after auth/deploy regression"`
+- Human approval remains required before rollback, secret rotation, or destructive data operations.
+- After rollback:
+  - verify the home page
+  - verify `/dashboard` redirects correctly when logged out
+  - verify sign-in/sign-out still work
+  - inspect runtime logs with `npx wrangler tail`
+
+Rollback note:
+- Cloudflare rollbacks switch traffic back to a previously deployed Worker version, but they do **not** revert external systems automatically. Supabase config changes, data changes, and any future bindings/resource migrations must be reviewed separately.
 
 ## Edge Cases and Support Steps
 
