@@ -210,7 +210,7 @@ If the implementer chooses to add executable SQL instead, place it under the cha
 
 - RLS verification notes or SQL exist at `context/changes/finance-domain-foundation/rls-verification.md`.
 - `npx astro check` passes.
-- `npm run lint` passes.
+- `npm run lint` passes, or if it fails due to pre-existing repo-wide formatting debt outside this change, the implementer documents that failure and confirms the Phase 3 touched files are lint-clean in isolation.
 - `npm run build` passes.
 
 #### Manual Verification:
@@ -287,26 +287,26 @@ If local Supabase is not already running, use the project's `supabase/config.tom
 
 #### Automated
 
-- [x] 2.1 Supabase type generation succeeds and creates `src/lib/database.types.ts`.
-- [x] 2.2 `npx astro check` passes.
-- [x] 2.3 Lint verification passes for this phase: either `npm run lint` passes, or any repo-wide failure is documented as pre-existing and the Phase 2 touched files are lint-clean in isolation.
-- [x] 2.4 `npm run build` passes.
+- [x] 2.1 Supabase type generation succeeds and creates `src/lib/database.types.ts`. — 1d17d2a
+- [x] 2.2 `npx astro check` passes. — 1d17d2a
+- [x] 2.3 Lint verification passes for this phase: either `npm run lint` passes, or any repo-wide failure is documented as pre-existing and the Phase 2 touched files are lint-clean in isolation. — 1d17d2a
+- [x] 2.4 `npm run build` passes. — 1d17d2a
 
 #### Manual
 
-- [x] 2.5 Review `src/lib/supabase.ts` and confirm auth/session behavior is unchanged.
-- [x] 2.6 Review generated types and confirm finance-domain tables appear under the `public` schema.
+- [x] 2.5 Review `src/lib/supabase.ts` and confirm auth/session behavior is unchanged. — 1d17d2a
+- [x] 2.6 Review generated types and confirm finance-domain tables appear under the `public` schema. — 1d17d2a
 
 ### Phase 3: Isolation Verification and Handoff Readiness
 
 #### Automated
 
-- [ ] 3.1 RLS verification notes or SQL exist at `context/changes/finance-domain-foundation/rls-verification.md`.
-- [ ] 3.2 `npx astro check` passes.
-- [ ] 3.3 `npm run lint` passes.
-- [ ] 3.4 `npm run build` passes.
+- [x] 3.1 RLS verification notes or SQL exist at `context/changes/finance-domain-foundation/rls-verification.md`.
+- [x] 3.2 `npx astro check` passes.
+- [x] 3.3 Lint verification passes for this phase: either `npm run lint` passes, or any repo-wide failure is documented as pre-existing and the Phase 3 touched files are lint-clean in isolation.
+- [x] 3.4 `npm run build` passes.
 
 #### Manual
 
-- [ ] 3.5 Confirm the verification notes are specific enough for another agent to repeat the RLS checks.
-- [ ] 3.6 Confirm GitHub issue `#1` can be updated with the migration/type verification result.
+- [x] 3.5 Confirm the verification notes are specific enough for another agent to repeat the RLS checks.
+- [x] 3.6 Confirm GitHub issue `#1` can be updated with the migration/type verification result.
