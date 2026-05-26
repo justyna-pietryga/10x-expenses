@@ -301,12 +301,12 @@ If local Supabase is not already running, use the project's `supabase/config.tom
 
 #### Automated
 
-- [x] 3.1 RLS verification notes or SQL exist at `context/changes/finance-domain-foundation/rls-verification.md`.
-- [x] 3.2 `npx astro check` passes.
-- [x] 3.3 Lint verification passes for this phase: either `npm run lint` passes, or any repo-wide failure is documented as pre-existing and the Phase 3 touched files are lint-clean in isolation.
-- [x] 3.4 `npm run build` passes.
+- [x] 3.1 RLS verification notes or SQL exist at `context/changes/finance-domain-foundation/rls-verification.md`. — 0e040ed
+- [x] 3.2 `npx astro check` passes. — 0e040ed
+- [x] 3.3 Lint verification passes for this phase: either `npm run lint` passes, or any repo-wide failure is documented as pre-existing and the Phase 3 touched files are lint-clean in isolation. — 0e040ed
+- [x] 3.4 `npm run build` passes. — 0e040ed
 
 #### Manual
 
-- [x] 3.5 Confirm the verification notes are specific enough for another agent to repeat the RLS checks.
-- [x] 3.6 Confirm GitHub issue `#1` can be updated with the migration/type verification result.
+- [x] 3.5 Confirm the verification notes are specific enough for another agent to repeat the RLS checks. — 0e040ed
+- [x] 3.6 Confirm GitHub issue `#1` can be updated with the migration/type verification result. — 0e040ed
