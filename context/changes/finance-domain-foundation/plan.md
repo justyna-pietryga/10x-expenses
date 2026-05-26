@@ -12,6 +12,10 @@ The application already has Supabase SSR auth and protected route plumbing, but 
 
 The repo has a first Supabase migration defining the finance domain tables, constraints, relationships, and RLS policies. Every finance row is owned by a user via `user_id`, and policies enforce `auth.uid() = user_id`. The app has generated TypeScript database contracts ready for later slices, and verification proves the migration applies and user-owned rows are isolated.
 
+### Replan Note (2026-05-26):
+
+Phase 2 uncovered a repo-wide lint baseline issue unrelated to this change: `npm run lint` currently fails on existing CRLF/Prettier formatting errors across many pre-existing files outside the finance foundation scope. The plan is adjusted so this foundation change still proves its own correctness without silently absorbing unrelated formatting churn.
+
 ### Key Discoveries:
 
 - Roadmap F-01 requires one consistent persistence model for finance records, import batches, categories, limits, rules, and summaries: `context/foundation/roadmap.md:52`.
@@ -157,7 +161,7 @@ Generate database type contracts from the migrated Supabase schema and wire them
 
 - Supabase type generation succeeds and creates `src/lib/database.types.ts`.
 - `npx astro check` passes.
-- `npm run lint` passes.
+- `npm run lint` passes, or if it fails due to pre-existing repo-wide formatting debt outside this change, the implementer documents that failure and confirms the Phase 2 touched files are lint-clean in isolation.
 - `npm run build` passes.
 
 #### Manual Verification:
@@ -231,6 +235,7 @@ If the implementer chooses to add executable SQL instead, place it under the cha
 - Generate TypeScript types from the migrated schema.
 - Verify RLS with at least two authenticated user contexts or equivalent SQL role simulation.
 - Run `npx astro check`, `npm run lint`, and `npm run build`.
+- If `npm run lint` is blocked by unrelated baseline formatting debt, run targeted lint verification on the files changed by this plan and record that the repo-wide failure is pre-existing.
 
 ### Manual Testing Steps:
 
@@ -268,29 +273,29 @@ If local Supabase is not already running, use the project's `supabase/config.tom
 
 #### Automated
 
-- [x] 1.1 The migration file exists under `supabase/migrations/` and applies with Supabase CLI local reset or migration apply.
-- [x] 1.2 SQL inspection confirms RLS is enabled for every finance-domain table.
-- [x] 1.3 SQL inspection confirms every finance-domain table has a `user_id` ownership column.
-- [x] 1.4 SQL inspection confirms all PRD-owned finance entities are represented: categories, income, import batches, transactions, categorization rules, and monthly summaries.
+- [x] 1.1 The migration file exists under `supabase/migrations/` and applies with Supabase CLI local reset or migration apply. — 702ffde
+- [x] 1.2 SQL inspection confirms RLS is enabled for every finance-domain table. — 702ffde
+- [x] 1.3 SQL inspection confirms every finance-domain table has a `user_id` ownership column. — 702ffde
+- [x] 1.4 SQL inspection confirms all PRD-owned finance entities are represented: categories, income, import batches, transactions, categorization rules, and monthly summaries. — 702ffde
 
 #### Manual
 
-- [x] 1.5 Review the migration and confirm it contains no UI/API workflow decisions beyond the domain persistence contract.
-- [x] 1.6 Review constraints and confirm they support later roadmap prerequisites S-01, S-02, S-03, and S-04.
+- [x] 1.5 Review the migration and confirm it contains no UI/API workflow decisions beyond the domain persistence contract. — 702ffde
+- [x] 1.6 Review constraints and confirm they support later roadmap prerequisites S-01, S-02, S-03, and S-04. — 702ffde
 
 ### Phase 2: Type Contracts and Supabase Client Typing
 
 #### Automated
 
-- [ ] 2.1 Supabase type generation succeeds and creates `src/lib/database.types.ts`.
-- [ ] 2.2 `npx astro check` passes.
-- [ ] 2.3 `npm run lint` passes.
-- [ ] 2.4 `npm run build` passes.
+- [x] 2.1 Supabase type generation succeeds and creates `src/lib/database.types.ts`.
+- [x] 2.2 `npx astro check` passes.
+- [x] 2.3 Lint verification passes for this phase: either `npm run lint` passes, or any repo-wide failure is documented as pre-existing and the Phase 2 touched files are lint-clean in isolation.
+- [x] 2.4 `npm run build` passes.
 
 #### Manual
 
-- [ ] 2.5 Review `src/lib/supabase.ts` and confirm auth/session behavior is unchanged.
-- [ ] 2.6 Review generated types and confirm finance-domain tables appear under the `public` schema.
+- [x] 2.5 Review `src/lib/supabase.ts` and confirm auth/session behavior is unchanged.
+- [x] 2.6 Review generated types and confirm finance-domain tables appear under the `public` schema.
 
 ### Phase 3: Isolation Verification and Handoff Readiness
 
