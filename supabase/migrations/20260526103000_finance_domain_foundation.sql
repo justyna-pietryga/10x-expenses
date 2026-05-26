@@ -58,7 +58,7 @@ create table public.transactions (
   constraint transactions_import_batch_fk foreign key (import_batch_id, user_id)
     references public.statement_import_batches (id, user_id) on delete cascade,
   constraint transactions_category_fk foreign key (category_id, user_id)
-    references public.budget_categories (id, user_id) on delete set null
+    references public.budget_categories (id, user_id) on delete set null (category_id)
 );
 
 create table public.categorization_rules (
