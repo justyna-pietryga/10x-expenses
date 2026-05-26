@@ -268,15 +268,15 @@ If local Supabase is not already running, use the project's `supabase/config.tom
 
 #### Automated
 
-- [ ] 1.1 The migration file exists under `supabase/migrations/` and applies with Supabase CLI local reset or migration apply.
-- [ ] 1.2 SQL inspection confirms RLS is enabled for every finance-domain table.
-- [ ] 1.3 SQL inspection confirms every finance-domain table has a `user_id` ownership column.
-- [ ] 1.4 SQL inspection confirms all PRD-owned finance entities are represented: categories, income, import batches, transactions, categorization rules, and monthly summaries.
+- [x] 1.1 The migration file exists under `supabase/migrations/` and applies with Supabase CLI local reset or migration apply.
+- [x] 1.2 SQL inspection confirms RLS is enabled for every finance-domain table.
+- [x] 1.3 SQL inspection confirms every finance-domain table has a `user_id` ownership column.
+- [x] 1.4 SQL inspection confirms all PRD-owned finance entities are represented: categories, income, import batches, transactions, categorization rules, and monthly summaries.
 
 #### Manual
 
-- [ ] 1.5 Review the migration and confirm it contains no UI/API workflow decisions beyond the domain persistence contract.
-- [ ] 1.6 Review constraints and confirm they support later roadmap prerequisites S-01, S-02, S-03, and S-04.
+- [x] 1.5 Review the migration and confirm it contains no UI/API workflow decisions beyond the domain persistence contract.
+- [x] 1.6 Review constraints and confirm they support later roadmap prerequisites S-01, S-02, S-03, and S-04.
 
 ### Phase 2: Type Contracts and Supabase Client Typing
 
