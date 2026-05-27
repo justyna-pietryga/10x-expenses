@@ -366,12 +366,12 @@ The category archive migration is additive and should be low risk. Existing cate
 
 #### Automated
 
-- [x] 4.1 Tests pass: `npm test`
-- [x] 4.2 Linting passes: `npm run lint`
-- [x] 4.3 Astro check passes: `npx astro check`
-- [x] 4.4 Production build passes: `npm run build`
+- [x] 4.1 Tests pass: `npm test` — e083bcc
+- [x] 4.2 Linting passes: `npm run lint` — e083bcc
+- [x] 4.3 Astro check passes: `npx astro check` — e083bcc
+- [x] 4.4 Production build passes: `npm run build` — e083bcc
 
 #### Manual
 
-- [x] 4.5 Review the plan brief and full plan for phase clarity before starting `/10x-implement budget-setup phase 1`
-- [x] 4.6 Confirm S-02, S-03, and S-04 remain blocked until their prerequisites complete
+- [x] 4.5 Review the plan brief and full plan for phase clarity before starting `/10x-implement budget-setup phase 1` — e083bcc
+- [x] 4.6 Confirm S-02, S-03, and S-04 remain blocked until their prerequisites complete — e083bcc
