@@ -335,32 +335,32 @@ The category archive migration is additive and should be low risk. Existing cate
 
 #### Automated
 
-- [x] 2.1 Validation tests pass for income, category names, percentage values, and total-limit enforcement
-- [x] 2.2 API/data helper tests pass for unauthenticated rejection and authenticated create/update/archive contracts
-- [x] 2.3 Linting passes: `npm run lint`
-- [x] 2.4 Type checking passes: `npx astro check`
+- [x] 2.1 Validation tests pass for income, category names, percentage values, and total-limit enforcement — 5c1d008
+- [x] 2.2 API/data helper tests pass for unauthenticated rejection and authenticated create/update/archive contracts — 5c1d008
+- [x] 2.3 Linting passes: `npm run lint` — 5c1d008
+- [x] 2.4 Type checking passes: `npx astro check` — 5c1d008
 
 #### Manual
 
-- [x] 2.5 Unauthenticated requests to budget API routes do not write data
-- [x] 2.6 Duplicate category names surface a clear validation or persistence error
-- [x] 2.7 Updating one category cannot push the active total above 100 percent
+- [x] 2.5 Unauthenticated requests to budget API routes do not write data — 5c1d008
+- [x] 2.6 Duplicate category names surface a clear validation or persistence error — 5c1d008
+- [x] 2.7 Updating one category cannot push the active total above 100 percent — 5c1d008
 
 ### Phase 3: Protected Budget Page and UI
 
 #### Automated
 
-- [ ] 3.1 `/budget` route type-checks with the new data-loading code
-- [ ] 3.2 UI components pass linting and TypeScript checks
-- [ ] 3.3 Build passes: `npm run build`
+- [x] 3.1 `/budget` route type-checks with the new data-loading code
+- [x] 3.2 UI components pass linting and TypeScript checks
+- [x] 3.3 Build passes: `npm run build`
 
 #### Manual
 
-- [ ] 3.4 Visiting `/budget` while signed out redirects to `/auth/signin`
-- [ ] 3.5 A signed-in user can save income for a selected month
-- [ ] 3.6 A signed-in user can create, edit, and archive categories
-- [ ] 3.7 The UI blocks or clearly rejects active category totals above 100 percent
-- [ ] 3.8 Archived categories disappear from the active setup view
+- [x] 3.4 Visiting `/budget` while signed out redirects to `/auth/signin`
+- [x] 3.5 A signed-in user can save income for a selected month
+- [x] 3.6 A signed-in user can create, edit, and archive categories
+- [x] 3.7 The UI blocks or clearly rejects active category totals above 100 percent
+- [x] 3.8 Archived categories disappear from the active setup view
 
 ### Phase 4: Tests, Documentation, and Roadmap Sync
 

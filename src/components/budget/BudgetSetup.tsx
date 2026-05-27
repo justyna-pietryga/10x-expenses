@@ -1,0 +1,24 @@
+import { useState } from "react";
+import type { BudgetCategory, MonthlyIncome } from "@/lib/budget/data";
+import { calculateActiveTotalPercentage } from "@/lib/budget/validation";
+import { CategoryManager } from "@/components/budget/CategoryManager";
+import { IncomeForm } from "@/components/budget/IncomeForm";
+
+interface Props {
+  initialCategories: BudgetCategory[];
+  initialIncome: MonthlyIncome | null;
+  selectedMonth: string;
+}
+
+export function BudgetSetup({ initialCategories, initialIncome, selectedMonth }: Props) {
+  const [categories, setCategories] = useState(initialCategories);
+  const [income, setIncome] = useState(initialIncome);
+  const totalPercentage = calculateActiveTotalPercentage(categories);
+
+  return (
+    <div className="space-y-6">
+      <IncomeForm initialIncome={income} selectedMonth={selectedMonth} onSaved={setIncome} />
+      <CategoryManager categories={categories} totalPercentage={totalPercentage} onChange={setCategories} />
+    </div>
+  );
+}
