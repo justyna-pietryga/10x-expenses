@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { createClient } from "@/lib/supabase";
 import {
   archiveCategory,
   createCategory,
@@ -235,5 +236,83 @@ describe("budget API routes", () => {
         params: { id: "cat-1" },
       } as never),
     ).resolves.toMatchObject({ status: 401 });
+  });
+
+  it("supports authenticated category create, update, and archive route contracts", async () => {
+    const categoryCollectionRoute: typeof import("@/pages/api/budget/categories/index") =
+      await import("@/pages/api/budget/categories/index");
+    const categoryItemRoute: typeof import("@/pages/api/budget/categories/[id]") =
+      await import("@/pages/api/budget/categories/[id]");
+    const supabase = createSupabaseStub();
+
+    vi.mocked(createClient).mockReturnValue(supabase as never);
+
+    const authenticatedContext = {
+      cookies: {} as never,
+      locals: {
+        user: {
+          id: "user-1",
+          email: "user@example.com",
+        },
+      },
+      redirect: vi.fn(),
+    };
+
+    const createResponse = await categoryCollectionRoute.POST({
+      ...authenticatedContext,
+      request: new Request("http://localhost/api/budget/categories", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "Rent",
+          percentage_limit: 20,
+        }),
+      }),
+      params: {},
+    } as never);
+
+    expect(createResponse.status).toBe(201);
+    await expect(createResponse.json()).resolves.toMatchObject({
+      category: {
+        id: "cat-2",
+        name: "Rent",
+      },
+    });
+
+    const updateResponse = await categoryItemRoute.PUT({
+      ...authenticatedContext,
+      request: new Request("http://localhost/api/budget/categories/cat-1", {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "Food",
+          percentage_limit: 45,
+        }),
+      }),
+      params: { id: "cat-1" },
+    } as never);
+
+    expect(updateResponse.status).toBe(200);
+    await expect(updateResponse.json()).resolves.toMatchObject({
+      category: {
+        id: "cat-1",
+      },
+    });
+
+    const archiveResponse = await categoryItemRoute.DELETE({
+      ...authenticatedContext,
+      request: new Request("http://localhost/api/budget/categories/cat-1", {
+        method: "DELETE",
+      }),
+      params: { id: "cat-1" },
+    } as never);
+
+    expect(archiveResponse.status).toBe(200);
+    const archivePayload = (await archiveResponse.json()) as { category: { archived_at: string } };
+    expect(archivePayload.category.archived_at).toEqual(expect.any(String));
   });
 });
