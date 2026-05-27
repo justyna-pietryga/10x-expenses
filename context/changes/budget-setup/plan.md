@@ -350,28 +350,28 @@ The category archive migration is additive and should be low risk. Existing cate
 
 #### Automated
 
-- [x] 3.1 `/budget` route type-checks with the new data-loading code
-- [x] 3.2 UI components pass linting and TypeScript checks
-- [x] 3.3 Build passes: `npm run build`
+- [x] 3.1 `/budget` route type-checks with the new data-loading code — 0a714e8
+- [x] 3.2 UI components pass linting and TypeScript checks — 0a714e8
+- [x] 3.3 Build passes: `npm run build` — 0a714e8
 
 #### Manual
 
-- [x] 3.4 Visiting `/budget` while signed out redirects to `/auth/signin`
-- [x] 3.5 A signed-in user can save income for a selected month
-- [x] 3.6 A signed-in user can create, edit, and archive categories
-- [x] 3.7 The UI blocks or clearly rejects active category totals above 100 percent
-- [x] 3.8 Archived categories disappear from the active setup view
+- [x] 3.4 Visiting `/budget` while signed out redirects to `/auth/signin` — 0a714e8
+- [x] 3.5 A signed-in user can save income for a selected month — 0a714e8
+- [x] 3.6 A signed-in user can create, edit, and archive categories — 0a714e8
+- [x] 3.7 The UI blocks or clearly rejects active category totals above 100 percent — 0a714e8
+- [x] 3.8 Archived categories disappear from the active setup view — 0a714e8
 
 ### Phase 4: Tests, Documentation, and Roadmap Sync
 
 #### Automated
 
-- [ ] 4.1 Tests pass: `npm test`
-- [ ] 4.2 Linting passes: `npm run lint`
-- [ ] 4.3 Astro check passes: `npx astro check`
-- [ ] 4.4 Production build passes: `npm run build`
+- [x] 4.1 Tests pass: `npm test`
+- [x] 4.2 Linting passes: `npm run lint`
+- [x] 4.3 Astro check passes: `npx astro check`
+- [x] 4.4 Production build passes: `npm run build`
 
 #### Manual
 
-- [ ] 4.5 Review the plan brief and full plan for phase clarity before starting `/10x-implement budget-setup phase 1`
-- [ ] 4.6 Confirm S-02, S-03, and S-04 remain blocked until their prerequisites complete
+- [x] 4.5 Review the plan brief and full plan for phase clarity before starting `/10x-implement budget-setup phase 1`
+- [x] 4.6 Confirm S-02, S-03, and S-04 remain blocked until their prerequisites complete
