@@ -322,29 +322,29 @@ The category archive migration is additive and should be low risk. Existing cate
 
 #### Automated
 
-- [x] 1.1 Supabase reset applies the new migration cleanly: `npx supabase db reset`
-- [x] 1.2 Generated types include `budget_categories.archived_at`
-- [x] 1.3 Type checking passes: `npx astro check`
+- [x] 1.1 Supabase reset applies the new migration cleanly: `npx supabase db reset` — 5680b5d
+- [x] 1.2 Generated types include `budget_categories.archived_at` — 5680b5d
+- [x] 1.3 Type checking passes: `npx astro check` — 5680b5d
 
 #### Manual
 
-- [x] 1.4 Confirm existing `budget_categories` records remain active when `archived_at` is null
-- [x] 1.5 Confirm the migration does not weaken existing RLS policies
+- [x] 1.4 Confirm existing `budget_categories` records remain active when `archived_at` is null — 5680b5d
+- [x] 1.5 Confirm the migration does not weaken existing RLS policies — 5680b5d
 
 ### Phase 2: Budget Domain Validation and API Routes
 
 #### Automated
 
-- [ ] 2.1 Validation tests pass for income, category names, percentage values, and total-limit enforcement
-- [ ] 2.2 API/data helper tests pass for unauthenticated rejection and authenticated create/update/archive contracts
-- [ ] 2.3 Linting passes: `npm run lint`
-- [ ] 2.4 Type checking passes: `npx astro check`
+- [x] 2.1 Validation tests pass for income, category names, percentage values, and total-limit enforcement
+- [x] 2.2 API/data helper tests pass for unauthenticated rejection and authenticated create/update/archive contracts
+- [x] 2.3 Linting passes: `npm run lint`
+- [x] 2.4 Type checking passes: `npx astro check`
 
 #### Manual
 
-- [ ] 2.5 Unauthenticated requests to budget API routes do not write data
-- [ ] 2.6 Duplicate category names surface a clear validation or persistence error
-- [ ] 2.7 Updating one category cannot push the active total above 100 percent
+- [x] 2.5 Unauthenticated requests to budget API routes do not write data
+- [x] 2.6 Duplicate category names surface a clear validation or persistence error
+- [x] 2.7 Updating one category cannot push the active total above 100 percent
 
 ### Phase 3: Protected Budget Page and UI
 
