@@ -40,10 +40,10 @@ A solo developer shipping a small web app in a 3-week after-hours window needs a
 
 ## Pre-scaffold verification
 
-| Signal | Value | Severity | Notes |
-| --- | --- | --- | --- |
-| npm package | not run | n/a | starter uses `git clone`, so no `create-*` CLI package applies |
-| GitHub repo | `przeprogramowani/10x-astro-starter` last pushed 2026-05-17T10:33:39Z | fresh | fetched from GitHub API using `card.docs_url` |
+| Signal      | Value                                                                 | Severity | Notes                                                          |
+| ----------- | --------------------------------------------------------------------- | -------- | -------------------------------------------------------------- |
+| npm package | not run                                                               | n/a      | starter uses `git clone`, so no `create-*` CLI package applies |
+| GitHub repo | `przeprogramowani/10x-astro-starter` last pushed 2026-05-17T10:33:39Z | fresh    | fetched from GitHub API using `card.docs_url`                  |
 
 ## Scaffold log
 
@@ -80,27 +80,28 @@ A solo developer shipping a small web app in a 3-week after-hours window needs a
 
 ## Hints recorded but not acted on
 
-| Hint | Value |
-| --- | --- |
-| bootstrapper_confidence | `first-class` |
-| quality_override | `false` |
-| path_taken | `standard` |
-| self_check_answers | `null` |
-| team_size | `solo` |
-| deployment_target | `cloudflare-pages` |
-| ci_provider | `github-actions` |
-| ci_default_flow | `auto-deploy-on-merge` |
-| has_auth | `true` |
-| has_payments | `false` |
-| has_realtime | `false` |
-| has_ai | `false` |
-| has_background_jobs | `false` |
+| Hint                    | Value                  |
+| ----------------------- | ---------------------- |
+| bootstrapper_confidence | `first-class`          |
+| quality_override        | `false`                |
+| path_taken              | `standard`             |
+| self_check_answers      | `null`                 |
+| team_size               | `solo`                 |
+| deployment_target       | `cloudflare-pages`     |
+| ci_provider             | `github-actions`       |
+| ci_default_flow         | `auto-deploy-on-merge` |
+| has_auth                | `true`                 |
+| has_payments            | `false`                |
+| has_realtime            | `false`                |
+| has_ai                  | `false`                |
+| has_background_jobs     | `false`                |
 
 ## Next steps
 
 Next: a future skill will set up agent context (`CLAUDE.md`, `AGENTS.md`). For now, your project is scaffolded and verified.
 
 Useful manual steps in the meantime:
+
 - `git init` if you have not already.
 - Review the fresh scaffold files and wire in project-specific env vars from `.env.example`.
 - Address audit findings per your risk tolerance; the high-severity item is transitive and the full breakdown is above.

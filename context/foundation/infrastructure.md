@@ -18,14 +18,14 @@ This project is already scaffolded around `@astrojs/cloudflare`, Wrangler, and a
 
 ## Platform Comparison
 
-| Platform | CLI-first | Managed/Serverless | Agent-readable docs | Stable deploy API | MCP / Integration | Total |
-|---|---|---|---|---|---|---|
-| Cloudflare Workers + Pages | Pass | Pass | Pass | Pass | Pass | 5 / 5 |
-| Railway | Pass | Partial | Pass | Pass | Pass | 4.5 / 5 |
-| Vercel | Pass | Pass | Pass | Pass | Partial | 4.5 / 5 |
-| Render | Pass | Partial | Partial | Pass | Partial | 3.5 / 5 |
-| Netlify | Pass | Pass | Partial | Pass | Pass | 4 / 5 |
-| Fly.io | Pass | Partial | Partial | Pass | Partial | 3.5 / 5 |
+| Platform                   | CLI-first | Managed/Serverless | Agent-readable docs | Stable deploy API | MCP / Integration | Total   |
+| -------------------------- | --------- | ------------------ | ------------------- | ----------------- | ----------------- | ------- |
+| Cloudflare Workers + Pages | Pass      | Pass               | Pass                | Pass              | Pass              | 5 / 5   |
+| Railway                    | Pass      | Partial            | Pass                | Pass              | Pass              | 4.5 / 5 |
+| Vercel                     | Pass      | Pass               | Pass                | Pass              | Partial           | 4.5 / 5 |
+| Render                     | Pass      | Partial            | Partial             | Pass              | Partial           | 3.5 / 5 |
+| Netlify                    | Pass      | Pass               | Partial             | Pass              | Pass              | 4 / 5   |
+| Fly.io                     | Pass      | Partial            | Partial             | Pass              | Partial           | 3.5 / 5 |
 
 Cloudflare scored highest because it matches the existing adapter and deployment shape exactly. Railway and Vercel are both viable, but both would require a platform-specific adapter/runtime change, which is unnecessary cost for a 3-week MVP. Netlify is also workable for Astro, but the current project is more Cloudflare-shaped than Netlify-shaped. Render and Fly.io are stronger when you need container control or persistent processes, which this app does not currently require.
 
@@ -77,13 +77,13 @@ How the chosen platform operates day to day for this exact stack:
 
 ## Risk Register
 
-| Risk | Source | Likelihood | Impact | Mitigation |
-|---|---|---|---|---|
-| Worker/runtime lock-in makes later platform migration harder | Devil's advocate | M | M | Keep platform-specific logic thin; isolate deployment assumptions to config and infra docs. |
-| Import workflows outgrow simple request/response execution | Pre-mortem | M | H | Re-evaluate queues/background processing before adding heavier import automation. |
-| Local and deployed bindings drift | Unknown unknowns | M | M | Keep `.dev.vars`, Wrangler config, and deployed secret names aligned; verify auth/import flows after each env change. |
-| Edge-first complexity arrives before global-latency value | Devil's advocate | M | M | Treat Cloudflare as an MVP delivery path, not a permanent architecture decision; review again after real usage data. |
-| Platform sprawl across Cloudflare products | Research finding | M | M | Add new Cloudflare services only against a concrete product need; document why each service exists. |
+| Risk                                                         | Source           | Likelihood | Impact | Mitigation                                                                                                            |
+| ------------------------------------------------------------ | ---------------- | ---------- | ------ | --------------------------------------------------------------------------------------------------------------------- |
+| Worker/runtime lock-in makes later platform migration harder | Devil's advocate | M          | M      | Keep platform-specific logic thin; isolate deployment assumptions to config and infra docs.                           |
+| Import workflows outgrow simple request/response execution   | Pre-mortem       | M          | H      | Re-evaluate queues/background processing before adding heavier import automation.                                     |
+| Local and deployed bindings drift                            | Unknown unknowns | M          | M      | Keep `.dev.vars`, Wrangler config, and deployed secret names aligned; verify auth/import flows after each env change. |
+| Edge-first complexity arrives before global-latency value    | Devil's advocate | M          | M      | Treat Cloudflare as an MVP delivery path, not a permanent architecture decision; review again after real usage data.  |
+| Platform sprawl across Cloudflare products                   | Research finding | M          | M      | Add new Cloudflare services only against a concrete product need; document why each service exists.                   |
 
 ## Getting Started
 
@@ -96,6 +96,7 @@ How the chosen platform operates day to day for this exact stack:
 ## Out of Scope
 
 The following were not evaluated in this research:
+
 - Docker image configuration
 - CI/CD pipeline setup
 - Production-scale architecture (multi-region, HA, DR)

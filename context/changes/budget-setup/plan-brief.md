@@ -16,16 +16,16 @@ A signed-in user can open `/budget`, save income for one month, create/edit/arch
 
 ## Key Decisions Made
 
-| Decision | Choice | Why |
-| --- | --- | --- |
-| Route | Dedicated `/budget` route | Keeps budget setup separate from the placeholder dashboard and gives later finance screens a clear place to link from. |
-| Income model | One month at a time | Matches the existing `monthly_incomes` schema and the upcoming monthly-summary flow. |
-| Category management | Full create/edit/archive | Users need to correct setup mistakes before importing transactions. |
-| Category removal | Add `archived_at` | Preserves category history semantics better than hard delete and avoids blocking cleanup. |
-| Limit total | Block active total above 100 percent | Keeps the budget setup mathematically usable for the MVP. |
-| Write path | Astro API routes | Matches the existing server-side auth route pattern and keeps validation off the client. |
-| UX shape | Compact operational page | Best fit for repeated finance setup work and the current app surface. |
-| Testing | API and validation tests | Covers the risky data path without introducing a full browser-test stack yet. |
+| Decision            | Choice                               | Why                                                                                                                    |
+| ------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| Route               | Dedicated `/budget` route            | Keeps budget setup separate from the placeholder dashboard and gives later finance screens a clear place to link from. |
+| Income model        | One month at a time                  | Matches the existing `monthly_incomes` schema and the upcoming monthly-summary flow.                                   |
+| Category management | Full create/edit/archive             | Users need to correct setup mistakes before importing transactions.                                                    |
+| Category removal    | Add `archived_at`                    | Preserves category history semantics better than hard delete and avoids blocking cleanup.                              |
+| Limit total         | Block active total above 100 percent | Keeps the budget setup mathematically usable for the MVP.                                                              |
+| Write path          | Astro API routes                     | Matches the existing server-side auth route pattern and keeps validation off the client.                               |
+| UX shape            | Compact operational page             | Best fit for repeated finance setup work and the current app surface.                                                  |
+| Testing             | API and validation tests             | Covers the risky data path without introducing a full browser-test stack yet.                                          |
 
 ## Scope
 
@@ -54,12 +54,12 @@ Add the missing archive field to the finance schema, then build a small budget d
 
 ## Phases at a Glance
 
-| Phase | What it delivers | Key risk |
-| --- | --- | --- |
-| 1. Schema and Type Support | `archived_at` migration and regenerated types | Migration or generated types drift from the Supabase schema. |
+| Phase                                      | What it delivers                                               | Key risk                                                               |
+| ------------------------------------------ | -------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| 1. Schema and Type Support                 | `archived_at` migration and regenerated types                  | Migration or generated types drift from the Supabase schema.           |
 | 2. Budget Domain Validation and API Routes | Server-side validation, data helpers, and budget API endpoints | Total-limit enforcement must be consistent across create/update paths. |
-| 3. Protected Budget Page and UI | `/budget` page with income and category controls | UI must stay clear while blocking invalid totals. |
-| 4. Tests, Documentation, and Roadmap Sync | Test harness, focused tests, and status alignment | Adding tests should stay small and not become a framework migration. |
+| 3. Protected Budget Page and UI            | `/budget` page with income and category controls               | UI must stay clear while blocking invalid totals.                      |
+| 4. Tests, Documentation, and Roadmap Sync  | Test harness, focused tests, and status alignment              | Adding tests should stay small and not become a framework migration.   |
 
 **Prerequisites:** F-01 finance foundation is available in the local schema and generated types.
 **Estimated effort:** Around 3-4 implementation sessions across 4 phases.

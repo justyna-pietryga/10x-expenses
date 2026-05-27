@@ -127,6 +127,7 @@ The user encounters the rule after importing a supported statement: the app prop
 ## Open Questions
 
 None.
+
 ## Quality cross-check
 
 - Access Control: present.

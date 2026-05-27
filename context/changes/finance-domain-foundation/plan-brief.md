@@ -16,16 +16,16 @@ The repo has a Supabase migration defining the v1 finance domain with strict per
 
 ## Key Decisions Made
 
-| Decision | Choice | Why |
-| --- | --- | --- |
-| Foundation boundary | Schema, RLS, and generated types only | Keeps F-01 focused and avoids guessing later UI/API contracts. |
-| Categories | User-owned categories only | Matches the PRD's custom-category requirement with simple isolation. |
-| Limits | Percentage limit stored on category | Supports S-01 directly without adding monthly limit history prematurely. |
-| Import grouping | Import batch per user, bank, and statement period | Gives later replace-batch behavior a stable target. |
-| Money/date storage | Postgres `numeric` and `date` | Keeps SQL values readable while matching statement-derived monthly summaries. |
-| Rules | Simple merchant text pattern to target category | Matches the PRD example `Lidl -> Food` without overbuilding a rule engine. |
-| RLS | Direct `user_id` ownership on every finance table | Makes the privacy boundary explicit and auditable. |
-| Verification | Migration smoke plus RLS checks | Tests the highest-risk part of this foundation: per-user isolation. |
+| Decision            | Choice                                            | Why                                                                           |
+| ------------------- | ------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Foundation boundary | Schema, RLS, and generated types only             | Keeps F-01 focused and avoids guessing later UI/API contracts.                |
+| Categories          | User-owned categories only                        | Matches the PRD's custom-category requirement with simple isolation.          |
+| Limits              | Percentage limit stored on category               | Supports S-01 directly without adding monthly limit history prematurely.      |
+| Import grouping     | Import batch per user, bank, and statement period | Gives later replace-batch behavior a stable target.                           |
+| Money/date storage  | Postgres `numeric` and `date`                     | Keeps SQL values readable while matching statement-derived monthly summaries. |
+| Rules               | Simple merchant text pattern to target category   | Matches the PRD example `Lidl -> Food` without overbuilding a rule engine.    |
+| RLS                 | Direct `user_id` ownership on every finance table | Makes the privacy boundary explicit and auditable.                            |
+| Verification        | Migration smoke plus RLS checks                   | Tests the highest-risk part of this foundation: per-user isolation.           |
 
 ## Scope
 
@@ -50,11 +50,11 @@ Use Supabase as the source of truth for the finance domain. Every table includes
 
 ## Phases at a Glance
 
-| Phase | What it delivers | Key risk |
-| --- | --- | --- |
-| 1. Domain Migration and RLS | Finance tables, constraints, indexes, and ownership policies | Schema misses a future slice need or RLS is too loose. |
-| 2. Type Contracts and Supabase Client Typing | Generated database types wired into the existing client | Type generation or client typing breaks current auth flow. |
-| 3. Isolation Verification and Handoff Readiness | Repeatable RLS verification notes and handoff evidence | Privacy checks are not specific enough for later review. |
+| Phase                                           | What it delivers                                             | Key risk                                                   |
+| ----------------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------- |
+| 1. Domain Migration and RLS                     | Finance tables, constraints, indexes, and ownership policies | Schema misses a future slice need or RLS is too loose.     |
+| 2. Type Contracts and Supabase Client Typing    | Generated database types wired into the existing client      | Type generation or client typing breaks current auth flow. |
+| 3. Isolation Verification and Handoff Readiness | Repeatable RLS verification notes and handoff evidence       | Privacy checks are not specific enough for later review.   |
 
 **Prerequisites:** Local Supabase CLI workflow is available, and Supabase env vars remain outside committed files.
 **Estimated effort:** About 2-3 implementation sessions across 3 phases.

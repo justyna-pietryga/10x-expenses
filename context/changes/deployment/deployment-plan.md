@@ -123,6 +123,7 @@ Deploy the existing Astro SSR app to Cloudflare Workers using the current `@astr
   - inspect runtime logs with `npx wrangler tail`
 
 Rollback note:
+
 - Cloudflare rollbacks switch traffic back to a previously deployed Worker version, but they do **not** revert external systems automatically. Supabase config changes, data changes, and any future bindings/resource migrations must be reviewed separately.
 
 ## Edge Cases and Support Steps
