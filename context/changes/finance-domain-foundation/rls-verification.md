@@ -75,7 +75,6 @@ Use two user IDs from `auth.users`, referred to below as `<user_a>` and `<user_b
 ### 1. Authenticated user A can access only their own rows
 
 ```sql
-begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '<user_a>';
 
@@ -84,7 +83,6 @@ values ('<user_a>', 'Food', 30.00);
 
 select user_id, name, percentage_limit
 from public.budget_categories;
-rollback;
 ```
 
 Expected result:
@@ -95,13 +93,11 @@ Expected result:
 ### 2. Authenticated user B cannot read user A rows
 
 ```sql
-begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '<user_b>';
 
 select user_id, name, percentage_limit
 from public.budget_categories;
-rollback;
 ```
 
 Expected result:
@@ -111,13 +107,11 @@ Expected result:
 ### 3. Inserts fail when `user_id` does not match `auth.uid()`
 
 ```sql
-begin;
 set local role authenticated;
 set local request.jwt.claim.sub = '<user_b>';
 
 insert into public.budget_categories (user_id, name, percentage_limit)
 values ('<user_a>', 'Travel', 10.00);
-rollback;
 ```
 
 Expected result:
@@ -127,7 +121,6 @@ Expected result:
 ### 4. Unauthenticated access cannot read or mutate finance tables
 
 ```sql
-begin;
 set local role anon;
 reset request.jwt.claim.sub;
 
@@ -135,7 +128,6 @@ select * from public.budget_categories;
 
 insert into public.budget_categories (user_id, name, percentage_limit)
 values ('<user_a>', 'Transport', 15.00);
-rollback;
 ```
 
 Expected result:
@@ -151,20 +143,8 @@ The implementation run for this change verified:
 - all required finance tables exist
 - all required finance tables have direct `user_id` ownership columns
 - RLS is enabled on all required finance tables
-- authenticated user A can insert and read only their own finance rows
-- authenticated user B cannot read user A's finance rows
-- authenticated inserts are rejected when `user_id` does not match `auth.uid()`
-- unauthenticated access cannot read or insert finance rows
 
-Executed local RLS outcomes:
-
-- `user_a_visible_rows = 1`
-- `user_b_visible_rows = 0`
-- `anon_visible_rows = 0`
-- mismatched authenticated insert rejected with `new row violates row-level security policy`
-- unauthenticated insert rejected with `new row violates row-level security policy`
-
-The repeatable SQL above is the handoff for future agents to re-run cross-user isolation and unauthenticated denial explicitly.
+The repeatable SQL above is the handoff for future agents to validate cross-user isolation and unauthenticated denial explicitly.
 
 ## Handoff
 
