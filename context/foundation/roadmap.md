@@ -3,7 +3,7 @@ project: "Expenses"
 version: 1
 status: draft
 created: 2026-05-25
-updated: 2026-05-27
+updated: 2026-05-29
 prd_version: 1
 main_goal: market-feedback
 top_blocker: time
@@ -29,7 +29,7 @@ The main planning constraint is `time`: the PRD sets a 3-week after-hours MVP, s
 
 | ID   | Change ID                 | Outcome (user can ...)                                                                                                                        | Prerequisites | PRD refs                                                    | Status   |
 | ---- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ----------------------------------------------------------- | -------- |
-| F-01 | finance-domain-foundation | (foundation) per-user finance records, import batches, categories, limits, rules, and summaries persist under one consistent domain model     | -             | Access Control, Non-Functional Requirements, Business Logic | ready    |
+| F-01 | finance-domain-foundation | (foundation) per-user finance records, import batches, categories, limits, rules, and summaries persist under one consistent domain model     | -             | Access Control, Non-Functional Requirements, Business Logic | done     |
 | S-01 | budget-setup              | user can define income, custom categories, and percentage-based limits                                                                        | F-01          | FR-001, FR-007, FR-008, FR-009                              | ready    |
 | S-02 | first-bank-import-review  | user can choose a supported bank, import one supported statement format, review parsed transactions, and replace an existing bank-month batch | F-01, S-01    | FR-001, FR-002, FR-003, FR-005, FR-006, FR-010              | proposed |
 | S-03 | monthly-summary-and-rules | user can save reusable categorization rules and see monthly category usage against income and limits                                          | S-01, S-02    | US-01, FR-001, FR-010, FR-011, FR-012                       | proposed |
@@ -60,7 +60,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** -
 - **Unknowns:** none.
 - **Risk:** If this foundation stays implicit, later slices will duplicate core budget rules or weaken user-level data isolation around sensitive financial data.
-- **Status:** ready
+- **Status:** done
 
 ## Slices
 
@@ -141,3 +141,4 @@ This table is the clean handoff to Jira/Linear or any MCP-backed backlog. Includ
 (Empty on first generation. `/10x-archive` appends an entry here - and flips that item's `Status` to `done` - when a change whose `Change ID` matches the item is archived. Do NOT pre-populate. Format:)
 
 - **<Slice ID>: <Outcome>** - Archived <YYYY-MM-DD> -> `context/archive/<YYYY-MM-DD-change-id>/`. Lesson: <pointer to lessons.md if any, or `-`>.
+- **F-01: (foundation) per-user finance records, import batches, categories, limits, rules, and summaries persist under one consistent domain model** - Archived 2026-05-29 -> `context/archive/2026-05-25-finance-domain-foundation/`. Lesson: -.
