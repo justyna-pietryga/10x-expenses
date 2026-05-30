@@ -31,7 +31,7 @@ The main planning constraint is `time`: the PRD sets a 3-week after-hours MVP, s
 | ---- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ----------------------------------------------------------- | -------- |
 | F-01 | finance-domain-foundation | (foundation) per-user finance records, import batches, categories, limits, rules, and summaries persist under one consistent domain model     | -             | Access Control, Non-Functional Requirements, Business Logic | done     |
 | S-01 | budget-setup              | user can define income, custom categories, and percentage-based limits                                                                        | F-01          | FR-001, FR-007, FR-008, FR-009                              | done     |
-| S-02 | first-bank-import-review  | user can choose a supported bank, import one supported statement format, review parsed transactions, and replace an existing bank-month batch | F-01, S-01    | FR-001, FR-002, FR-003, FR-005, FR-006, FR-010              | proposed |
+| S-02 | first-bank-import-review  | user can choose a supported bank, import one supported statement format, review parsed transactions, and replace an existing bank-month batch | F-01, S-01    | FR-001, FR-002, FR-003, FR-005, FR-006, FR-010              | ready    |
 | S-03 | monthly-summary-and-rules | user can save reusable categorization rules and see monthly category usage against income and limits                                          | S-01, S-02    | US-01, FR-001, FR-010, FR-011, FR-012                       | proposed |
 | S-04 | second-supported-format   | user can repeat the import-and-review flow with a second supported statement format                                                           | S-02          | FR-004                                                      | proposed |
 
@@ -86,7 +86,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** -
 - **Unknowns:** none.
 - **Risk:** This is where parsing accuracy and overwrite behavior first touch real user data, so it should land before summary work hides import mistakes downstream.
-- **Status:** proposed
+- **Status:** ready
 
 ### S-03: Monthly summary and reusable rules
 
@@ -118,7 +118,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 | ---------- | ------------------------- | ------------------------------------------------------------------------------ | --------------------- | ----------------------------------------- |
 | F-01       | finance-domain-foundation | Establish the finance domain foundation for per-user budget data               | yes                   | Run `/10x-plan finance-domain-foundation` |
 | S-01       | budget-setup              | Let users define income, categories, and percentage-based limits               | yes                   | Run `/10x-plan budget-setup`              |
-| S-02       | first-bank-import-review  | Support first-bank import, transaction review, and bank-month replace behavior | no                    | Depends on F-01 and S-01                  |
+| S-02       | first-bank-import-review  | Support first-bank import, transaction review, and bank-month replace behavior | yes                   | Planned and implemented; archive pending  |
 | S-03       | monthly-summary-and-rules | Show monthly summary and persist reusable categorization rules                 | no                    | Depends on S-01 and S-02                  |
 | S-04       | second-supported-format   | Add a second supported statement format to the import flow                     | no                    | Depends on S-02                           |
 
