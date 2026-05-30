@@ -441,16 +441,16 @@ Do not commit `.env`, `.dev.vars`, or any statement files containing real bankin
 
 #### Automated
 
-- [ ] 3.1 The protected import route type-checks with its server-loaded data and React islands.
-- [ ] 3.2 `npm run build` passes.
-- [ ] 3.3 UI-focused tests or route-contract tests cover replacement confirmation visibility and category-only review mutations.
+- [x] 3.1 The protected import route type-checks with its server-loaded data and React islands.
+- [x] 3.2 `npm run build` passes.
+- [x] 3.3 UI-focused tests or route-contract tests cover replacement confirmation visibility and category-only review mutations.
 
 #### Manual
 
-- [ ] 3.4 Visiting `/imports` while signed out redirects to `/auth/signin`.
-- [ ] 3.5 A signed-in user can upload the supported Revolut CSV and reach a review table with parsed date, title, recipient, amount, and category.
-- [ ] 3.6 The review UI allows category changes but does not allow editing parsed amount, date, title, or recipient values.
-- [ ] 3.7 The user can opt into rule creation from a correction and explicitly complete review.
+- [x] 3.4 Visiting `/imports` while signed out redirects to `/auth/signin`.
+- [x] 3.5 A signed-in user can upload the supported Revolut CSV and reach a review table with parsed date, title, recipient, amount, and category.
+- [x] 3.6 The review UI allows category changes but does not allow editing parsed amount, date, title, or recipient values.
+- [x] 3.7 The user can opt into rule creation from a correction and explicitly complete review.
 
 ### Phase 4: Test Fixtures, Regression Coverage, and Roadmap Sync
 

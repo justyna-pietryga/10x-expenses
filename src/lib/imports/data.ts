@@ -209,6 +209,24 @@ export async function loadImportBatchReview(supabase: ImportClient, userId: stri
   };
 }
 
+export async function loadLatestImportBatchReview(supabase: ImportClient, userId: string) {
+  const { data, error } = await supabase
+    .from("statement_import_batches")
+    .select("id")
+    .eq("user_id", userId)
+    .order("imported_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  mapPostgrestError(error, "Import batch was not found");
+
+  if (!data) {
+    return null;
+  }
+
+  return loadImportBatchReview(supabase, userId, data.id);
+}
+
 export async function updateTransactionCategoryAndMaybeRule(
   supabase: ImportClient,
   userId: string,

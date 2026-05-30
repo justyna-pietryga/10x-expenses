@@ -1,6 +1,9 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import { ImportUploadForm } from "@/components/imports/ImportUploadForm";
 import { createClient } from "@/lib/supabase";
 import { commitImportBatch, markBatchReviewComplete, updateTransactionCategoryAndMaybeRule } from "@/lib/imports/data";
 import { parseRevolutCsv } from "@/lib/imports/revolutCsv";
@@ -421,5 +424,84 @@ describe("import API routes", () => {
 
     expect(payload.error).toMatch(/Replacement confirmation is required/);
     expect(payload.field).toBe("confirm_replace");
+  });
+
+  it("updates category assignments through the transaction review route", async () => {
+    const transactionRoute: typeof import("@/pages/api/imports/transactions/[id]") =
+      await import("@/pages/api/imports/transactions/[id]");
+    const supabase = buildImportSupabaseStub();
+
+    vi.mocked(createClient).mockReturnValue(supabase as never);
+
+    const response = await transactionRoute.PATCH({
+      cookies: {} as never,
+      locals: {
+        user: {
+          id: "user-1",
+          email: "user@example.com",
+        },
+      },
+      params: { id: "tx-1" },
+      redirect: vi.fn(),
+      request: new Request("http://localhost/api/imports/transactions/tx-1", {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          category_id: "cat-travel",
+          save_rule: true,
+        }),
+      }),
+    } as never);
+
+    expect(response.status).toBe(200);
+    const payload = (await response.json()) as {
+      rule: { target_category_id: string } | null;
+      transaction: { category_id: string | null };
+    };
+
+    expect(payload.transaction.category_id).toBe("cat-travel");
+    expect(payload.rule?.target_category_id).toBe("cat-travel");
+  });
+});
+
+describe("import UI", () => {
+  it("shows a replacement warning when previewing an existing monthly batch", () => {
+    const markup = renderToStaticMarkup(
+      createElement(ImportUploadForm, {
+        isCommitting: false,
+        preview: {
+          bank: "revolut",
+          existing_batch: {
+            bank: "revolut",
+            id: "batch-existing",
+            imported_at: "2026-05-01T08:00:00.000Z",
+            period_end: "2026-05-31",
+            period_start: "2026-05-01",
+            review_completed_at: null,
+            source_filename: "older.csv",
+            statement_month: "2026-05-01",
+          },
+          period_end: "2026-05-29",
+          period_start: "2026-05-01",
+          source_filename: "revolut.csv",
+          statement_month: "2026-05-01",
+          transactions: [
+            {
+              amount: -36.97,
+              recipient: "ROSSMANN",
+              title: "Płatność kartą",
+              transaction_date: "2026-05-01",
+            },
+          ],
+        },
+        onPreviewLoaded: vi.fn(),
+        onCommitRequested: vi.fn(() => Promise.resolve()),
+      }),
+    );
+
+    expect(markup).toContain("Existing batch found for this bank and month");
+    expect(markup).toContain("Replace existing batch");
   });
 });

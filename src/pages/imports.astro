@@ -1,0 +1,105 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import Topbar from "@/components/Topbar.astro";
+import { ImportWorkspace } from "@/components/imports/ImportWorkspace";
+import { listActiveCategories, type BudgetCategory } from "@/lib/budget/data";
+import {
+  loadImportBatchReview,
+  loadLatestImportBatchReview,
+  type ImportBatch,
+  type ImportedTransaction,
+} from "@/lib/imports/data";
+import { createClient } from "@/lib/supabase";
+
+const { user } = Astro.locals;
+const selectedBatchId = Astro.url.searchParams.get("batch");
+const supabase = createClient(Astro.request.headers, Astro.cookies);
+
+let categories: BudgetCategory[] = [];
+let batch: ImportBatch | null = null;
+let transactions: ImportedTransaction[] = [];
+let loadError: string | null = null;
+
+if (supabase && user) {
+  try {
+    const [activeCategories, review] = await Promise.all([
+      listActiveCategories(supabase, user.id),
+      selectedBatchId
+        ? loadImportBatchReview(supabase, user.id, selectedBatchId)
+        : loadLatestImportBatchReview(supabase, user.id),
+    ]);
+
+    categories = activeCategories;
+    batch = review?.batch ?? null;
+    transactions = review?.transactions ?? [];
+  } catch (error) {
+    loadError = error instanceof Error ? error.message : "Could not load import workspace";
+  }
+} else if (!supabase) {
+  loadError = "Supabase is not configured";
+}
+---
+
+<Layout title="Import Review">
+  <main class="bg-cosmic min-h-screen">
+    <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <Topbar />
+
+      <section
+        class="relative overflow-hidden rounded-[36px] border border-white/10 bg-slate-950/45 px-6 py-8 shadow-[0_25px_120px_rgba(15,23,42,0.45)] backdrop-blur-xl sm:px-8"
+      >
+        <div class="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-300/60 to-transparent">
+        </div>
+        <div class="absolute top-[-5rem] right-[-3rem] size-60 rounded-full bg-emerald-300/20 blur-3xl"></div>
+        <div class="absolute bottom-[-7rem] left-[-2rem] size-72 rounded-full bg-cyan-300/12 blur-3xl"></div>
+
+        <div class="relative z-10">
+          <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div class="max-w-3xl">
+              <p class="text-xs font-semibold tracking-[0.34em] text-emerald-200/75 uppercase">Protected Workspace</p>
+              <h1 class="mt-3 text-4xl font-semibold tracking-tight text-white sm:text-5xl">
+                Import and review your <span class="text-emerald-200">Revolut statement</span>
+              </h1>
+              <p class="mt-4 max-w-2xl text-base leading-7 text-slate-200/75">
+                Upload the supported CSV, confirm any same-month replacement, and review categories before the batch
+                becomes summary-ready.
+              </p>
+            </div>
+
+            <div
+              class="grid gap-3 rounded-[28px] border border-white/10 bg-white/7 p-4 text-sm text-slate-200 sm:grid-cols-2"
+            >
+              <div>
+                <p class="text-[11px] font-semibold tracking-[0.22em] text-emerald-200/75 uppercase">Supported bank</p>
+                <p class="mt-2 text-base font-semibold text-white">Revolut CSV</p>
+              </div>
+              <div>
+                <p class="text-[11px] font-semibold tracking-[0.22em] text-emerald-200/75 uppercase">Review mode</p>
+                <p class="mt-2 text-base font-semibold text-white">
+                  {batch?.review_completed_at ? "Review complete" : "Pending review"}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {
+            loadError ? (
+              <div class="mt-8 rounded-3xl border border-rose-300/25 bg-rose-400/10 px-5 py-4 text-sm text-rose-100">
+                {loadError}
+              </div>
+            ) : (
+              <div class="mt-8">
+                <ImportWorkspace
+                  client:load
+                  categories={categories}
+                  initialBatch={batch}
+                  initialTransactions={transactions}
+                />
+              </div>
+            )
+          }
+        </div>
+      </section>
+    </div>
+  </main>
+</Layout>
