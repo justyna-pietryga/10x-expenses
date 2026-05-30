@@ -1,10 +1,10 @@
 ---
 change_id: first-bank-import-review
 title: First bank import review
-status: impl_reviewed
+status: archived
 created: 2026-05-29
 updated: 2026-05-30
-archived_at: null
+archived_at: 2026-05-30T21:11:48Z
 ---
 
 ## Notes
