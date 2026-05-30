@@ -407,20 +407,20 @@ Do not commit `.env`, `.dev.vars`, or any statement files containing real bankin
 
 ## Progress
 
-> Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
+> Convention: `- [ ]` pending, `- [x]` done. Append ` â€” <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
 
 ### Phase 1: Import Batch Contract and Schema Support
 
 #### Automated
 
-- [x] 1.1 `npx supabase db reset` applies the batch-contract migration cleanly. — 3ad4bf1
-- [x] 1.2 Generated types expose `statement_import_batches.statement_month` and `statement_import_batches.review_completed_at`. — 3ad4bf1
-- [x] 1.3 `npx astro check` passes after refreshing database types. — 3ad4bf1
+- [x] 1.1 `npx supabase db reset` applies the batch-contract migration cleanly. â€” 3ad4bf1
+- [x] 1.2 Generated types expose `statement_import_batches.statement_month` and `statement_import_batches.review_completed_at`. â€” 3ad4bf1
+- [x] 1.3 `npx astro check` passes after refreshing database types. â€” 3ad4bf1
 
 #### Manual
 
-- [x] 1.4 Confirm replacement is keyed by canonical bank-month rather than raw period-start and period-end equality. — 3ad4bf1
-- [x] 1.5 Confirm the review-state field is additive and does not weaken per-user ownership or RLS assumptions. — 3ad4bf1
+- [x] 1.4 Confirm replacement is keyed by canonical bank-month rather than raw period-start and period-end equality. â€” 3ad4bf1
+- [x] 1.5 Confirm the review-state field is additive and does not weaken per-user ownership or RLS assumptions. â€” 3ad4bf1
 
 ### Phase 2: Revolut CSV Parsing and Import API Flow
 
@@ -456,12 +456,12 @@ Do not commit `.env`, `.dev.vars`, or any statement files containing real bankin
 
 #### Automated
 
-- [x] 4.1 `npm test` passes with the new import-review coverage. — 0090f2e
-- [x] 4.2 `npm run lint` passes. — 0090f2e
-- [x] 4.3 `npx astro check` passes. — 0090f2e
-- [x] 4.4 `npm run build` passes. — 0090f2e
+- [x] 4.1 `npm test` passes with the new import-review coverage. â€” 0090f2e
+- [x] 4.2 `npm run lint` passes. â€” 0090f2e
+- [x] 4.3 `npx astro check` passes. â€” 0090f2e
+- [x] 4.4 `npm run build` passes. â€” 0090f2e
 
 #### Manual
 
-- [x] 4.5 Review the plan brief and full plan for phase clarity before starting `/10x-implement first-bank-import-review phase 1`. — 0090f2e
-- [x] 4.6 Confirm S-03 remains blocked until the import review slice is implemented and reviewed. — 0090f2e
+- [x] 4.5 Review the plan brief and full plan for phase clarity before starting `/10x-implement first-bank-import-review phase 1`. â€” 0090f2e
+- [x] 4.6 Confirm S-03 remains blocked until the import review slice is implemented and reviewed. â€” 0090f2e

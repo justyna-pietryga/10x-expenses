@@ -18,14 +18,21 @@ export function TransactionReviewTable({ categories, onSaveCategory, transaction
   const [saveRuleById, setSaveRuleById] = useState<Partial<Record<string, boolean>>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [successById, setSuccessById] = useState<Partial<Record<string, string>>>({});
 
   async function handleSave(transactionId: string) {
     setBusyId(transactionId);
     setError(null);
 
     try {
-      await onSaveCategory(transactionId, drafts[transactionId] ?? null, saveRuleById[transactionId] ?? false);
+      const savedRule = saveRuleById[transactionId] ?? false;
+
+      await onSaveCategory(transactionId, drafts[transactionId] ?? null, savedRule);
       setSaveRuleById((current) => ({ ...current, [transactionId]: false }));
+      setSuccessById((current) => ({
+        ...current,
+        [transactionId]: savedRule ? "Category saved and rule created." : "Category saved.",
+      }));
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Could not update this category");
     } finally {
@@ -96,6 +103,9 @@ export function TransactionReviewTable({ categories, onSaveCategory, transaction
                     />
                     Save as rule
                   </label>
+                  {successById[transaction.id] && (
+                    <p className="mt-2 text-xs text-emerald-200">{successById[transaction.id]}</p>
+                  )}
                 </td>
                 <td className="rounded-r-3xl px-4 py-4 text-right align-top">
                   <Button
