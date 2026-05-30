@@ -4,7 +4,7 @@
 
 ## What & Why
 
-Build S-02 so a signed-in user can import one exact Revolut CSV statement, review parsed transactions, correct categories, and safely replace an existing Revolut month batch only after explicit confirmation. This is the first slice where the product touches real bank data, so the plan biases toward trust: fail-fast parsing, saved review state, and clear separation between imported and review-complete data.
+Build S-02 so a signed-in user can import one exact Revolut CSV statement, review parsed transactions, correct categories, and safely replace an existing Revolut month batch only after explicit confirmation. The supported file contract is now grounded in the sanitized sample at `context/foundation/resources/revolut-statement-example.csv`, including localized headers, completed-row filtering, completion-date month derivation, and net amount handling with fees folded in.
 
 ## Starting Point
 
@@ -20,7 +20,7 @@ A user can open a dedicated protected import workspace, choose Revolut, upload t
 | --- | --- | --- | --- |
 | First supported format | Revolut CSV only | Keeps S-02 bounded to one exact format while still delivering the full import-review loop. | Plan |
 | Review surface | Dedicated `/imports` route | Keeps import/review separate from `/budget` and leaves room for later slices. | Plan |
-| Parse strictness | Fail whole import on parse mismatch | Financial trust matters more than salvaging partial rows. | Plan |
+| Parse strictness | Fail whole import on parse mismatch | Financial trust matters more than salvaging partial rows, while still filtering out pending and reversed rows before import. | Plan |
 | Replacement model | Parse first, replace only after explicit confirmation | Prevents destructive overwrites from bad or accidental uploads. | Plan |
 | Initial categorization | Apply saved rules, otherwise leave uncategorized | Honest default that fits the existing schema and review-first workflow. | Plan |
 | Review persistence | Save batch first, then persist review edits on saved rows | Reuses the repo’s current Astro API pattern and makes review resumable. | Plan |
@@ -35,7 +35,7 @@ A user can open a dedicated protected import workspace, choose Revolut, upload t
 
 ## Architecture / Approach
 
-Extend `statement_import_batches` with a canonical `statement_month` key and a `review_completed_at` marker, then build the import flow under `src/lib/imports/` plus Astro API routes. The UI lives on one protected `/imports` page: upload to preview, confirm replacement if needed, commit the batch, review saved transactions, optionally save rules, then explicitly mark the batch complete.
+Extend `statement_import_batches` with a canonical `statement_month` key and a `review_completed_at` marker, then build the import flow under `src/lib/imports/` plus Astro API routes. The parser accepts one localized Revolut CSV shape, imports only completed rows, derives the month from completion dates, folds fees into the stored net amount, and fails fast on malformed completed rows. The UI lives on one protected `/imports` page: upload to preview, confirm replacement if needed, commit the batch, review saved transactions, optionally save rules, then explicitly mark the batch complete.
 
 ## Phases at a Glance
 
@@ -51,7 +51,6 @@ Extend `statement_import_batches` with a canonical `statement_month` key and a `
 
 ## Open Risks & Assumptions
 
-- The exact Revolut CSV header and column contract still need to be captured from a sanitized sample during implementation.
 - Replacement should remain whole-batch and explicit; any drift toward partial merge would exceed S-02 scope.
 - Downstream slices must honor the review-complete marker instead of assuming all imported data is summary-ready.
 

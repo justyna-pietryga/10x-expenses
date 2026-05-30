@@ -1,0 +1,425 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { describe, expect, it, vi } from "vitest";
+import { createClient } from "@/lib/supabase";
+import { commitImportBatch, markBatchReviewComplete, updateTransactionCategoryAndMaybeRule } from "@/lib/imports/data";
+import { parseRevolutCsv } from "@/lib/imports/revolutCsv";
+
+vi.mock("@/lib/supabase", () => ({
+  createClient: vi.fn(),
+}));
+
+function createSelectChain(data: unknown, error: { code?: string; message: string } | null = null) {
+  return {
+    eq: vi.fn().mockReturnThis(),
+    is: vi.fn().mockReturnThis(),
+    order: vi.fn().mockResolvedValue({ data, error }),
+    maybeSingle: vi.fn().mockResolvedValue({ data, error }),
+    select: vi.fn().mockReturnThis(),
+    single: vi.fn().mockResolvedValue({ data, error }),
+  };
+}
+
+function createInsertSingleChain(data: unknown, error: { code?: string; message: string } | null = null) {
+  return {
+    select: vi.fn().mockReturnThis(),
+    single: vi.fn().mockResolvedValue({ data, error }),
+  };
+}
+
+function createInsertManyChain(data: unknown, error: { code?: string; message: string } | null = null) {
+  return {
+    select: vi.fn().mockResolvedValue({ data, error }),
+  };
+}
+
+function createUpdateSingleChain(data: unknown, error: { code?: string; message: string } | null = null) {
+  return {
+    eq: vi.fn().mockReturnThis(),
+    select: vi.fn().mockReturnThis(),
+    single: vi.fn().mockResolvedValue({ data, error }),
+  };
+}
+
+function createDeleteChain(error: { code?: string; message: string } | null = null) {
+  return {
+    eq: vi.fn().mockReturnThis(),
+    then(resolve: (value: { error: typeof error }) => unknown) {
+      resolve({ error });
+    },
+  };
+}
+
+function buildImportSupabaseStub(options?: { completeBatchUpdate?: boolean; existingBatch?: boolean }) {
+  const existingBatch = options?.existingBatch
+    ? {
+        id: "batch-existing",
+        bank: "revolut",
+        user_id: "user-1",
+        statement_month: "2026-05-01",
+        period_start: "2026-05-01",
+        period_end: "2026-05-31",
+        source_filename: "old.csv",
+        imported_at: "2026-05-01T08:00:00.000Z",
+        review_completed_at: null,
+        created_at: "2026-05-01T08:00:00.000Z",
+        updated_at: "2026-05-01T08:00:00.000Z",
+      }
+    : null;
+  const createdBatch = {
+    id: "batch-1",
+    bank: "revolut",
+    user_id: "user-1",
+    statement_month: "2026-05-01",
+    period_start: "2026-05-03",
+    period_end: "2026-05-28",
+    source_filename: "revolut.csv",
+    imported_at: "2026-05-30T08:00:00.000Z",
+    review_completed_at: null,
+    created_at: "2026-05-30T08:00:00.000Z",
+    updated_at: "2026-05-30T08:00:00.000Z",
+  };
+  const updatedBatch = {
+    ...createdBatch,
+    id: "batch-existing",
+  };
+  const completedBatch = {
+    ...updatedBatch,
+    review_completed_at: "2026-05-30T09:00:00.000Z",
+  };
+  const insertedTransactions = [
+    {
+      id: "tx-1",
+      amount: -12.34,
+      category_id: "cat-food",
+      created_at: "2026-05-30T08:00:00.000Z",
+      import_batch_id: options?.existingBatch ? "batch-existing" : "batch-1",
+      recipient: "Lidl Warszawa",
+      title: "Lidl Warszawa",
+      transaction_date: "2026-05-03",
+      updated_at: "2026-05-30T08:00:00.000Z",
+      user_id: "user-1",
+    },
+  ];
+  const updatedTransaction = {
+    ...insertedTransactions[0],
+    category_id: "cat-travel",
+  };
+  const createdRule = {
+    id: "rule-1",
+    merchant_pattern: "Lidl Warszawa",
+    target_category_id: "cat-travel",
+    created_at: "2026-05-30T08:00:00.000Z",
+    updated_at: "2026-05-30T08:00:00.000Z",
+    user_id: "user-1",
+  };
+
+  return {
+    from: vi.fn((table: string) => {
+      if (table === "statement_import_batches") {
+        return {
+          select: vi.fn().mockReturnValue(createSelectChain(existingBatch)),
+          insert: vi.fn().mockReturnValue(createInsertSingleChain(createdBatch)),
+          update: vi
+            .fn()
+            .mockReturnValue(createUpdateSingleChain(options?.completeBatchUpdate ? completedBatch : updatedBatch)),
+        };
+      }
+
+      if (table === "categorization_rules") {
+        return {
+          select: vi.fn().mockReturnValue(
+            createSelectChain([
+              {
+                id: "rule-food",
+                merchant_pattern: "Lidl",
+                target_category_id: "cat-food",
+                created_at: "2026-05-01T00:00:00.000Z",
+                updated_at: "2026-05-01T00:00:00.000Z",
+                user_id: "user-1",
+              },
+            ]),
+          ),
+          upsert: vi.fn().mockReturnValue(createInsertSingleChain(createdRule)),
+        };
+      }
+
+      if (table === "transactions") {
+        return {
+          delete: vi.fn().mockReturnValue(createDeleteChain()),
+          insert: vi.fn().mockReturnValue(createInsertManyChain(insertedTransactions)),
+          update: vi.fn().mockReturnValue(createUpdateSingleChain(updatedTransaction)),
+        };
+      }
+
+      if (table === "budget_categories") {
+        return {
+          select: vi.fn().mockReturnValue(
+            createSelectChain([
+              {
+                id: "cat-food",
+                user_id: "user-1",
+                name: "Food",
+                percentage_limit: 30,
+                archived_at: null,
+                created_at: "2026-05-01T00:00:00.000Z",
+                updated_at: "2026-05-01T00:00:00.000Z",
+              },
+              {
+                id: "cat-travel",
+                user_id: "user-1",
+                name: "Travel",
+                percentage_limit: 20,
+                archived_at: null,
+                created_at: "2026-05-01T00:00:00.000Z",
+                updated_at: "2026-05-01T00:00:00.000Z",
+              },
+            ]),
+          ),
+        };
+      }
+
+      throw new Error(`Unexpected table ${table}`);
+    }),
+  };
+}
+
+const validRevolutCsv = readFileSync(
+  resolve(process.cwd(), "context/foundation/resources/revolut-statement-example.csv"),
+  "utf8",
+);
+
+describe("revolut csv parser", () => {
+  it("parses a supported Revolut CSV and derives one monthly batch", () => {
+    const parsed = parseRevolutCsv(validRevolutCsv);
+
+    expect(parsed.period_end).toBe("2026-05-29");
+    expect(parsed.period_start).toBe("2026-05-01");
+    expect(parsed.statement_month).toBe("2026-05-01");
+    expect(parsed.transactions[0]).toMatchObject({
+      amount: -36.97,
+      recipient: "ROSSMANN",
+      title: "Płatność kartą",
+      transaction_date: "2026-05-01",
+    });
+    expect(parsed.transactions).toContainEqual({
+      amount: -151.45,
+      recipient: "Espresso House",
+      title: "Płatność kartą",
+      transaction_date: "2026-05-04",
+    });
+    expect(parsed.transactions.some((transaction) => transaction.recipient === "Uber")).toBe(false);
+    expect(
+      parsed.transactions.some(
+        (transaction) => transaction.recipient === "Good Lood" && transaction.transaction_date === "2026-05-29",
+      ),
+    ).toBe(false);
+  });
+
+  it("rejects an unsupported header", () => {
+    const invalidHeaderCsv = validRevolutCsv.replace("Rodzaj,Produkt", "Kind,Produkt");
+
+    expect(() => parseRevolutCsv(invalidHeaderCsv)).toThrow(/Unsupported Revolut CSV header/);
+  });
+
+  it("fails when the CSV spans more than one month", () => {
+    const multiMonthCsv = `Rodzaj,Produkt,Data rozpoczęcia,Data zrealizowania,Opis,Kwota,Opłata,Waluta,State,Saldo
+Płatność kartą,Bieżące,2026-05-31 10:00:00,2026-05-31 10:00:00,Lidl,-12.34,0.00,PLN,ZAKOŃCZONO,100.00
+Płatność kartą,Bieżące,2026-06-01 10:00:00,2026-06-01 10:00:00,June purchase,-5.00,0.00,PLN,ZAKOŃCZONO,95.00
+`;
+
+    expect(() => parseRevolutCsv(multiMonthCsv)).toThrow(/exactly one calendar month/);
+  });
+
+  it("rejects files that do not contain any completed transactions", () => {
+    const noCompletedCsv = `Rodzaj,Produkt,Data rozpoczęcia,Data zrealizowania,Opis,Kwota,Opłata,Waluta,State,Saldo
+Płatność kartą,Bieżące,2026-05-29 12:46:56,,Piekarnia,-23.45,0.00,PLN,OCZEKUJE,
+Płatność kartą,Bieżące,2026-05-27 22:55:31,,Uber,-19.94,0.00,PLN,COFNIĘTO,
+`;
+
+    expect(() => parseRevolutCsv(noCompletedCsv)).toThrow(/at least one completed transaction/);
+  });
+});
+
+describe("import data helpers", () => {
+  it("requires explicit confirmation before replacing an existing bank-month batch", async () => {
+    const supabase = buildImportSupabaseStub({ existingBatch: true });
+
+    await expect(
+      commitImportBatch(supabase as never, "user-1", {
+        bank: "revolut",
+        confirm_replace: false,
+        period_end: "2026-05-28",
+        period_start: "2026-05-03",
+        source_filename: "revolut.csv",
+        statement_month: "2026-05-01",
+        transactions: [
+          {
+            amount: -12.34,
+            recipient: "Lidl Warszawa",
+            title: "Lidl Warszawa",
+            transaction_date: "2026-05-03",
+          },
+        ],
+      }),
+    ).rejects.toThrow(/Replacement confirmation is required/);
+  });
+
+  it("creates a batch with review pending and applies existing rules", async () => {
+    const supabase = buildImportSupabaseStub();
+
+    await expect(
+      commitImportBatch(supabase as never, "user-1", {
+        bank: "revolut",
+        confirm_replace: false,
+        period_end: "2026-05-28",
+        period_start: "2026-05-03",
+        source_filename: "revolut.csv",
+        statement_month: "2026-05-01",
+        transactions: [
+          {
+            amount: -12.34,
+            recipient: "Lidl Warszawa",
+            title: "Lidl Warszawa",
+            transaction_date: "2026-05-03",
+          },
+        ],
+      }),
+    ).resolves.toMatchObject({
+      batch: {
+        review_completed_at: null,
+        statement_month: "2026-05-01",
+      },
+      transactions: [
+        {
+          category_id: "cat-food",
+        },
+      ],
+    });
+  });
+
+  it("updates a transaction category and saves a reusable rule when requested", async () => {
+    const supabase = buildImportSupabaseStub();
+
+    await expect(
+      updateTransactionCategoryAndMaybeRule(supabase as never, "user-1", "tx-1", "cat-travel", {
+        saveRule: true,
+      }),
+    ).resolves.toMatchObject({
+      rule: {
+        merchant_pattern: "Lidl Warszawa",
+        target_category_id: "cat-travel",
+      },
+      transaction: {
+        category_id: "cat-travel",
+      },
+    });
+  });
+
+  it("marks a batch review as complete", async () => {
+    const supabase = buildImportSupabaseStub({ completeBatchUpdate: true });
+
+    const batch = await markBatchReviewComplete(supabase as never, "user-1", "batch-1");
+
+    if (!batch) {
+      throw new Error("Expected batch to be returned");
+    }
+
+    expect(batch.id).toBe("batch-existing");
+    expect(batch.review_completed_at).toEqual(expect.any(String));
+  });
+});
+
+describe("import API routes", () => {
+  it("parses a preview upload and reports an existing monthly batch", async () => {
+    const previewRoute: typeof import("@/pages/api/imports/preview") = await import("@/pages/api/imports/preview");
+    const supabase = buildImportSupabaseStub({ existingBatch: true });
+
+    vi.mocked(createClient).mockReturnValue(supabase as never);
+
+    const formData = new FormData();
+    formData.set("bank", "revolut");
+    formData.set("file", new File([validRevolutCsv], "revolut.csv", { type: "text/csv" }));
+
+    const response = await previewRoute.POST({
+      cookies: {} as never,
+      locals: {
+        user: {
+          id: "user-1",
+          email: "user@example.com",
+        },
+      },
+      params: {},
+      redirect: vi.fn(),
+      request: new Request("http://localhost/api/imports/preview", {
+        method: "POST",
+        body: formData,
+      }),
+    } as never);
+
+    expect(response.status).toBe(200);
+    const payload = JSON.parse(await response.text()) as {
+      bank: string;
+      existing_batch: { id: string } | null;
+      statement_month: string;
+    };
+
+    expect(payload).toMatchObject({
+      bank: "revolut",
+      existing_batch: {
+        id: "batch-existing",
+      },
+      statement_month: "2026-05-01",
+    });
+  });
+
+  it("returns a replacement confirmation error from the commit route", async () => {
+    const commitRoute: typeof import("@/pages/api/imports/commit") = await import("@/pages/api/imports/commit");
+    const supabase = buildImportSupabaseStub({ existingBatch: true });
+
+    vi.mocked(createClient).mockReturnValue(supabase as never);
+
+    const response = await commitRoute.POST({
+      cookies: {} as never,
+      locals: {
+        user: {
+          id: "user-1",
+          email: "user@example.com",
+        },
+      },
+      params: {},
+      redirect: vi.fn(),
+      request: new Request("http://localhost/api/imports/commit", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          bank: "revolut",
+          confirm_replace: false,
+          period_end: "2026-05-28",
+          period_start: "2026-05-03",
+          source_filename: "revolut.csv",
+          statement_month: "2026-05-01",
+          transactions: [
+            {
+              amount: -12.34,
+              recipient: "Lidl Warszawa",
+              title: "Lidl Warszawa",
+              transaction_date: "2026-05-03",
+            },
+          ],
+        }),
+      }),
+    } as never);
+
+    expect(response.status).toBe(409);
+    const payload = JSON.parse(await response.text()) as {
+      error: string;
+      field: string | null;
+    };
+
+    expect(payload.error).toMatch(/Replacement confirmation is required/);
+    expect(payload.field).toBe("confirm_replace");
+  });
+});

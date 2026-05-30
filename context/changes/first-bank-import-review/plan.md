@@ -15,6 +15,8 @@ The app already has the finance foundation tables (`statement_import_batches`, `
 - The shaped MVP already narrowed import scope to one supported CSV bank format: `context/foundation/shape-notes.md:17`.
 - The existing finance schema stores batch period start/end, but not a canonical statement month or review-complete state, so S-02 needs a small additive migration to represent those contracts cleanly.
 - S-01 established the preferred implementation pattern for this repo: protected Astro pages, React islands for interactivity, server-only Supabase writes, and targeted Vitest route/helper tests in `tests/budget-setup.test.ts`.
+- The sanitized Revolut sample at `context/foundation/resources/revolut-statement-example.csv` captures the exact supported header contract: `Rodzaj`, `Produkt`, `Data rozpoczecia`, `Data zrealizowania`, `Opis`, `Kwota`, `Oplata`, `Waluta`, `State`, `Saldo`.
+- The real sample includes finalized, pending, and reversed rows, with blank completion dates on non-final rows, so the parser must filter to completed rows instead of assuming every CSV row is importable.
 - Accepted lesson: roadmap-linked implementation commits should use the roadmap ID in the Conventional Commit scope, for example `feat(S-02): revolut csv parser`.
 
 ## Desired End State
@@ -33,7 +35,7 @@ A signed-in user can open a dedicated protected import workspace, choose Revolut
 
 ## Implementation Approach
 
-Add the smallest domain extensions needed for S-02, then build the import flow as a dedicated protected route backed by server-side Astro API endpoints and `src/lib/imports/` helpers. The upload step parses and validates the Revolut CSV before any replacement, derives one canonical statement month from parsed transaction dates, and persists a batch plus transactions only after the user confirms creation or replacement. Review then operates on saved rows: category changes and optional rule creation update server data incrementally, while a batch-level review-complete flag prevents downstream slices from treating the import as ready too early.
+Add the smallest domain extensions needed for S-02, then build the import flow as a dedicated protected route backed by server-side Astro API endpoints and `src/lib/imports/` helpers. The upload step parses and validates the real localized Revolut CSV contract before any replacement, filters to completed rows, derives one canonical statement month from completion dates, folds `Kwota` and `Oplata` into one stored net amount, and persists a batch plus transactions only after the user confirms creation or replacement. Review then operates on saved rows: category changes and optional rule creation update server data incrementally, while a batch-level review-complete flag prevents downstream slices from treating the import as ready too early.
 
 ## Critical Implementation Details
 
@@ -47,7 +49,15 @@ The PRD requires the product to make it clear when data still depends on review.
 
 ### Parser Safety Boundary
 
-Revolut CSV parsing must be fail-fast: if the file shape, header contract, dates, or amounts do not match the supported format, the API returns a clear validation error and no batch replacement occurs. Partial-row imports are out of scope because skipped or malformed rows would undermine trust in financial totals.
+Revolut CSV parsing must be fail-fast when the localized header contract, completed-row dates, or numeric fields do not match the supported format. The supported file may contain non-final rows, but those rows should be filtered out explicitly by state rather than partially imported. Any malformed completed row still fails the whole import because wrong financial totals are worse than a rejected upload. If filtering leaves zero completed rows, the import should fail with a clear error instead of creating an empty batch.
+
+### Completed-Row Import Rule
+
+The real Revolut export contains finalized and non-finalized rows. S-02 should import only rows whose `State` marks them as completed and whose completion date is present. Pending or reversed rows stay out of the persisted batch so later summary work builds on settled transactions only, even if their started date falls inside the statement month.
+
+### Net Amount Rule
+
+The real Revolut export separates `Kwota` and `Oplata`, while the current schema stores one transaction amount. S-02 should persist the net account impact by folding any fee into the stored amount for each imported row, so a debit like `-149.95` with a `1.50` fee is stored as `-151.45`.
 
 ## Phase 1: Import Batch Contract and Schema Support
 
@@ -111,10 +121,12 @@ Create the server-side upload, parse, preview, and persist contracts for one exa
 
 **Contract**: Export parser helpers that:
 
-- validate the expected Revolut CSV header and required columns.
-- parse every row into a normalized transaction draft with `transaction_date`, `title`, `recipient`, and `amount`.
-- derive one canonical `statement_month`, `period_start`, and `period_end` from parsed transaction dates.
-- fail the whole import if any required row cannot be parsed accurately.
+- validate the exact localized Revolut CSV header contract captured from `context/foundation/resources/revolut-statement-example.csv`.
+- filter the file to completed rows only, using the finalized `State` value plus a required completion date.
+- parse each imported row into a normalized transaction draft with `transaction_date`, `title`, `recipient`, and one net `amount` that already includes any fee.
+- derive one canonical `statement_month`, `period_start`, and `period_end` from the imported rows' completion dates, not from started dates or pending rows.
+- fail the whole import if any completed row cannot be parsed accurately.
+- reject files that contain no completed rows after filtering.
 
 The parser should produce structured parse errors suitable for user-facing API responses and should not write to the database directly.
 
@@ -187,9 +199,9 @@ Whole-batch replacement should remain atomic from the caller's point of view: af
 
 #### Automated Verification:
 
-- Parser tests pass for the supported Revolut CSV header, row normalization, month derivation, and fail-fast error cases.
+- Parser tests pass for the supported localized Revolut CSV header, completed-row filtering, month derivation from completion dates, fee folding, zero-completed-row rejection, and fail-fast error cases.
 - API/data helper tests pass for preview, explicit replacement confirmation, authenticated batch creation, transaction category update, and rule opt-in behavior.
-- `npm run lint` passes.
+- ESLint passes for the Phase 2 touched import files.
 - `npx astro check` passes.
 
 #### Manual Verification:
@@ -301,9 +313,11 @@ Make the Revolut import slice repeatable, well-scoped, and ready for the next do
 
 **Contract**: Add focused Vitest coverage for:
 
-- valid Revolut CSV parsing and normalized transaction output.
+- valid localized Revolut CSV parsing and normalized transaction output.
 - invalid header or malformed row rejection.
-- canonical month derivation from parsed dates.
+- canonical month derivation from completion dates.
+- filtering out reversed and pending rows before persistence.
+- rejecting files with no completed rows.
 - explicit replacement confirmation requirements.
 - persisted batch review-pending state after import.
 - transaction category correction and optional rule creation behavior.
@@ -347,8 +361,8 @@ If reusable fixtures help readability, place them under a change-appropriate tes
 ### Unit Tests:
 
 - Validate supported-bank selection for `revolut`.
-- Validate CSV header recognition and row-shape rejection.
-- Validate transaction date parsing, amount parsing, and canonical statement-month derivation.
+- Validate localized CSV header recognition and row-shape rejection.
+- Validate completed-row filtering, completion-date parsing, zero-completed-row rejection, fee folding, and canonical statement-month derivation.
 - Validate review mutation payloads and explicit rule opt-in parsing.
 
 ### Integration Tests:
@@ -399,29 +413,29 @@ Do not commit `.env`, `.dev.vars`, or any statement files containing real bankin
 
 #### Automated
 
-- [x] 1.1 `npx supabase db reset` applies the batch-contract migration cleanly.
-- [x] 1.2 Generated types expose `statement_import_batches.statement_month` and `statement_import_batches.review_completed_at`.
-- [x] 1.3 `npx astro check` passes after refreshing database types.
+- [x] 1.1 `npx supabase db reset` applies the batch-contract migration cleanly. — 3ad4bf1
+- [x] 1.2 Generated types expose `statement_import_batches.statement_month` and `statement_import_batches.review_completed_at`. — 3ad4bf1
+- [x] 1.3 `npx astro check` passes after refreshing database types. — 3ad4bf1
 
 #### Manual
 
-- [x] 1.4 Confirm replacement is keyed by canonical bank-month rather than raw period-start and period-end equality.
-- [x] 1.5 Confirm the review-state field is additive and does not weaken per-user ownership or RLS assumptions.
+- [x] 1.4 Confirm replacement is keyed by canonical bank-month rather than raw period-start and period-end equality. — 3ad4bf1
+- [x] 1.5 Confirm the review-state field is additive and does not weaken per-user ownership or RLS assumptions. — 3ad4bf1
 
 ### Phase 2: Revolut CSV Parsing and Import API Flow
 
 #### Automated
 
-- [ ] 2.1 Parser tests pass for the supported Revolut CSV header, row normalization, month derivation, and fail-fast parse errors.
-- [ ] 2.2 API and data-helper tests pass for preview, explicit replacement confirmation, batch creation, category-only review updates, and rule opt-in behavior.
-- [ ] 2.3 `npm run lint` passes.
-- [ ] 2.4 `npx astro check` passes.
+- [x] 2.1 Parser tests pass for the supported localized Revolut CSV header, completed-row filtering, completion-date month derivation, fee folding, zero-completed-row rejection, and fail-fast parse errors.
+- [x] 2.2 API and data-helper tests pass for preview, explicit replacement confirmation, batch creation, category-only review updates, and rule opt-in behavior.
+- [x] 2.3 ESLint passes for the Phase 2 touched import files.
+- [x] 2.4 `npx astro check` passes.
 
 #### Manual
 
-- [ ] 2.5 Uploading an invalid or mismatched file returns a clear error and does not create or replace any batch.
-- [ ] 2.6 Uploading a same-month Revolut CSV warns before replacement and only replaces after explicit confirmation.
-- [ ] 2.7 A newly committed batch starts as review-pending rather than review-complete.
+- [x] 2.5 Uploading an invalid or mismatched file returns a clear error and does not create or replace any batch.
+- [x] 2.6 Uploading a same-month Revolut CSV warns before replacement and only replaces after explicit confirmation.
+- [x] 2.7 A newly committed batch starts as review-pending rather than review-complete.
 
 ### Phase 3: Protected Import Review UI
 
