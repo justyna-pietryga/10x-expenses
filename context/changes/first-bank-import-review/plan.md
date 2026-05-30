@@ -456,12 +456,12 @@ Do not commit `.env`, `.dev.vars`, or any statement files containing real bankin
 
 #### Automated
 
-- [x] 4.1 `npm test` passes with the new import-review coverage.
-- [x] 4.2 `npm run lint` passes.
-- [x] 4.3 `npx astro check` passes.
-- [x] 4.4 `npm run build` passes.
+- [x] 4.1 `npm test` passes with the new import-review coverage. — 0090f2e
+- [x] 4.2 `npm run lint` passes. — 0090f2e
+- [x] 4.3 `npx astro check` passes. — 0090f2e
+- [x] 4.4 `npm run build` passes. — 0090f2e
 
 #### Manual
 
-- [x] 4.5 Review the plan brief and full plan for phase clarity before starting `/10x-implement first-bank-import-review phase 1`.
-- [x] 4.6 Confirm S-03 remains blocked until the import review slice is implemented and reviewed.
+- [x] 4.5 Review the plan brief and full plan for phase clarity before starting `/10x-implement first-bank-import-review phase 1`. — 0090f2e
+- [x] 4.6 Confirm S-03 remains blocked until the import review slice is implemented and reviewed. — 0090f2e
