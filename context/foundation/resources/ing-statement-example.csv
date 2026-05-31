@@ -1,0 +1,45 @@
+"Lista transakcji";;;;;"ING Bank �l�ski S.A. ul. Sokolska 34, 40-086 Katowice www.ing.pl";;;;;;;;;;;;;;;
+"Dokument nr 11111111";
+"Wygenerowany dnia: 2026-05-31, 21:04";;;;;;;;;;;;;;;;;;;;
+
+"Dane U�ytkownika:";
+"";
+
+"Wybrane rachunki:";
+"KONTO Komfort (PLN)";;"00 0000 0000 0000 0000 0000 0000";
+
+"Zastosowane kryteria wyboru";;;;;"Podsumowanie";;
+
+"Zakres dat:";"2026-05-01 - 2026-05-31";"Typy transakcji:";"wszystkie";;"Liczba transakcji:";62;
+
+;;;;;"Suma uzna� (13):";22390,40;PLN;;;;;;;;;;;;;
+
+"Ukryto saldo po transakcji";;;;;"Suma obci��e� (49):";28118,91;PLN;;;;;;;;;;;;;
+
+"Data transakcji";"Data ksi�gowania";"Dane kontrahenta";"Tytu�";"Nr rachunku";"Nazwa banku";"Szczeg�y";"Nr transakcji";"Kwota transakcji (waluta rachunku)";"Waluta";"Kwota blokady/zwolnienie blokady";"Waluta";"Kwota p�atno�ci w walucie";"Waluta";"Konto";;;;;;
+2026-05-30;2026-05-30;" sts.pl ul. Porcelanowa 8 KATOWICE ";" P�atno�� BLIK 30.05.2026 Nr transakcji 94146797867 www.sts.pl";;;"TR.BLIK  ";'202615064020215921';-10,00;PLN;;;;;"KONTO Mobi pow.26";;;;;;
+2026-05-30;;" Revolut**7362*  Dublin D02 R296 IRL ";" P�atno�� kart�  30.05.2026 Nr karty 4246xx7384";;;"";;;;-6000,00;PLN;;;"KONTO Mobi pow.26";;;;;;
+2026-05-29;;" Revolut**7886*  Dublin D02 R296 IRL ";" P�atno�� kart�  29.05.2026 Nr karty 4246xx9049";;;"";;;;-500,00;PLN;;;"KONTO Komfort";;;;;;
+2026-05-29;2026-05-28;" ING BANK �L�SKI S.A. UL.SOKOLSKA 34 40-086 KATOWICE ";" Op�ata mies. karta Visa Zbli�. za okres od 29.03 do 28.04";'8042562\10281 ';;"PRZELEW  ";'202614800006203499';-10,00;PLN;;;;;"KONTO Komfort";;;;;;
+2026-05-29;2026-05-28;" ING BANK �L�SKI S.A. UL.SOKOLSKA 34 40-086 KATOWICE ";" Op�ata za prowadzenie rachunku";'8042200\10281 ';;"PRZELEW  ";'202614800006203498';-15,00;PLN;;;;;"KONTO Komfort";;;;;;
+2026-05-28;2026-05-30;" Revolut**7362*  Dublin D02 R296 IRL ";" P�atno�� kart� 28.05.2026 Nr karty 4246xx7384";'1915031/19730 ';;"TR.KART  ";'202615097307011472';-1000,00;PLN;;;;;"KONTO Mobi pow.26";;;;;;
+2026-05-26;2026-05-28;" Revolut**7886*  Dublin D02 R296 IRL ";" P�atno�� kart� 26.05.2026 Nr karty 4246xx9049";'1915031/19730 ';;"TR.KART  ";'202614897307110014';-500,00;PLN;;;;;"KONTO Komfort";;;;;;
+2026-05-26;2026-05-28;" LEWIATAN  KRAKOW 31505 POL ";" P�atno�� kart� 26.05.2026 Nr karty 4246xx9049";'1915031/19730 ';;"TR.KART  ";'202614897306511119';-59,94;PLN;;;;;"KONTO Komfort";;;;;;
+2026-05-25;2026-05-27;" Revolut**7362*  Dublin D02 R296 IRL ";" P�atno�� kart� 25.05.2026 Nr karty 4246xx7384";'1915031/19730 ';;"TR.KART  ";'202614797307112687';-500,00;PLN;;;;;"KONTO Mobi pow.26";;;;;;
+2026-05-25;2026-05-25;" PayU Grunwaldzka 186 Poznan ";" P�atno�� BLIK 25.05.2026 Nr transakcji 94107354777 www.ntfy.pl";;;"TR.BLIK  ";'202614564020306559';-1189,33;PLN;;;;;"KONTO Mobi pow.26";;;;;;
+2026-05-24;2026-05-26;" Revolut**7886*  Dublin D02 R296 IRL ";" P�atno�� kart� 24.05.2026 Nr karty 4246xx9049";'1915031/19730 ';;"TR.KART  ";'202614697304303032';-500,00;PLN;;;;;"KONTO Komfort";;;;;;
+2026-05-22;2026-05-24;" Revolut**7886*  Dublin D02 R296 IRL ";" P�atno�� kart� 22.05.2026 Nr karty 4246xx9049";'1915031/19730 ';;"TR.KART  ";'202614497307351085';-500,00;PLN;;;;;"KONTO Komfort";;;;;;
+2026-05-21;2026-05-21;" SZYMON NOWAK ";" Przelew na telefon 48516******. Prz elew na telefon";'39124026561111001050059918 ';"PEKAO Oddzia� w Mielcu";"P.BLIK  ";'202614164021125467';75,00;PLN;;;;;"KONTO Mobi pow.26";;;;;;
+2026-05-21;2026-05-21;" PAWE� NOWAK";" PRZELEW �RODK�W";'77114020040000350276464058 ';"mBank Oddzia� Bankowo�ci";"P.BLIK  ";'202614164021125460';60,00;PLN;;;;;"KONTO Mobi pow.26";;;;;;
+2026-05-21;2026-05-21;" NOWAK KONRAD ";" Przelew na telefon +48xxxxxx804 Pr";'36105014451000009239502082 ';"ING Bank �l�ski S.A.";"PRZELEW  ";'202614197223957479';75,00;PLN;;;;;"KONTO Mobi pow.26";;;;;;
+2026-05-21;2026-05-23;" Revolut**7362*  Dublin D02 R296 IRL ";" P�atno�� kart� 21.05.2026 Nr karty 4246xx7384";'1915031/19730 ';;"TR.KART  ";'202614397307001975';-600,00;PLN;;;;;"KONTO Mobi pow.26";;;;;;
+2026-05-20;2026-05-22;" Revolut**7362*  Dublin D02 R296 IRL ";" P�atno�� kart� 20.05.2026 Nr karty 4246xx7384";'1915031/19730 ';;"TR.KART  ";'202614297306594012';-1000,00;PLN;;;;;"KONTO Mobi pow.26";;;;;;
+2026-05-20;2026-05-20;" KIP plac Andersa 3 73 Poznan ";" P�atno�� BLIK 20.05.2026 Nr transakcji 94066663635 www.apcoa.pl";;;"TR.BLIK  ";'202614064002383926';-5,00;PLN;;;;;"KONTO Mobi pow.26";;;;;;
+2026-05-18;2026-05-20;" Revolut**7362*  Dublin D02 R296 IRL ";" P�atno�� kart� 18.05.2026 Nr karty 4246xx7384";'1915031/19730 ';;"TR.KART  ";'202614097306551664';-100,00;PLN;;;;;"KONTO Mobi pow.26";;;;;;
+2026-05-18;2026-05-20;" Revolut**7886*  Dublin D02 R296 IRL ";" P�atno�� kart� 18.05.2026 Nr karty 4246xx9049";'1915031/19730 ';;"TR.KART  ";'202614097306536889';-500,00;PLN;;;;;"KONTO Komfort";;;;;;
+2026-05-17;2026-05-17;" sts.pl ul. Porcelanowa 8 KATOWICE ";" P�atno�� BLIK 17.05.2026 Nr transakcji 94046789320 www.sts.pl";;;"TR.BLIK  ";'202613764020020199';-10,00;PLN;;;;;"KONTO Mobi pow.26";;;;;;
+2026-05-17;2026-05-19;" Revolut**7362*  Dublin D02 R296 IRL ";" P�atno�� kart� 17.05.2026 Nr karty 4246xx7384";'1915031/19730 ';;"TR.KART  ";'202613997303405552';-1500,00;PLN;;;;;"KONTO Mobi pow.26";;;;;;
+2026-05-17;2026-05-19;" Revolut**7362*  Dublin D02 R296 IRL ";" P�atno�� kart� 17.05.2026 Nr karty 4246xx7384";'1915031/19730 ';;"TR.KART  ";'202613997303376430';-500,00;PLN;;;;;"KONTO Mobi pow.26";;;;;;
+2026-05-15;2026-05-16;" Revolut**7362*  Dublin D02 R296 IRL ";" P�atno�� kart� 15.05.2026 Nr karty 4246xx7384";'1915031/19730 ';;"TR.KART  ";'202613697301255119';-500,00;PLN;;;;;"KONTO Mobi pow.26";;;;;;
+
+"Dokument ma charakter informacyjny, nie stanowi dowodu ksi�gowego";

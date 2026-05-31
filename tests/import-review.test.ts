@@ -4,6 +4,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { ImportUploadForm } from "@/components/imports/ImportUploadForm";
+import { validateImportCommitPayload, validateSupportedBank } from "@/lib/imports/validation";
 import { createClient } from "@/lib/supabase";
 import { commitImportBatch, markBatchReviewComplete, updateTransactionCategoryAndMaybeRule } from "@/lib/imports/data";
 import { parseRevolutCsv } from "@/lib/imports/revolutCsv";
@@ -248,6 +249,38 @@ Płatność kartą,Bieżące,2026-05-27 22:55:31,,Uber,-19.94,0.00,PLN,COFNIĘTO
   });
 });
 
+describe("import validation", () => {
+  it("accepts both supported banks in the shared import contract", () => {
+    expect(validateSupportedBank("revolut")).toBe("revolut");
+    expect(validateSupportedBank("ing")).toBe("ing");
+  });
+
+  it("rejects unsupported banks", () => {
+    expect(() => validateSupportedBank("mbank")).toThrow(/Only Revolut and ING CSV imports are supported/);
+  });
+
+  it("accepts commit payloads for ING before parser wiring lands", () => {
+    const payload = validateImportCommitPayload({
+      bank: "ing",
+      confirm_replace: false,
+      period_end: "2026-05-31",
+      period_start: "2026-05-01",
+      source_filename: "ing.csv",
+      statement_month: "2026-05-01",
+      transactions: [
+        {
+          amount: -12.34,
+          recipient: "ING recipient",
+          title: "Card payment",
+          transaction_date: "2026-05-03",
+        },
+      ],
+    });
+
+    expect(payload.bank).toBe("ing");
+  });
+});
+
 describe("import data helpers", () => {
   it("requires explicit confirmation before replacing an existing bank-month batch", async () => {
     const supabase = buildImportSupabaseStub({ existingBatch: true });
@@ -379,6 +412,42 @@ describe("import API routes", () => {
       },
       statement_month: "2026-05-01",
     });
+  });
+
+  it("accepts ING as a supported bank choice at the route boundary", async () => {
+    const previewRoute: typeof import("@/pages/api/imports/preview") = await import("@/pages/api/imports/preview");
+    const supabase = buildImportSupabaseStub();
+
+    vi.mocked(createClient).mockReturnValue(supabase as never);
+
+    const formData = new FormData();
+    formData.set("bank", "ing");
+    formData.set("file", new File([validRevolutCsv], "ing.csv", { type: "text/csv" }));
+
+    const response = await previewRoute.POST({
+      cookies: {} as never,
+      locals: {
+        user: {
+          id: "user-1",
+          email: "user@example.com",
+        },
+      },
+      params: {},
+      redirect: vi.fn(),
+      request: new Request("http://localhost/api/imports/preview", {
+        method: "POST",
+        body: formData,
+      }),
+    } as never);
+
+    expect(response.status).toBe(400);
+    const payload = JSON.parse(await response.text()) as {
+      error: string;
+      field: string | null;
+    };
+
+    expect(payload.field).toBe("bank");
+    expect(payload.error).toMatch(/Phase 2/);
   });
 
   it("returns a replacement confirmation error from the commit route", async () => {

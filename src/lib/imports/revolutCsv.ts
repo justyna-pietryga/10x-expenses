@@ -1,18 +1,5 @@
 import { ImportError } from "@/lib/imports/errors";
-
-export interface ImportedTransactionDraft {
-  transaction_date: string;
-  title: string;
-  recipient: string;
-  amount: number;
-}
-
-export interface ParsedRevolutCsv {
-  period_end: string;
-  period_start: string;
-  statement_month: string;
-  transactions: ImportedTransactionDraft[];
-}
+import type { ParsedImportCsv } from "@/lib/imports/types";
 
 const EXPECTED_HEADERS = [
   "Rodzaj",
@@ -145,7 +132,7 @@ function normalizeMonth(date: string) {
   return `${date.slice(0, 7)}-01`;
 }
 
-export function parseRevolutCsv(text: string): ParsedRevolutCsv {
+export function parseRevolutCsv(text: string): ParsedImportCsv {
   const rows = parseCsv(text);
 
   if (rows.length < 2) {

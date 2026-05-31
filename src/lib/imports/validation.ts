@@ -1,8 +1,8 @@
-import type { ImportedTransactionDraft } from "@/lib/imports/revolutCsv";
 import { ImportError } from "@/lib/imports/errors";
+import type { ImportedTransactionDraft, SupportedBank } from "@/lib/imports/types";
 
 export interface ImportCommitPayload {
-  bank: "revolut";
+  bank: SupportedBank;
   confirm_replace: boolean;
   period_end: string;
   period_start: string;
@@ -37,12 +37,18 @@ function validateAmount(value: unknown) {
   return amount;
 }
 
-export function validateSupportedBank(value: unknown): "revolut" {
-  if (typeof value !== "string" || value.trim().toLowerCase() !== "revolut") {
-    throw new ImportError("Only Revolut CSV imports are supported in this phase", { field: "bank" });
+export function validateSupportedBank(value: unknown): SupportedBank {
+  if (typeof value !== "string") {
+    throw new ImportError("bank is required", { field: "bank" });
   }
 
-  return "revolut";
+  const normalized = value.trim().toLowerCase();
+
+  if (normalized === "revolut" || normalized === "ing") {
+    return normalized;
+  }
+
+  throw new ImportError("Only Revolut and ING CSV imports are supported in this phase", { field: "bank" });
 }
 
 export function validateCsvUpload(value: unknown) {

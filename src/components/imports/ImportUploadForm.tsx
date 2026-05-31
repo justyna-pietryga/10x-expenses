@@ -1,10 +1,10 @@
 import { useState, type ChangeEvent, type SyntheticEvent } from "react";
 import type { ExistingImportBatchSummary } from "@/lib/imports/data";
-import type { ImportedTransactionDraft } from "@/lib/imports/revolutCsv";
+import type { ImportedTransactionDraft, SupportedBank } from "@/lib/imports/types";
 import { Button } from "@/components/ui/button";
 
 export interface ImportPreviewPayload {
-  bank: "revolut";
+  bank: SupportedBank;
   existing_batch: ExistingImportBatchSummary | null;
   period_end: string;
   period_start: string;
