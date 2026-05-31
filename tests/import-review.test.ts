@@ -110,7 +110,8 @@ function buildImportSupabaseStub(options?: { completeBatchUpdate?: boolean; exis
   };
   const createdRule = {
     id: "rule-1",
-    merchant_pattern: "Lidl Warszawa",
+    match_field: "recipient",
+    match_text: "Lidl Warszawa",
     target_category_id: "cat-travel",
     created_at: "2026-05-30T08:00:00.000Z",
     updated_at: "2026-05-30T08:00:00.000Z",
@@ -135,7 +136,8 @@ function buildImportSupabaseStub(options?: { completeBatchUpdate?: boolean; exis
             createSelectChain([
               {
                 id: "rule-food",
-                merchant_pattern: "Lidl",
+                match_field: "both",
+                match_text: "Lidl",
                 target_category_id: "cat-food",
                 created_at: "2026-05-01T00:00:00.000Z",
                 updated_at: "2026-05-01T00:00:00.000Z",
@@ -164,6 +166,7 @@ function buildImportSupabaseStub(options?: { completeBatchUpdate?: boolean; exis
                 user_id: "user-1",
                 name: "Food",
                 percentage_limit: 30,
+                carryover_enabled: false,
                 archived_at: null,
                 created_at: "2026-05-01T00:00:00.000Z",
                 updated_at: "2026-05-01T00:00:00.000Z",
@@ -173,6 +176,7 @@ function buildImportSupabaseStub(options?: { completeBatchUpdate?: boolean; exis
                 user_id: "user-1",
                 name: "Travel",
                 percentage_limit: 20,
+                carryover_enabled: true,
                 archived_at: null,
                 created_at: "2026-05-01T00:00:00.000Z",
                 updated_at: "2026-05-01T00:00:00.000Z",
@@ -310,7 +314,8 @@ describe("import data helpers", () => {
       }),
     ).resolves.toMatchObject({
       rule: {
-        merchant_pattern: "Lidl Warszawa",
+        match_field: "recipient",
+        match_text: "Lidl Warszawa",
         target_category_id: "cat-travel",
       },
       transaction: {

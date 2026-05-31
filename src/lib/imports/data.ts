@@ -43,8 +43,21 @@ function normalizeRuleValue(value: string) {
 }
 
 function assignCategoryId(transaction: ImportCommitPayload["transactions"][number], rules: CategorizationRule[]) {
-  const candidate = normalizeRuleValue(`${transaction.recipient} ${transaction.title}`);
-  const matchedRule = rules.find((rule) => candidate.includes(normalizeRuleValue(rule.merchant_pattern)));
+  const recipient = normalizeRuleValue(transaction.recipient);
+  const title = normalizeRuleValue(transaction.title);
+  const matchedRule = rules.find((rule) => {
+    const matchText = normalizeRuleValue(rule.match_text);
+
+    if (rule.match_field === "recipient") {
+      return recipient.includes(matchText);
+    }
+
+    if (rule.match_field === "title") {
+      return title.includes(matchText);
+    }
+
+    return `${recipient} ${title}`.includes(matchText);
+  });
 
   return matchedRule?.target_category_id ?? null;
 }
@@ -266,12 +279,13 @@ export async function updateTransactionCategoryAndMaybeRule(
       .from("categorization_rules")
       .upsert(
         {
-          merchant_pattern: transaction.recipient,
+          match_field: "recipient",
+          match_text: transaction.recipient,
           target_category_id: categoryId,
           user_id: userId,
         },
         {
-          onConflict: "user_id,merchant_pattern",
+          onConflict: "user_id,match_field,match_text",
         },
       )
       .select()

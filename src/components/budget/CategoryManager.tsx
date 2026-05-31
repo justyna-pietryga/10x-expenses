@@ -10,12 +10,14 @@ interface Props {
 }
 
 interface CategoryDraft {
+  carryover_enabled: boolean;
   name: string;
   percentage_limit: string;
 }
 
 function createEmptyDraft(): CategoryDraft {
   return {
+    carryover_enabled: false,
     name: "",
     percentage_limit: "",
   };
@@ -70,6 +72,7 @@ export function CategoryManager({ categories, totalPercentage, onChange }: Props
     }
 
     return {
+      carryover_enabled: draft.carryover_enabled,
       name,
       percentage_limit: percentageLimit,
     };
@@ -158,38 +161,48 @@ export function CategoryManager({ categories, totalPercentage, onChange }: Props
         </div>
       </div>
 
-      <form
-        className="mt-6 grid gap-3 rounded-3xl border border-white/10 bg-white/6 p-4 md:grid-cols-[1.3fr_.8fr_auto]"
-        onSubmit={handleCreate}
-      >
-        <input
-          type="text"
-          value={newCategory.name}
-          onChange={(event) => {
-            setNewCategory((prev) => ({ ...prev, name: event.target.value }));
-          }}
-          className="rounded-2xl border border-white/12 bg-slate-950/35 px-4 py-3 text-white transition outline-none focus:border-amber-300/60"
-          placeholder="Category name"
-        />
-        <input
-          type="number"
-          min="0"
-          max="100"
-          step="0.01"
-          value={newCategory.percentage_limit}
-          onChange={(event) => {
-            setNewCategory((prev) => ({ ...prev, percentage_limit: event.target.value }));
-          }}
-          className="rounded-2xl border border-white/12 bg-slate-950/35 px-4 py-3 text-white transition outline-none focus:border-amber-300/60"
-          placeholder="25"
-        />
-        <Button
-          type="submit"
-          className="h-12 rounded-2xl bg-amber-300 text-slate-950 hover:bg-amber-200"
-          disabled={isCreating}
-        >
-          {isCreating ? "Adding..." : "Add category"}
-        </Button>
+      <form className="mt-6 space-y-3 rounded-3xl border border-white/10 bg-white/6 p-4" onSubmit={handleCreate}>
+        <div className="grid gap-3 md:grid-cols-[1.3fr_.8fr_auto]">
+          <input
+            type="text"
+            value={newCategory.name}
+            onChange={(event) => {
+              setNewCategory((prev) => ({ ...prev, name: event.target.value }));
+            }}
+            className="rounded-2xl border border-white/12 bg-slate-950/35 px-4 py-3 text-white transition outline-none focus:border-amber-300/60"
+            placeholder="Category name"
+          />
+          <input
+            type="number"
+            min="0"
+            max="100"
+            step="0.01"
+            value={newCategory.percentage_limit}
+            onChange={(event) => {
+              setNewCategory((prev) => ({ ...prev, percentage_limit: event.target.value }));
+            }}
+            className="rounded-2xl border border-white/12 bg-slate-950/35 px-4 py-3 text-white transition outline-none focus:border-amber-300/60"
+            placeholder="25"
+          />
+          <Button
+            type="submit"
+            className="h-12 rounded-2xl bg-amber-300 text-slate-950 hover:bg-amber-200"
+            disabled={isCreating}
+          >
+            {isCreating ? "Adding..." : "Add category"}
+          </Button>
+        </div>
+        <label className="flex items-center gap-3 rounded-2xl border border-white/12 bg-slate-950/25 px-4 py-3 text-sm text-slate-100">
+          <input
+            type="checkbox"
+            checked={newCategory.carryover_enabled}
+            onChange={(event) => {
+              setNewCategory((prev) => ({ ...prev, carryover_enabled: event.target.checked }));
+            }}
+            className="size-4 rounded border-white/20 bg-slate-950/60"
+          />
+          Savings category with carry-over
+        </label>
       </form>
 
       {error && <p className="mt-4 text-sm text-rose-300">{error}</p>}
@@ -207,99 +220,115 @@ export function CategoryManager({ categories, totalPercentage, onChange }: Props
               : totalPercentage;
 
             return (
-              <div
-                key={category.id}
-                className="grid gap-3 rounded-3xl border border-white/10 bg-white/4 p-4 md:grid-cols-[1.3fr_.8fr_auto]"
-              >
-                <input
-                  type="text"
-                  value={isEditing ? editingDraft.name : category.name}
-                  onChange={(event) => {
-                    if (!isEditing) {
-                      return;
-                    }
-
-                    setEditingDraft((prev) => ({ ...prev, name: event.target.value }));
-                  }}
-                  disabled={!isEditing}
-                  className="rounded-2xl border border-white/12 bg-slate-950/25 px-4 py-3 text-white outline-none disabled:opacity-80"
-                />
-                <div className="space-y-2">
+              <div key={category.id} className="rounded-3xl border border-white/10 bg-white/4 p-4">
+                <div className="grid gap-3 md:grid-cols-[1.3fr_.8fr_auto]">
                   <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.01"
-                    value={isEditing ? editingDraft.percentage_limit : String(category.percentage_limit)}
+                    type="text"
+                    value={isEditing ? editingDraft.name : category.name}
                     onChange={(event) => {
                       if (!isEditing) {
                         return;
                       }
 
-                      setEditingDraft((prev) => ({ ...prev, percentage_limit: event.target.value }));
+                      setEditingDraft((prev) => ({ ...prev, name: event.target.value }));
                     }}
                     disabled={!isEditing}
-                    className="w-full rounded-2xl border border-white/12 bg-slate-950/25 px-4 py-3 text-white outline-none disabled:opacity-80"
+                    className="rounded-2xl border border-white/12 bg-slate-950/25 px-4 py-3 text-white outline-none disabled:opacity-80"
                   />
-                  {isEditing && projectedTotal > 100 && (
-                    <p className="text-xs text-rose-300">This change would push the active total above 100%.</p>
-                  )}
+                  <div className="space-y-2">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={isEditing ? editingDraft.percentage_limit : String(category.percentage_limit)}
+                      onChange={(event) => {
+                        if (!isEditing) {
+                          return;
+                        }
+
+                        setEditingDraft((prev) => ({ ...prev, percentage_limit: event.target.value }));
+                      }}
+                      disabled={!isEditing}
+                      className="w-full rounded-2xl border border-white/12 bg-slate-950/25 px-4 py-3 text-white outline-none disabled:opacity-80"
+                    />
+                    {isEditing && projectedTotal > 100 && (
+                      <p className="text-xs text-rose-300">This change would push the active total above 100%.</p>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    {isEditing ? (
+                      <>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="rounded-2xl bg-white/14 text-white hover:bg-white/20"
+                          onClick={() => {
+                            setEditingId(null);
+                            setEditingDraft(createEmptyDraft());
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="button"
+                          className="rounded-2xl bg-cyan-300 text-slate-950 hover:bg-cyan-200"
+                          onClick={() => {
+                            void handleSave(category.id);
+                          }}
+                          disabled={busyId === category.id}
+                        >
+                          Save
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="rounded-2xl bg-white/14 text-white hover:bg-white/20"
+                          onClick={() => {
+                            setEditingId(category.id);
+                            setEditingDraft({
+                              carryover_enabled: category.carryover_enabled,
+                              name: category.name,
+                              percentage_limit: String(category.percentage_limit),
+                            });
+                          }}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          className="rounded-2xl"
+                          onClick={() => {
+                            void handleArchive(category.id);
+                          }}
+                          disabled={busyId === category.id}
+                        >
+                          Archive
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  {isEditing ? (
-                    <>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        className="rounded-2xl bg-white/14 text-white hover:bg-white/20"
-                        onClick={() => {
-                          setEditingId(null);
-                          setEditingDraft(createEmptyDraft());
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        type="button"
-                        className="rounded-2xl bg-cyan-300 text-slate-950 hover:bg-cyan-200"
-                        onClick={() => {
-                          void handleSave(category.id);
-                        }}
-                        disabled={busyId === category.id}
-                      >
-                        Save
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        className="rounded-2xl bg-white/14 text-white hover:bg-white/20"
-                        onClick={() => {
-                          setEditingId(category.id);
-                          setEditingDraft({
-                            name: category.name,
-                            percentage_limit: String(category.percentage_limit),
-                          });
-                        }}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        className="rounded-2xl"
-                        onClick={() => {
-                          void handleArchive(category.id);
-                        }}
-                        disabled={busyId === category.id}
-                      >
-                        Archive
-                      </Button>
-                    </>
-                  )}
-                </div>
+                <label className="mt-3 flex items-center gap-3 rounded-2xl border border-white/12 bg-slate-950/20 px-4 py-3 text-sm text-slate-100">
+                  <input
+                    type="checkbox"
+                    checked={isEditing ? editingDraft.carryover_enabled : category.carryover_enabled}
+                    onChange={(event) => {
+                      if (!isEditing) {
+                        return;
+                      }
+
+                      setEditingDraft((prev) => ({ ...prev, carryover_enabled: event.target.checked }));
+                    }}
+                    disabled={!isEditing}
+                    className="size-4 rounded border-white/20 bg-slate-950/60 disabled:opacity-80"
+                  />
+                  Savings category with carry-over
+                </label>
               </div>
             );
           })

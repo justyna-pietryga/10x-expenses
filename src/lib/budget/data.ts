@@ -80,11 +80,12 @@ export async function upsertMonthlyIncome(
 export async function createCategory(
   supabase: BudgetClient,
   userId: string,
-  input: Pick<BudgetCategory, "name" | "percentage_limit">,
+  input: Pick<BudgetCategory, "carryover_enabled" | "name" | "percentage_limit">,
 ) {
   const { data, error } = await supabase
     .from("budget_categories")
     .insert({
+      carryover_enabled: input.carryover_enabled,
       user_id: userId,
       name: input.name,
       percentage_limit: input.percentage_limit,
@@ -101,11 +102,12 @@ export async function updateCategory(
   supabase: BudgetClient,
   userId: string,
   categoryId: string,
-  input: Pick<BudgetCategory, "name" | "percentage_limit">,
+  input: Pick<BudgetCategory, "carryover_enabled" | "name" | "percentage_limit">,
 ) {
   const { data, error } = await supabase
     .from("budget_categories")
     .update({
+      carryover_enabled: input.carryover_enabled,
       name: input.name,
       percentage_limit: input.percentage_limit,
     })

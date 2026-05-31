@@ -37,6 +37,7 @@ export type Database = {
       budget_categories: {
         Row: {
           archived_at: string | null
+          carryover_enabled: boolean
           created_at: string
           id: string
           name: string
@@ -46,6 +47,7 @@ export type Database = {
         }
         Insert: {
           archived_at?: string | null
+          carryover_enabled?: boolean
           created_at?: string
           id?: string
           name: string
@@ -55,6 +57,7 @@ export type Database = {
         }
         Update: {
           archived_at?: string | null
+          carryover_enabled?: boolean
           created_at?: string
           id?: string
           name?: string
@@ -68,7 +71,8 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          merchant_pattern: string
+          match_field: string
+          match_text: string
           target_category_id: string
           updated_at: string
           user_id: string
@@ -76,7 +80,8 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
-          merchant_pattern: string
+          match_field: string
+          match_text: string
           target_category_id: string
           updated_at?: string
           user_id: string
@@ -84,7 +89,8 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
-          merchant_pattern?: string
+          match_field?: string
+          match_text?: string
           target_category_id?: string
           updated_at?: string
           user_id?: string

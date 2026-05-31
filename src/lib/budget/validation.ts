@@ -91,6 +91,18 @@ export function validatePercentageLimit(value: unknown) {
   return percentageLimit;
 }
 
+export function validateCarryoverEnabled(value: unknown) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    return ["true", "1", "on", "yes"].includes(value.trim().toLowerCase());
+  }
+
+  return false;
+}
+
 export function calculateActiveTotalPercentage(
   categories: ActiveCategory[],
   options?: { excludeCategoryId?: string; nextPercentageLimit?: number },

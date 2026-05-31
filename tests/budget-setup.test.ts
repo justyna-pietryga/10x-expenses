@@ -11,6 +11,7 @@ import {
 import {
   calculateActiveTotalPercentage,
   validateActiveTotalPercentageLimit,
+  validateCarryoverEnabled,
   validateCategoryName,
   validateIncomeAmount,
   validateMonthString,
@@ -55,6 +56,7 @@ function createSupabaseStub(overrides: Partial<Record<string, FakeTable>> = {}) 
       user_id: "user-1",
       name: "Food",
       percentage_limit: 40,
+      carryover_enabled: false,
       archived_at: null,
       created_at: "2026-05-01T00:00:00.000Z",
       updated_at: "2026-05-01T00:00:00.000Z",
@@ -74,6 +76,7 @@ function createSupabaseStub(overrides: Partial<Record<string, FakeTable>> = {}) 
     id: "cat-2",
     name: "Rent",
     percentage_limit: 20,
+    carryover_enabled: true,
   };
   const archivedCategory = {
     ...activeCategories[0],
@@ -118,6 +121,8 @@ describe("budget validation", () => {
     expect(() => validateIncomeAmount(-1)).toThrow(/negative/);
     expect(() => validateCategoryName("   ")).toThrow(/blank/);
     expect(() => validatePercentageLimit(101)).toThrow(/between 0 and 100/);
+    expect(validateCarryoverEnabled("yes")).toBe(true);
+    expect(validateCarryoverEnabled(undefined)).toBe(false);
   });
 
   it("enforces the active category total limit and excludes the edited category", () => {
@@ -166,13 +171,15 @@ describe("budget data helpers", () => {
 
     await expect(
       createCategory(supabase as never, "user-1", {
+        carryover_enabled: true,
         name: "Rent",
         percentage_limit: 20,
       }),
-    ).resolves.toMatchObject({ name: "Rent" });
+    ).resolves.toMatchObject({ name: "Rent", carryover_enabled: true });
 
     await expect(
       updateCategory(supabase as never, "user-1", "cat-1", {
+        carryover_enabled: true,
         name: "Food",
         percentage_limit: 45,
       }),
@@ -198,6 +205,7 @@ describe("budget data helpers", () => {
 
     await expect(
       createCategory(supabase as never, "user-1", {
+        carryover_enabled: false,
         name: "Food",
         percentage_limit: 25,
       }),
@@ -266,6 +274,7 @@ describe("budget API routes", () => {
           "content-type": "application/json",
         },
         body: JSON.stringify({
+          carryover_enabled: true,
           name: "Rent",
           percentage_limit: 20,
         }),
@@ -278,6 +287,7 @@ describe("budget API routes", () => {
       category: {
         id: "cat-2",
         name: "Rent",
+        carryover_enabled: true,
       },
     });
 
@@ -289,6 +299,7 @@ describe("budget API routes", () => {
           "content-type": "application/json",
         },
         body: JSON.stringify({
+          carryover_enabled: true,
           name: "Food",
           percentage_limit: 45,
         }),
