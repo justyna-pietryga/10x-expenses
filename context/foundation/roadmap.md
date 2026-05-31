@@ -32,7 +32,7 @@ The main planning constraint is `time`: the PRD sets a 3-week after-hours MVP, s
 | F-01 | finance-domain-foundation | (foundation) per-user finance records, import batches, categories, limits, rules, and summaries persist under one consistent domain model     | -             | Access Control, Non-Functional Requirements, Business Logic | done     |
 | S-01 | budget-setup              | user can define income, custom categories, and percentage-based limits                                                                        | F-01          | FR-001, FR-007, FR-008, FR-009                              | done     |
 | S-02 | first-bank-import-review  | user can choose a supported bank, import one supported statement format, review parsed transactions, and replace an existing bank-month batch | F-01, S-01    | FR-001, FR-002, FR-003, FR-005, FR-006, FR-010              | done     |
-| S-03 | monthly-summary-and-rules | user can save reusable categorization rules and see monthly category usage against income and limits                                          | S-01, S-02    | US-01, FR-001, FR-010, FR-011, FR-012                       | ready    |
+| S-03 | monthly-summary-and-rules | user can save reusable categorization rules and see monthly category usage against income and limits                                          | S-01, S-02    | US-01, FR-001, FR-010, FR-011, FR-012                       | done     |
 | S-04 | second-supported-format   | user can repeat the import-and-review flow with a second supported statement format                                                           | S-02          | FR-004                                                      | proposed |
 
 ## Baseline
@@ -98,7 +98,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** -
 - **Unknowns:** none.
 - **Risk:** This is the first full proof of value, so it should follow import review immediately instead of being delayed by broader format coverage or polish.
-- **Status:** ready
+- **Status:** done
 
 ### S-04: Second supported statement format
 
@@ -144,3 +144,4 @@ This table is the clean handoff to Jira/Linear or any MCP-backed backlog. Includ
 - **F-01: (foundation) per-user finance records, import batches, categories, limits, rules, and summaries persist under one consistent domain model** - Archived 2026-05-29 -> `context/archive/2026-05-25-finance-domain-foundation/`. Lesson: -.
 - **S-01: user can define income, custom categories, and percentage-based limits** - Archived 2026-05-29 -> `context/archive/2026-05-27-budget-setup/`. Lesson: -.
 - **S-02: user can choose a supported bank, import one supported statement format, review parsed transactions, and replace an existing bank-month batch** - Archived 2026-05-30 -> `context/archive/2026-05-29-first-bank-import-review/`. Lesson: -.
+- **S-03: user can save reusable categorization rules and see monthly category usage against income and limits** - Archived 2026-05-31 -> `context/archive/2026-05-30-monthly-summary-and-rules/`. Lesson: -.
