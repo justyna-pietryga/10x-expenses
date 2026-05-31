@@ -427,16 +427,16 @@ Do not commit real banking exports or unsanitized statement files. The provided 
 
 #### Automated
 
-- [x] 2.1 ING parser tests pass for header detection, semicolon parsing, multi-account acceptance, booking-date preference, transaction-date fallback, and single-month enforcement.
-- [x] 2.2 Preview and commit contract tests pass for both supported banks.
-- [x] 2.3 `npx astro check` passes.
-- [x] 2.4 Targeted lint passes for the touched import files.
+- [x] 2.1 ING parser tests pass for header detection, semicolon parsing, multi-account acceptance, booking-date preference, transaction-date fallback, and single-month enforcement. — e92ab7a
+- [x] 2.2 Preview and commit contract tests pass for both supported banks. — e92ab7a
+- [x] 2.3 `npx astro check` passes. — e92ab7a
+- [x] 2.4 Targeted lint passes for the touched import files. — e92ab7a
 
 #### Manual
 
-- [x] 2.5 Uploading the provided ING sample produces a valid preview.
-- [x] 2.6 An invalid or mismatched ING CSV fails before any batch is created or replaced.
-- [x] 2.7 Re-uploading an ING file for the same month requires explicit replacement confirmation.
+- [x] 2.5 Uploading the provided ING sample produces a valid preview. — e92ab7a
+- [x] 2.6 An invalid or mismatched ING CSV fails before any batch is created or replaced. — e92ab7a
+- [x] 2.7 Re-uploading an ING file for the same month requires explicit replacement confirmation. — e92ab7a
 
 ### Phase 3: Two-Bank Import Workspace UI
 
