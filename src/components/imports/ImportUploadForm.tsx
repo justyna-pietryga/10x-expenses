@@ -20,16 +20,42 @@ interface Props {
   preview: ImportPreviewPayload | null;
 }
 
+const BANK_COPY: Record<
+  SupportedBank,
+  {
+    badge: string;
+    description: string;
+    headline: string;
+    label: string;
+  }
+> = {
+  ing: {
+    badge: "Bank: ING",
+    description:
+      "The ING parser scans the export preamble, supports the exact sample format, and keeps same-month replacement explicit.",
+    headline: "Preview the supported ING CSV before saving.",
+    label: "ING CSV",
+  },
+  revolut: {
+    badge: "Bank: Revolut",
+    description:
+      "The Revolut parser imports completed rows only, derives the statement month from completion dates, and blocks replacement until you confirm it.",
+    headline: "Preview the supported Revolut CSV before saving.",
+    label: "Revolut CSV",
+  },
+};
+
 export function ImportUploadForm({ isCommitting, onPreviewLoaded, onCommitRequested, preview }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
+  const [selectedBank, setSelectedBank] = useState<SupportedBank>("revolut");
 
   async function handlePreview(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!file) {
-      setError("Choose a Revolut CSV file before previewing.");
+      setError("Choose a supported CSV file before previewing.");
       return;
     }
 
@@ -38,7 +64,7 @@ export function ImportUploadForm({ isCommitting, onPreviewLoaded, onCommitReques
 
     try {
       const formData = new FormData();
-      formData.set("bank", "revolut");
+      formData.set("bank", selectedBank);
       formData.set("file", file);
 
       const response = await fetch("/api/imports/preview", {
@@ -64,32 +90,65 @@ export function ImportUploadForm({ isCommitting, onPreviewLoaded, onCommitReques
     setFile(event.target.files?.[0] ?? null);
   }
 
+  const copy = BANK_COPY[selectedBank];
+
   return (
     <section className="rounded-[28px] border border-white/12 bg-white/8 p-6 shadow-[0_20px_70px_rgba(2,6,23,0.35)] backdrop-blur-xl">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <p className="text-xs font-semibold tracking-[0.28em] text-emerald-200/70 uppercase">Upload Statement</p>
-          <h2 className="mt-2 text-2xl font-semibold text-white">Preview the supported Revolut CSV before saving.</h2>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200/75">
-            The parser imports completed rows only, derives the statement month from completion dates, and blocks
-            replacement until you confirm it.
-          </p>
+          <h2 className="mt-2 text-2xl font-semibold text-white">{copy.headline}</h2>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200/75">{copy.description}</p>
         </div>
         <div className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-4 py-2 text-sm text-emerald-100">
-          Bank: Revolut
+          {copy.badge}
         </div>
       </div>
 
       <form className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]" onSubmit={handlePreview}>
-        <label className="space-y-2">
-          <span className="text-sm font-medium text-slate-100">Statement file</span>
-          <input
-            type="file"
-            accept=".csv,text/csv"
-            onChange={handleFileChange}
-            className="block w-full rounded-2xl border border-white/12 bg-slate-950/35 px-4 py-3 text-sm text-white file:mr-4 file:rounded-full file:border-0 file:bg-emerald-300 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-slate-950"
-          />
-        </label>
+        <div className="grid gap-4">
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium text-slate-100">Bank</legend>
+            <div className="flex flex-wrap gap-3" data-testid="bank-selector">
+              {(["revolut", "ing"] as SupportedBank[]).map((bank) => {
+                const isSelected = selectedBank === bank;
+
+                return (
+                  <label
+                    key={bank}
+                    className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-4 py-2 text-sm transition ${
+                      isSelected
+                        ? "border-emerald-200/60 bg-emerald-300/20 text-white"
+                        : "border-white/12 bg-slate-950/25 text-slate-200 hover:border-emerald-200/30"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="bank"
+                      value={bank}
+                      checked={isSelected}
+                      onChange={() => {
+                        setSelectedBank(bank);
+                        setError(null);
+                      }}
+                      className="sr-only"
+                    />
+                    <span>{BANK_COPY[bank].label}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
+          <label className="space-y-2">
+            <span className="text-sm font-medium text-slate-100">Statement file</span>
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              onChange={handleFileChange}
+              className="block w-full rounded-2xl border border-white/12 bg-slate-950/35 px-4 py-3 text-sm text-white file:mr-4 file:rounded-full file:border-0 file:bg-emerald-300 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-slate-950"
+            />
+          </label>
+        </div>
         <div className="flex items-end">
           <Button
             type="submit"
@@ -105,7 +164,11 @@ export function ImportUploadForm({ isCommitting, onPreviewLoaded, onCommitReques
 
       {preview && (
         <div className="mt-6 rounded-3xl border border-white/10 bg-slate-950/30 p-5">
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-5">
+            <div>
+              <p className="text-[11px] font-semibold tracking-[0.2em] text-slate-400 uppercase">Bank</p>
+              <p className="mt-2 text-base font-semibold text-white">{BANK_COPY[preview.bank].label}</p>
+            </div>
             <div>
               <p className="text-[11px] font-semibold tracking-[0.2em] text-slate-400 uppercase">Statement month</p>
               <p className="mt-2 text-base font-semibold text-white">{preview.statement_month}</p>
@@ -118,7 +181,7 @@ export function ImportUploadForm({ isCommitting, onPreviewLoaded, onCommitReques
             </div>
             <div>
               <p className="text-[11px] font-semibold tracking-[0.2em] text-slate-400 uppercase">Transactions</p>
-              <p className="mt-2 text-base font-semibold text-white">{preview.transactions.length} completed rows</p>
+              <p className="mt-2 text-base font-semibold text-white">{preview.transactions.length} imported rows</p>
             </div>
             <div>
               <p className="text-[11px] font-semibold tracking-[0.2em] text-slate-400 uppercase">Source file</p>

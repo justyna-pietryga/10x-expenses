@@ -166,7 +166,7 @@ export function ImportWorkspace({ categories, initialBatch, initialTransactions 
         </div>
       ) : (
         <section className="rounded-[28px] border border-dashed border-white/15 bg-white/5 px-6 py-10 text-center text-sm text-slate-300">
-          Upload a Revolut CSV preview above to create the first review batch.
+          Choose a supported bank and upload its CSV preview above to create the first review batch.
         </section>
       )}
     </div>

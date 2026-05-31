@@ -632,6 +632,21 @@ describe("import API routes", () => {
 });
 
 describe("import UI", () => {
+  it("renders a bank selector for Revolut and ING uploads", () => {
+    const markup = renderToStaticMarkup(
+      createElement(ImportUploadForm, {
+        isCommitting: false,
+        preview: null,
+        onPreviewLoaded: vi.fn(),
+        onCommitRequested: vi.fn(() => Promise.resolve()),
+      }),
+    );
+
+    expect(markup).toContain("data-testid=\"bank-selector\"");
+    expect(markup).toContain("Revolut CSV");
+    expect(markup).toContain("ING CSV");
+  });
+
   it("shows a replacement warning when previewing an existing monthly batch", () => {
     const markup = renderToStaticMarkup(
       createElement(ImportUploadForm, {
@@ -668,5 +683,34 @@ describe("import UI", () => {
 
     expect(markup).toContain("Existing batch found for this bank and month");
     expect(markup).toContain("Replace existing batch");
+  });
+
+  it("shows the selected bank in the preview summary", () => {
+    const markup = renderToStaticMarkup(
+      createElement(ImportUploadForm, {
+        isCommitting: false,
+        preview: {
+          bank: "ing",
+          existing_batch: null,
+          period_end: "2026-05-30",
+          period_start: "2026-05-16",
+          source_filename: "ing.csv",
+          statement_month: "2026-05-01",
+          transactions: [
+            {
+              amount: -10,
+              recipient: "sts.pl ul. Porcelanowa 8 KATOWICE",
+              title: "TR.BLIK",
+              transaction_date: "2026-05-30",
+            },
+          ],
+        },
+        onPreviewLoaded: vi.fn(),
+        onCommitRequested: vi.fn(() => Promise.resolve()),
+      }),
+    );
+
+    expect(markup).toContain("ING CSV");
+    expect(markup).toContain("1 imported rows");
   });
 });
