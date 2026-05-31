@@ -606,16 +606,16 @@ Do not commit real financial data or private exports. Summary tests should use s
 
 #### Automated
 
-- [ ] 2.1 Summary-engine tests pass for selected-month resolution, reviewed-versus-incomplete bucketing, limit math, and savings carry-over behavior.
-- [ ] 2.2 Rule helper and API tests pass for list/create/update/delete plus field-aware contains matching.
-- [ ] 2.3 `npx astro check` passes.
-- [ ] 2.4 Targeted lint passes for the new summary and rules files.
+- [x] 2.1 Summary-engine tests pass for selected-month resolution, reviewed-versus-incomplete bucketing, limit math, and savings carry-over behavior.
+- [x] 2.2 Rule helper and API tests pass for list/create/update/delete plus field-aware contains matching.
+- [x] 2.3 `npx astro check` passes.
+- [x] 2.4 Targeted lint passes for the new summary and rules files.
 
 #### Manual
 
-- [ ] 2.5 Loading a month summary with incomplete imports shows a warning plus separate incomplete-review amount instead of silently blending that spend into trusted category totals.
-- [ ] 2.6 A savings-marked category carries unused allowance into a later month, while a normal category does not.
-- [ ] 2.7 Creating and editing a field-aware rule behaves as expected for `title`, `recipient`, and `both`.
+- [x] 2.5 Loading a month summary with incomplete imports shows a warning plus separate incomplete-review amount instead of silently blending that spend into trusted category totals.
+- [x] 2.6 A savings-marked category carries unused allowance into a later month, while a normal category does not.
+- [x] 2.7 Creating and editing a field-aware rule behaves as expected for `title`, `recipient`, and `both`.
 
 ### Phase 3: Dashboard Summary and Rules UI
 

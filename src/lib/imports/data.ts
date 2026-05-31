@@ -3,6 +3,7 @@ import { listActiveCategories } from "@/lib/budget/data";
 import type { Database, Tables } from "@/lib/database.types";
 import { ImportError } from "@/lib/imports/errors";
 import type { ImportCommitPayload } from "@/lib/imports/validation";
+import { findMatchingRule, listRules } from "@/lib/rules/data";
 
 type ImportClient = SupabaseClient<Database>;
 
@@ -38,28 +39,8 @@ function mapPostgrestError(error: PostgrestError | null, fallbackMessage: string
   throw new ImportError(error.message, { status: 500 });
 }
 
-function normalizeRuleValue(value: string) {
-  return value.trim().toLowerCase();
-}
-
 function assignCategoryId(transaction: ImportCommitPayload["transactions"][number], rules: CategorizationRule[]) {
-  const recipient = normalizeRuleValue(transaction.recipient);
-  const title = normalizeRuleValue(transaction.title);
-  const matchedRule = rules.find((rule) => {
-    const matchText = normalizeRuleValue(rule.match_text);
-
-    if (rule.match_field === "recipient") {
-      return recipient.includes(matchText);
-    }
-
-    if (rule.match_field === "title") {
-      return title.includes(matchText);
-    }
-
-    return `${recipient} ${title}`.includes(matchText);
-  });
-
-  return matchedRule?.target_category_id ?? null;
+  return findMatchingRule(rules, transaction)?.target_category_id ?? null;
 }
 
 export async function findExistingImportBatch(
@@ -82,18 +63,12 @@ export async function findExistingImportBatch(
 }
 
 export async function listCategorizationRules(supabase: ImportClient, userId: string) {
-  const { data, error } = await supabase
-    .from("categorization_rules")
-    .select("*")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: true });
+  const rules = await listRules(supabase, userId);
 
-  mapPostgrestError(error, "Categorization rules could not be loaded");
-
-  return data ?? [];
+  return rules.map(({ target_category: _targetCategory, ...rule }) => rule);
 }
 
-export async function ensureOwnedCategory(supabase: ImportClient, userId: string, categoryId: string | null) {
+async function ensureOwnedImportCategory(supabase: ImportClient, userId: string, categoryId: string | null) {
   if (!categoryId) {
     return null;
   }
@@ -247,7 +222,9 @@ export async function updateTransactionCategoryAndMaybeRule(
   categoryId: string | null,
   options?: { saveRule?: boolean },
 ) {
-  await ensureOwnedCategory(supabase, userId, categoryId);
+  if (categoryId) {
+    await ensureOwnedImportCategory(supabase, userId, categoryId);
+  }
 
   const { data: transaction, error } = await supabase
     .from("transactions")
