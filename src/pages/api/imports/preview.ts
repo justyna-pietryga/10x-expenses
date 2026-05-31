@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { findExistingImportBatch } from "@/lib/imports/data";
-import { ImportError } from "@/lib/imports/errors";
 import { importErrorResponse, importJson, readImportUploadPayload, requireImportAuth } from "@/lib/imports/http";
+import { parseIngCsv } from "@/lib/imports/ingCsv";
 import { parseRevolutCsv } from "@/lib/imports/revolutCsv";
 import type { ParsedImportCsv, SupportedBank } from "@/lib/imports/types";
 import { validateCsvUpload, validateSupportedBank } from "@/lib/imports/validation";
@@ -11,9 +11,7 @@ function parseImportPreview(bank: SupportedBank, text: string): ParsedImportCsv 
     return parseRevolutCsv(text);
   }
 
-  throw new ImportError("ING CSV parsing lands in Phase 2 of this plan", {
-    field: "bank",
-  });
+  return parseIngCsv(text);
 }
 
 export const POST: APIRoute = async (context) => {

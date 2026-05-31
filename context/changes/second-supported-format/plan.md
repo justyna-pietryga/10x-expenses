@@ -414,29 +414,29 @@ Do not commit real banking exports or unsanitized statement files. The provided 
 
 #### Automated
 
-- [x] 1.1 Shared import types compile without any route or helper depending on a Revolut-local draft type.
-- [x] 1.2 Supported-bank validation and import route contract tests pass for `revolut` and `ing`.
-- [x] 1.3 `npx astro check` passes.
+- [x] 1.1 Shared import types compile without any route or helper depending on a Revolut-local draft type. — ad71b47
+- [x] 1.2 Supported-bank validation and import route contract tests pass for `revolut` and `ing`. — ad71b47
+- [x] 1.3 `npx astro check` passes. — ad71b47
 
 #### Manual
 
-- [x] 1.4 Confirm the widened contract changes only the bank/parser boundary, not the batch replacement or review persistence model.
-- [x] 1.5 Confirm the Revolut path still behaves as the baseline format after the shared-type extraction.
+- [x] 1.4 Confirm the widened contract changes only the bank/parser boundary, not the batch replacement or review persistence model. — ad71b47
+- [x] 1.5 Confirm the Revolut path still behaves as the baseline format after the shared-type extraction. — ad71b47
 
 ### Phase 2: ING Parser and API Dispatch
 
 #### Automated
 
-- [ ] 2.1 ING parser tests pass for header detection, semicolon parsing, multi-account acceptance, booking-date preference, transaction-date fallback, and single-month enforcement.
-- [ ] 2.2 Preview and commit contract tests pass for both supported banks.
-- [ ] 2.3 `npx astro check` passes.
-- [ ] 2.4 Targeted lint passes for the touched import files.
+- [x] 2.1 ING parser tests pass for header detection, semicolon parsing, multi-account acceptance, booking-date preference, transaction-date fallback, and single-month enforcement.
+- [x] 2.2 Preview and commit contract tests pass for both supported banks.
+- [x] 2.3 `npx astro check` passes.
+- [x] 2.4 Targeted lint passes for the touched import files.
 
 #### Manual
 
-- [ ] 2.5 Uploading the provided ING sample produces a valid preview.
-- [ ] 2.6 An invalid or mismatched ING CSV fails before any batch is created or replaced.
-- [ ] 2.7 Re-uploading an ING file for the same month requires explicit replacement confirmation.
+- [x] 2.5 Uploading the provided ING sample produces a valid preview.
+- [x] 2.6 An invalid or mismatched ING CSV fails before any batch is created or replaced.
+- [x] 2.7 Re-uploading an ING file for the same month requires explicit replacement confirmation.
 
 ### Phase 3: Two-Bank Import Workspace UI
 

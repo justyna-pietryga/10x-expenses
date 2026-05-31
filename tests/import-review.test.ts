@@ -7,6 +7,7 @@ import { ImportUploadForm } from "@/components/imports/ImportUploadForm";
 import { validateImportCommitPayload, validateSupportedBank } from "@/lib/imports/validation";
 import { createClient } from "@/lib/supabase";
 import { commitImportBatch, markBatchReviewComplete, updateTransactionCategoryAndMaybeRule } from "@/lib/imports/data";
+import { parseIngCsv } from "@/lib/imports/ingCsv";
 import { parseRevolutCsv } from "@/lib/imports/revolutCsv";
 
 vi.mock("@/lib/supabase", () => ({
@@ -54,11 +55,16 @@ function createDeleteChain(error: { code?: string; message: string } | null = nu
   };
 }
 
-function buildImportSupabaseStub(options?: { completeBatchUpdate?: boolean; existingBatch?: boolean }) {
+function buildImportSupabaseStub(options?: {
+  bank?: "revolut" | "ing";
+  completeBatchUpdate?: boolean;
+  existingBatch?: boolean;
+}) {
+  const bank = options?.bank ?? "revolut";
   const existingBatch = options?.existingBatch
     ? {
         id: "batch-existing",
-        bank: "revolut",
+        bank,
         user_id: "user-1",
         statement_month: "2026-05-01",
         period_start: "2026-05-01",
@@ -72,12 +78,12 @@ function buildImportSupabaseStub(options?: { completeBatchUpdate?: boolean; exis
     : null;
   const createdBatch = {
     id: "batch-1",
-    bank: "revolut",
+    bank,
     user_id: "user-1",
     statement_month: "2026-05-01",
     period_start: "2026-05-03",
     period_end: "2026-05-28",
-    source_filename: "revolut.csv",
+    source_filename: `${bank}.csv`,
     imported_at: "2026-05-30T08:00:00.000Z",
     review_completed_at: null,
     created_at: "2026-05-30T08:00:00.000Z",
@@ -196,6 +202,10 @@ const validRevolutCsv = readFileSync(
   resolve(process.cwd(), "context/foundation/resources/revolut-statement-example.csv"),
   "utf8",
 );
+const validIngCsv = readFileSync(
+  resolve(process.cwd(), "context/foundation/resources/ing-statement-example.csv"),
+  "utf8",
+);
 
 describe("revolut csv parser", () => {
   it("parses a supported Revolut CSV and derives one monthly batch", () => {
@@ -259,7 +269,7 @@ describe("import validation", () => {
     expect(() => validateSupportedBank("mbank")).toThrow(/Only Revolut and ING CSV imports are supported/);
   });
 
-  it("accepts commit payloads for ING before parser wiring lands", () => {
+  it("accepts commit payloads for ING", () => {
     const payload = validateImportCommitPayload({
       bank: "ing",
       confirm_replace: false,
@@ -278,6 +288,45 @@ describe("import validation", () => {
     });
 
     expect(payload.bank).toBe("ing");
+  });
+});
+
+describe("ing csv parser", () => {
+  it("parses the supported ING CSV and derives one monthly batch", () => {
+    const parsed = parseIngCsv(validIngCsv);
+
+    expect(parsed.period_end).toBe("2026-05-30");
+    expect(parsed.period_start).toBe("2026-05-16");
+    expect(parsed.statement_month).toBe("2026-05-01");
+    expect(parsed.transactions[0]).toMatchObject({
+      amount: -10,
+      recipient: "sts.pl ul. Porcelanowa 8 KATOWICE",
+      title: "TR.BLIK",
+      transaction_date: "2026-05-30",
+    });
+    expect(parsed.transactions[1]).toMatchObject({
+      amount: -6000,
+      recipient: "Revolut**7362*  Dublin D02 R296 IRL",
+      transaction_date: "2026-05-30",
+    });
+    expect(parsed.transactions[1]?.title).toContain("30.05.2026");
+    expect(parsed.transactions.some((transaction) => transaction.recipient.includes("KONTO Komfort"))).toBe(false);
+  });
+
+  it("rejects an unsupported ING header", () => {
+    const invalidHeaderCsv = validIngCsv.replace('"Data transakcji";"Data ksi', '"Date";"Posted date ksi');
+
+    expect(() => parseIngCsv(invalidHeaderCsv)).toThrow(/Unsupported ING CSV header/);
+  });
+
+  it("fails when effective transaction dates span more than one month", () => {
+    const multiMonthCsv = `"Lista transakcji"
+"Data transakcji";"Data księgowania";"Dane kontrahenta";"Tytuł";"Nr rachunku";"Nazwa banku";"Szczegóły";"Nr transakcji";"Kwota transakcji (waluta rachunku)";"Waluta";"Kwota blokady/zwolnienie blokady";"Waluta";"Kwota płatności w walucie";"Waluta";"Konto"
+2026-05-31;2026-05-31;"Merchant one";"Card payment";;;"TR.KART";"1";-12,34;PLN;;;;;"KONTO Komfort"
+2026-06-01;;"Merchant two";"Card payment";;;"TR.KART";"2";-5,67;PLN;;;;;"KONTO Komfort"
+`;
+
+    expect(() => parseIngCsv(multiMonthCsv)).toThrow(/exactly one calendar month/);
   });
 });
 
@@ -335,6 +384,35 @@ describe("import data helpers", () => {
           category_id: "cat-food",
         },
       ],
+    });
+  });
+
+  it("creates an ING batch with the shared persistence flow", async () => {
+    const supabase = buildImportSupabaseStub({ bank: "ing" });
+
+    await expect(
+      commitImportBatch(supabase as never, "user-1", {
+        bank: "ing",
+        confirm_replace: false,
+        period_end: "2026-05-30",
+        period_start: "2026-05-16",
+        source_filename: "ing.csv",
+        statement_month: "2026-05-01",
+        transactions: [
+          {
+            amount: -59.94,
+            recipient: "LEWIATAN  KRAKOW 31505 POL",
+            title: "TR.KART",
+            transaction_date: "2026-05-28",
+          },
+        ],
+      }),
+    ).resolves.toMatchObject({
+      batch: {
+        bank: "ing",
+        review_completed_at: null,
+        statement_month: "2026-05-01",
+      },
     });
   });
 
@@ -414,15 +492,15 @@ describe("import API routes", () => {
     });
   });
 
-  it("accepts ING as a supported bank choice at the route boundary", async () => {
+  it("parses an ING preview upload and reports an existing monthly batch", async () => {
     const previewRoute: typeof import("@/pages/api/imports/preview") = await import("@/pages/api/imports/preview");
-    const supabase = buildImportSupabaseStub();
+    const supabase = buildImportSupabaseStub({ bank: "ing", existingBatch: true });
 
     vi.mocked(createClient).mockReturnValue(supabase as never);
 
     const formData = new FormData();
     formData.set("bank", "ing");
-    formData.set("file", new File([validRevolutCsv], "ing.csv", { type: "text/csv" }));
+    formData.set("file", new File([validIngCsv], "ing.csv", { type: "text/csv" }));
 
     const response = await previewRoute.POST({
       cookies: {} as never,
@@ -440,14 +518,27 @@ describe("import API routes", () => {
       }),
     } as never);
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(200);
     const payload = JSON.parse(await response.text()) as {
-      error: string;
-      field: string | null;
+      bank: string;
+      existing_batch: { bank: string; id: string } | null;
+      statement_month: string;
+      transactions: { recipient: string; title: string; transaction_date: string }[];
     };
 
-    expect(payload.field).toBe("bank");
-    expect(payload.error).toMatch(/Phase 2/);
+    expect(payload).toMatchObject({
+      bank: "ing",
+      existing_batch: {
+        bank: "ing",
+        id: "batch-existing",
+      },
+      statement_month: "2026-05-01",
+    });
+    expect(payload.transactions[0]).toMatchObject({
+      recipient: "sts.pl ul. Porcelanowa 8 KATOWICE",
+      title: "TR.BLIK",
+      transaction_date: "2026-05-30",
+    });
   });
 
   it("returns a replacement confirmation error from the commit route", async () => {
