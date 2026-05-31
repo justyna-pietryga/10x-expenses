@@ -636,12 +636,12 @@ Do not commit real financial data or private exports. Summary tests should use s
 
 #### Automated
 
-- [x] 4.1 The focused summary/rule test suite passes.
-- [x] 4.2 `npx astro check` passes.
-- [x] 4.3 `npm run build` passes.
-- [x] 4.4 Targeted lint passes for the touched summary and rule files.
+- [x] 4.1 The focused summary/rule test suite passes. — 5d0ffd1
+- [x] 4.2 `npx astro check` passes. — 5d0ffd1
+- [x] 4.3 `npm run build` passes. — 5d0ffd1
+- [x] 4.4 Targeted lint passes for the touched summary and rule files. — 5d0ffd1
 
 #### Manual
 
-- [x] 4.5 Review the brief and full plan for phase clarity before starting `/10x-implement monthly-summary-and-rules phase 1`.
-- [x] 4.6 Confirm S-04 remains independent and that this plan does not accidentally absorb second-format work.
+- [x] 4.5 Review the brief and full plan for phase clarity before starting `/10x-implement monthly-summary-and-rules phase 1`. — 5d0ffd1
+- [x] 4.6 Confirm S-04 remains independent and that this plan does not accidentally absorb second-format work. — 5d0ffd1
