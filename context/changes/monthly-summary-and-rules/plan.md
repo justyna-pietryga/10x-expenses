@@ -621,16 +621,16 @@ Do not commit real financial data or private exports. Summary tests should use s
 
 #### Automated
 
-- [ ] 3.1 The dashboard route type-checks with its summary and rules data contracts.
-- [ ] 3.2 `npm run build` passes.
-- [ ] 3.3 UI-focused tests cover month switching, incomplete-review warnings, and rule CRUD states.
+- [x] 3.1 The dashboard route type-checks with its summary and rules data contracts.
+- [x] 3.2 `npm run build` passes.
+- [x] 3.3 UI-focused tests cover month switching, incomplete-review warnings, and rule CRUD states.
 
 #### Manual
 
-- [ ] 3.4 Visiting `/dashboard` while signed out redirects to `/auth/signin`.
-- [ ] 3.5 A signed-in user lands on the latest imported month by default and can switch to another available month.
-- [ ] 3.6 The selected-month summary shows trusted category usage plus a separate incomplete-review warning/bucket when review is unfinished.
-- [ ] 3.7 A user can create, edit, and delete a field-aware rule from the dashboard.
+- [x] 3.4 Visiting `/dashboard` while signed out redirects to `/auth/signin`.
+- [x] 3.5 A signed-in user lands on the latest imported month by default and can switch to another available month.
+- [x] 3.6 The selected-month summary shows trusted category usage plus a separate incomplete-review warning/bucket when review is unfinished.
+- [x] 3.7 A user can create, edit, and delete a field-aware rule from the dashboard.
 
 ### Phase 4: Regression Coverage and Roadmap Readiness
 

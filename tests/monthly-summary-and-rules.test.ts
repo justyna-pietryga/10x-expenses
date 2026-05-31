@@ -1,4 +1,9 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import { IncompleteReviewNotice } from "@/components/dashboard/IncompleteReviewNotice";
+import { MonthlySummaryHeader } from "@/components/dashboard/MonthlySummaryHeader";
+import { RuleManager } from "@/components/rules/RuleManager";
 import { createClient } from "@/lib/supabase";
 import { loadDashboardSummary } from "@/lib/summary/data";
 import { findMatchingRule, ruleMatchesTransaction } from "@/lib/rules/data";
@@ -502,5 +507,111 @@ describe("summary and rule API routes", () => {
     } as never);
 
     expect(deleteResponse.status).toBe(200);
+  });
+});
+
+describe("summary UI", () => {
+  it("renders the incomplete-review warning and imports guidance", () => {
+    const markup = renderToStaticMarkup(
+      createElement(IncompleteReviewNotice, {
+        incompleteReviewSpend: 45.75,
+        warningBatches: [
+          {
+            bank: "revolut",
+            id: "batch-pending",
+            imported_at: "2026-05-30T12:00:00.000Z",
+            review_completed_at: null,
+            source_filename: "pending.csv",
+          },
+        ],
+      }),
+    );
+
+    expect(markup).toContain("Incomplete imported spend stays separate");
+    expect(markup).toContain("/imports");
+    expect(markup).toContain("pending.csv");
+  });
+
+  it("renders month switching controls and pending-review messaging", () => {
+    const markup = renderToStaticMarkup(
+      createElement(MonthlySummaryHeader, {
+        availableMonths: [
+          {
+            has_completed_review: true,
+            has_income: true,
+            has_pending_review: false,
+            month: "2026-05-01",
+          },
+          {
+            has_completed_review: true,
+            has_income: true,
+            has_pending_review: true,
+            month: "2026-04-01",
+          },
+        ],
+        hasIncompleteReview: true,
+        isRefreshing: false,
+        onMonthChange: vi.fn(),
+        selectedMonth: "2026-05-01",
+        updatedAt: "2026-05-31T12:00:00.000Z",
+      }),
+    );
+
+    expect(markup).toContain("Dashboard for");
+    expect(markup).toContain("Selected month");
+    expect(markup).toContain("Some imported spend is still pending review");
+    expect(markup).toContain("2026-05");
+    expect(markup).toContain("2026-04");
+  });
+
+  it("renders saved rules in user language with create and delete actions", () => {
+    const markup = renderToStaticMarkup(
+      createElement(RuleManager, {
+        categories: [
+          {
+            archived_at: null,
+            carryover_enabled: false,
+            created_at: "2026-04-01T00:00:00.000Z",
+            id: "cat-food",
+            name: "Food",
+            percentage_limit: 20,
+            updated_at: "2026-04-01T00:00:00.000Z",
+            user_id: "user-1",
+          },
+        ],
+        isBusy: false,
+        onCreateRule: vi.fn(() => Promise.resolve()),
+        onDeleteRule: vi.fn(() => Promise.resolve()),
+        onUpdateRule: vi.fn(() => Promise.resolve()),
+        rules: [
+          {
+            created_at: "2026-05-31T12:00:00.000Z",
+            id: "rule-1",
+            match_field: "recipient",
+            match_text: "Lidl",
+            target_category: {
+              archived_at: null,
+              carryover_enabled: false,
+              created_at: "2026-04-01T00:00:00.000Z",
+              id: "cat-food",
+              name: "Food",
+              percentage_limit: 20,
+              updated_at: "2026-04-01T00:00:00.000Z",
+              user_id: "user-1",
+            },
+            target_category_id: "cat-food",
+            updated_at: "2026-05-31T12:00:00.000Z",
+            user_id: "user-1",
+          },
+        ],
+      }),
+    );
+
+    expect(markup).toContain("Match");
+    expect(markup).toContain("contains");
+    expect(markup).toContain("Lidl");
+    expect(markup).toContain("Food");
+    expect(markup).toContain("Add rule");
+    expect(markup).toContain("Delete");
   });
 });

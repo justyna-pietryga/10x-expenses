@@ -1,27 +1,58 @@
 ---
+import Topbar from "@/components/Topbar.astro";
+import { SummaryWorkspace } from "@/components/dashboard/SummaryWorkspace";
+import { listActiveCategories, type BudgetCategory } from "@/lib/budget/data";
+import { listRules, type RuleWithCategory } from "@/lib/rules/data";
+import { loadDashboardSummary, type MonthlySummaryResult } from "@/lib/summary/data";
 import Layout from "@/layouts/Layout.astro";
+import { createClient } from "@/lib/supabase";
 
 const { user } = Astro.locals;
+const supabase = createClient(Astro.request.headers, Astro.cookies);
+
+let categories: BudgetCategory[] = [];
+let summary: MonthlySummaryResult | null = null;
+let rules: RuleWithCategory[] = [];
+let loadError: string | null = null;
+
+if (supabase && user) {
+  try {
+    [summary, categories, rules] = await Promise.all([
+      loadDashboardSummary(supabase, user.id, Astro.url.searchParams.get("month")),
+      listActiveCategories(supabase, user.id),
+      listRules(supabase, user.id),
+    ]);
+  } catch (error) {
+    loadError = error instanceof Error ? error.message : "Could not load the dashboard summary";
+  }
+}
 ---
 
 <Layout title="Dashboard">
-  <div class="bg-cosmic flex min-h-screen items-center justify-center p-4">
-    <div class="rounded-2xl border border-white/10 bg-white/10 p-8 text-center text-white backdrop-blur-xl">
-      <h1 class="mb-4 bg-gradient-to-r from-blue-200 to-purple-200 bg-clip-text text-3xl font-bold text-transparent">
-        Dashboard
-      </h1>
-      <p class="text-blue-100/80">
-        Welcome, <span class="font-semibold text-white">{user?.email}</span>
-      </p>
-      <p class="mt-2 text-sm text-blue-100/50">This page is only for authenticated users.</p>
-      <form method="POST" action="/api/auth/signout" class="mt-6">
-        <button
-          type="submit"
-          class="rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm transition-colors hover:bg-white/20"
-        >
-          Sign out
-        </button>
-      </form>
+  <main class="bg-cosmic min-h-screen">
+    <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <Topbar />
+
+      <section
+        class="relative overflow-hidden rounded-[36px] border border-white/10 bg-slate-950/45 px-6 py-8 shadow-[0_25px_120px_rgba(15,23,42,0.45)] backdrop-blur-xl sm:px-8"
+      >
+        <div class="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-300/60 to-transparent">
+        </div>
+        <div class="absolute top-[-4rem] -right-20 size-52 rounded-full bg-cyan-400/20 blur-3xl"></div>
+        <div class="absolute bottom-[-6rem] -left-16 size-56 rounded-full bg-amber-300/15 blur-3xl"></div>
+
+        <div class="relative z-10">
+          {
+            loadError || !summary ? (
+              <div class="rounded-3xl border border-rose-300/25 bg-rose-400/10 px-5 py-4 text-sm text-rose-100">
+                {loadError ?? "Could not load the dashboard summary"}
+              </div>
+            ) : (
+              <SummaryWorkspace client:load categories={categories} initialRules={rules} initialSummary={summary} />
+            )
+          }
+        </div>
+      </section>
     </div>
-  </div>
+  </main>
 </Layout>
