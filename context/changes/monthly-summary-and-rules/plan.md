@@ -593,44 +593,44 @@ Do not commit real financial data or private exports. Summary tests should use s
 
 #### Automated
 
-- [x] 1.1 `npx supabase db reset` applies the rule and category migration cleanly.
-- [x] 1.2 Generated types expose `categorization_rules.match_field`, `categorization_rules.match_text`, and `budget_categories.carryover_enabled`.
-- [x] 1.3 `npx astro check` passes after the type refresh.
+- [x] 1.1 `npx supabase db reset` applies the rule and category migration cleanly. — 5c8c098
+- [x] 1.2 Generated types expose `categorization_rules.match_field`, `categorization_rules.match_text`, and `budget_categories.carryover_enabled`. — 5c8c098
+- [x] 1.3 `npx astro check` passes after the type refresh. — 5c8c098
 
 #### Manual
 
-- [x] 1.4 Confirm existing S-02 rules backfill to a field-aware equivalent instead of changing meaning.
-- [x] 1.5 Confirm only explicitly marked savings categories participate in carry-over.
+- [x] 1.4 Confirm existing S-02 rules backfill to a field-aware equivalent instead of changing meaning. — 5c8c098
+- [x] 1.5 Confirm only explicitly marked savings categories participate in carry-over. — 5c8c098
 
 ### Phase 2: Summary Engine and Rule APIs
 
 #### Automated
 
-- [x] 2.1 Summary-engine tests pass for selected-month resolution, reviewed-versus-incomplete bucketing, limit math, and savings carry-over behavior.
-- [x] 2.2 Rule helper and API tests pass for list/create/update/delete plus field-aware contains matching.
-- [x] 2.3 `npx astro check` passes.
-- [x] 2.4 Targeted lint passes for the new summary and rules files.
+- [x] 2.1 Summary-engine tests pass for selected-month resolution, reviewed-versus-incomplete bucketing, limit math, and savings carry-over behavior. — 95d0e24
+- [x] 2.2 Rule helper and API tests pass for list/create/update/delete plus field-aware contains matching. — 95d0e24
+- [x] 2.3 `npx astro check` passes. — 95d0e24
+- [x] 2.4 Targeted lint passes for the new summary and rules files. — 95d0e24
 
 #### Manual
 
-- [x] 2.5 Loading a month summary with incomplete imports shows a warning plus separate incomplete-review amount instead of silently blending that spend into trusted category totals.
-- [x] 2.6 A savings-marked category carries unused allowance into a later month, while a normal category does not.
-- [x] 2.7 Creating and editing a field-aware rule behaves as expected for `title`, `recipient`, and `both`.
+- [x] 2.5 Loading a month summary with incomplete imports shows a warning plus separate incomplete-review amount instead of silently blending that spend into trusted category totals. — 95d0e24
+- [x] 2.6 A savings-marked category carries unused allowance into a later month, while a normal category does not. — 95d0e24
+- [x] 2.7 Creating and editing a field-aware rule behaves as expected for `title`, `recipient`, and `both`. — 95d0e24
 
 ### Phase 3: Dashboard Summary and Rules UI
 
 #### Automated
 
-- [x] 3.1 The dashboard route type-checks with its summary and rules data contracts.
-- [x] 3.2 `npm run build` passes.
-- [x] 3.3 UI-focused tests cover month switching, incomplete-review warnings, and rule CRUD states.
+- [x] 3.1 The dashboard route type-checks with its summary and rules data contracts. — fb6f8a8
+- [x] 3.2 `npm run build` passes. — fb6f8a8
+- [x] 3.3 UI-focused tests cover month switching, incomplete-review warnings, and rule CRUD states. — fb6f8a8
 
 #### Manual
 
-- [x] 3.4 Visiting `/dashboard` while signed out redirects to `/auth/signin`.
-- [x] 3.5 A signed-in user lands on the latest imported month by default and can switch to another available month.
-- [x] 3.6 The selected-month summary shows trusted category usage plus a separate incomplete-review warning/bucket when review is unfinished.
-- [x] 3.7 A user can create, edit, and delete a field-aware rule from the dashboard.
+- [x] 3.4 Visiting `/dashboard` while signed out redirects to `/auth/signin`. — fb6f8a8
+- [x] 3.5 A signed-in user lands on the latest imported month by default and can switch to another available month. — fb6f8a8
+- [x] 3.6 The selected-month summary shows trusted category usage plus a separate incomplete-review warning/bucket when review is unfinished. — fb6f8a8
+- [x] 3.7 A user can create, edit, and delete a field-aware rule from the dashboard. — fb6f8a8
 
 ### Phase 4: Regression Coverage and Roadmap Readiness
 

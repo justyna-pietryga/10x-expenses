@@ -2,6 +2,7 @@
 import Topbar from "@/components/Topbar.astro";
 import { SummaryWorkspace } from "@/components/dashboard/SummaryWorkspace";
 import { listActiveCategories, type BudgetCategory } from "@/lib/budget/data";
+import { validateMonthString } from "@/lib/budget/validation";
 import { listRules, type RuleWithCategory } from "@/lib/rules/data";
 import { loadDashboardSummary, type MonthlySummaryResult } from "@/lib/summary/data";
 import Layout from "@/layouts/Layout.astro";
@@ -17,8 +18,11 @@ let loadError: string | null = null;
 
 if (supabase && user) {
   try {
+    const rawMonth = Astro.url.searchParams.get("month");
+    const selectedMonth = rawMonth ? validateMonthString(rawMonth) : null;
+
     [summary, categories, rules] = await Promise.all([
-      loadDashboardSummary(supabase, user.id, Astro.url.searchParams.get("month")),
+      loadDashboardSummary(supabase, user.id, selectedMonth),
       listActiveCategories(supabase, user.id),
       listRules(supabase, user.id),
     ]);
