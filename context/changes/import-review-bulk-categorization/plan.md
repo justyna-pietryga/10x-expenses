@@ -373,18 +373,18 @@ No database migration is expected. This change uses existing `transactions.categ
 
 #### Automated
 
-- [ ] 3.1 `npm test -- tests/import-review.test.ts` passes with workspace and completion guard coverage.
-- [ ] 3.2 `npx astro check` passes.
-- [ ] 3.3 `npm run build` passes.
-- [ ] 3.4 Targeted `npx eslint src/components/imports/ImportWorkspace.tsx src/components/imports/ReviewCompletionBar.tsx tests/import-review.test.ts` passes.
+- [x] 3.1 `npm test -- tests/import-review.test.ts` passes with workspace and completion guard coverage.
+- [x] 3.2 `npx astro check` passes.
+- [x] 3.3 `npm run build` passes.
+- [x] 3.4 Targeted `npx eslint src/components/imports/ImportWorkspace.tsx src/components/imports/ReviewCompletionBar.tsx tests/import-review.test.ts` passes.
 
 #### Manual
 
-- [ ] 3.5 A signed-in user can change categories on multiple imported rows and save them once.
-- [ ] 3.6 Saved rows update in place and the unsaved count clears for those rows.
-- [ ] 3.7 Failed rows remain dirty and retryable.
-- [ ] 3.8 `Mark review complete` is disabled while category changes are unsaved.
-- [ ] 3.9 Review completion works after saving or discarding all category changes.
+- [x] 3.5 A signed-in user can change categories on multiple imported rows and save them once.
+- [x] 3.6 Saved rows update in place and the unsaved count clears for those rows.
+- [x] 3.7 Failed rows remain dirty and retryable.
+- [x] 3.8 `Mark review complete` is disabled while category changes are unsaved.
+- [x] 3.9 Review completion works after saving or discarding all category changes.
 
 ### Phase 4: Regression and Handoff
 

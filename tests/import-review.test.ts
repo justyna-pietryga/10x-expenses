@@ -5,6 +5,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { ImportUploadForm } from "@/components/imports/ImportUploadForm";
 import {
+  mergeImportedTransactionCategoryUpdates,
+  saveImportCategoryChanges,
+} from "@/components/imports/ImportWorkspace";
+import { ReviewCompletionBar } from "@/components/imports/ReviewCompletionBar";
+import {
   buildBulkSaveFeedback,
   buildDirtyCategoryUpdates,
   TransactionReviewTable,
@@ -1224,6 +1229,96 @@ describe("transaction review table", () => {
   });
 });
 
+describe("import workspace helpers", () => {
+  it("sends bulk category drafts to the bulk review endpoint", async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve({
+        json: () =>
+          Promise.resolve({
+            failed: [
+              {
+                error: "Imported transaction was not found",
+                transaction_id: "tx-2",
+              },
+            ],
+            updated: [
+              {
+                category_id: "cat-travel",
+                id: "tx-1",
+              },
+            ],
+          }),
+        ok: true,
+      } satisfies Pick<Response, "json" | "ok">),
+    ) as unknown as typeof fetch;
+
+    await expect(
+      saveImportCategoryChanges(
+        [
+          {
+            category_id: "cat-travel",
+            transaction_id: "tx-1",
+          },
+          {
+            category_id: "cat-food",
+            transaction_id: "tx-2",
+          },
+        ],
+        fetchMock,
+      ),
+    ).resolves.toEqual({
+      failed: [
+        {
+          error: "Imported transaction was not found",
+          transaction_id: "tx-2",
+        },
+      ],
+      updated: [
+        {
+          category_id: "cat-travel",
+          id: "tx-1",
+        },
+      ],
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/imports/transactions/bulk", {
+      body: JSON.stringify({
+        updates: [
+          {
+            category_id: "cat-travel",
+            transaction_id: "tx-1",
+          },
+          {
+            category_id: "cat-food",
+            transaction_id: "tx-2",
+          },
+        ],
+      }),
+      headers: {
+        "content-type": "application/json",
+      },
+      method: "PATCH",
+    });
+  });
+
+  it("merges successful bulk category saves into local transactions only for updated rows", () => {
+    expect(
+      mergeImportedTransactionCategoryUpdates(reviewTransactions, [
+        {
+          category_id: "cat-travel",
+          id: "tx-1",
+        },
+      ]),
+    ).toEqual([
+      {
+        ...reviewTransactions[0],
+        category_id: "cat-travel",
+      },
+      reviewTransactions[1],
+    ]);
+  });
+});
+
 describe("import UI", () => {
   it("renders a bank selector for Revolut and ING uploads", () => {
     const markup = renderToStaticMarkup(
@@ -1305,5 +1400,33 @@ describe("import UI", () => {
 
     expect(markup).toContain("ING CSV");
     expect(markup).toContain("1 imported rows");
+  });
+
+  it("renders completion-blocked copy and disables review completion while drafts are unsaved", () => {
+    const markup = renderToStaticMarkup(
+      createElement(ReviewCompletionBar, {
+        batch: {
+          bank: "revolut",
+          created_at: "2026-05-30T08:00:00.000Z",
+          id: "batch-1",
+          imported_at: "2026-05-30T08:00:00.000Z",
+          period_end: "2026-05-29",
+          period_start: "2026-05-01",
+          review_completed_at: null,
+          source_filename: "revolut.csv",
+          statement_month: "2026-05-01",
+          updated_at: "2026-05-30T08:00:00.000Z",
+          user_id: "user-1",
+        },
+        completionBlockedReason: "Save or discard category changes before marking this review complete.",
+        isCompletionBlocked: true,
+        onComplete: vi.fn(() => Promise.resolve()),
+        transactionCount: 2,
+      }),
+    );
+
+    expect(markup).toContain("Save or discard category changes before marking this review complete.");
+    expect(markup).toContain("disabled");
+    expect(markup).toContain("Mark review complete");
   });
 });

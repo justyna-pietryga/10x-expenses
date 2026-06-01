@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { BudgetCategory } from "@/lib/budget/data";
 import type { ImportCategoryUpdateFailure, ImportedTransaction } from "@/lib/imports/data";
@@ -15,6 +15,7 @@ export interface ImportCategorySaveResult {
 
 interface Props {
   categories: BudgetCategory[];
+  onDirtyStateChange?: (hasDirtyChanges: boolean) => void;
   onSaveCategoryChanges: (updates: ImportCategoryDraftUpdate[]) => Promise<ImportCategorySaveResult>;
   onSaveRuleShortcut: (transactionId: string, categoryId: string | null) => Promise<void>;
   transactions: ImportedTransaction[];
@@ -83,6 +84,7 @@ export function TransactionReviewTable({
   initialDrafts,
   initialRowErrors,
   initialSuccessById,
+  onDirtyStateChange,
   onSaveCategoryChanges,
   onSaveRuleShortcut,
   transactions,
@@ -96,6 +98,10 @@ export function TransactionReviewTable({
   const [successById, setSuccessById] = useState<Partial<Record<string, string>>>(initialSuccessById ?? {});
   const dirtyUpdates = buildDirtyCategoryUpdates(transactions, drafts);
   const dirtyCount = dirtyUpdates.length;
+
+  useEffect(() => {
+    onDirtyStateChange?.(dirtyCount > 0);
+  }, [dirtyCount, onDirtyStateChange]);
 
   async function handleSaveAllChanges() {
     if (dirtyUpdates.length === 0) {
@@ -135,7 +141,9 @@ export function TransactionReviewTable({
 
     try {
       const draftValue = drafts[transactionId];
-      const categoryId = draftValue === undefined ? null : draftValue === "" ? null : draftValue;
+      const transaction = transactions.find((item) => item.id === transactionId);
+      const categoryId =
+        draftValue === undefined ? (transaction?.category_id ?? null) : draftValue === "" ? null : draftValue;
 
       await onSaveRuleShortcut(transactionId, categoryId);
       setSaveRuleById((current) => ({ ...current, [transactionId]: false }));
