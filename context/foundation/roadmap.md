@@ -34,7 +34,7 @@ The main planning constraint is `time`: the PRD sets a 3-week after-hours MVP, s
 | S-02  | first-bank-import-review          | user can choose a supported bank, import one supported statement format, review parsed transactions, and replace an existing bank-month batch | F-01, S-01    | FR-001, FR-002, FR-003, FR-005, FR-006, FR-010              | done     |
 | S-03  | monthly-summary-and-rules         | user can save reusable categorization rules and see monthly category usage against income and limits                                          | S-01, S-02    | US-01, FR-001, FR-010, FR-011, FR-012                       | done     |
 | S-04  | second-supported-format           | user can repeat the import-and-review flow with a second supported statement format                                                           | S-02          | FR-004                                                      | done     |
-| UX-01 | import-review-bulk-categorization | user can review many imported transactions efficiently, save category changes in bulk, and clearly see unsaved state                          | S-02          | FR-006, FR-010                                              | implemented |
+| UX-01 | import-review-bulk-categorization | user can review many imported transactions efficiently, save category changes in bulk, and clearly see unsaved state                          | S-02          | FR-006, FR-010                                              | done |
 | UX-02 | import-review-rule-application    | user can create field-aware rules from import review, see rule-backed rows, and apply a new rule to matching rows in the current batch        | UX-01, S-03   | FR-010, FR-011                                              | proposed |
 | UX-03 | management-surface-density        | user can scan and manage categories and rules in denser operational layouts without excessive scrolling                                       | UX-01, UX-02  | FR-007, FR-011                                              | proposed |
 | UX-04 | uncategorized-review-prioritization | user can prioritize uncategorized transactions during import review by surfacing them first and/or filtering the list to only those rows     | UX-01         | FR-006, FR-010                                              | proposed |
@@ -128,7 +128,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** -
 - **Unknowns:** exact row-level error copy and save-all placement should be validated during implementation.
 - **Risk:** If review stays row-by-row, users must repeat low-value clicks and may lose trust in whether category edits were saved.
-- **Status:** implemented
+- **Status:** done
 
 ### UX-02: Import review rule application
 
@@ -204,3 +204,4 @@ This table is the clean handoff to Jira/Linear or any MCP-backed backlog. Includ
 - **S-02: user can choose a supported bank, import one supported statement format, review parsed transactions, and replace an existing bank-month batch** - Archived 2026-05-30 -> `context/archive/2026-05-29-first-bank-import-review/`. Lesson: -.
 - **S-03: user can save reusable categorization rules and see monthly category usage against income and limits** - Archived 2026-05-31 -> `context/archive/2026-05-30-monthly-summary-and-rules/`. Lesson: -.
 - **S-04: user can repeat the import-and-review flow with a second supported statement format** - Archived 2026-06-01 -> `context/archive/2026-05-31-second-supported-format/`. Lesson: -.
+- **UX-01: user can review many imported transactions efficiently, save category changes in bulk, and clearly see unsaved state** - Archived 2026-06-01 -> `context/archive/2026-06-01-import-review-bulk-categorization/`. Lesson: -.
