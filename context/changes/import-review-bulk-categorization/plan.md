@@ -365,9 +365,9 @@ No database migration is expected. This change uses existing `transactions.categ
 
 - [x] 2.4 Confirm the table shows no unsaved-change controls before categories are changed.
 - [x] 2.5 Confirm changing categories on multiple rows shows the correct unsaved-change count.
-- [ ] 2.6 Confirm `Discard changes` returns category selects to their persisted values.
-- [ ] 2.7 Confirm `Save all changes` is category-only and does not create rules.
-- [ ] 2.8 Confirm failed rows remain dirty and display row-level errors after a partial failure.
+- [x] 2.6 Confirm `Discard changes` returns category selects to their persisted values.
+- [x] 2.7 Confirm `Save all changes` is category-only and does not create rules.
+- [x] 2.8 Confirm failed rows remain dirty and display row-level errors after a partial failure.
 
 ### Phase 3: Workspace Wiring and Completion Guard
 
@@ -390,13 +390,13 @@ No database migration is expected. This change uses existing `transactions.categ
 
 #### Automated
 
-- [ ] 4.1 `npm test -- tests/import-review.test.ts` passes.
-- [ ] 4.2 `npx astro check` passes.
-- [ ] 4.3 `npm run build` passes.
-- [ ] 4.4 Targeted lint passes for the touched import API/UI/test files.
+- [x] 4.1 `npm test -- tests/import-review.test.ts` passes.
+- [x] 4.2 `npx astro check` passes.
+- [x] 4.3 `npm run build` passes.
+- [x] 4.4 Targeted lint passes for the touched import API/UI/test files.
 
 #### Manual
 
-- [ ] 4.5 Review the plan brief and confirm `UX-01` is scoped to bulk category review only.
-- [ ] 4.6 Confirm `UX-02` remains the future home for rule provenance, field-aware import rule creation, and current-batch rule application.
-- [ ] 4.7 Confirm the manual verification instructions for each implementation phase are specific enough to follow step by step.
+- [x] 4.5 Review the plan brief and confirm `UX-01` is scoped to bulk category review only.
+- [x] 4.6 Confirm `UX-02` remains the future home for rule provenance, field-aware import rule creation, and current-batch rule application.
+- [x] 4.7 Confirm the manual verification instructions for each implementation phase are specific enough to follow step by step.
