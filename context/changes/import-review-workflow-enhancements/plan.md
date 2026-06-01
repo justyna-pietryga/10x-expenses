@@ -88,10 +88,10 @@ Add the framed post-MVP follow-ups to `context/foundation/roadmap.md` so the bac
 
 #### Automated
 
-- [x] 1.1 `rg -n "UX-01|UX-02|UX-03" context/foundation/roadmap.md` shows all three entries. — 1f8b01d
-- [x] 1.2 `npx prettier --check context/foundation/roadmap.md` passes. — 1f8b01d
+- [x] 1.1 `rg -n "UX-01|UX-02|UX-03" context/foundation/roadmap.md` shows all three entries. — fb2c994
+- [x] 1.2 `npx prettier --check context/foundation/roadmap.md` passes. — fb2c994
 
 #### Manual
 
-- [x] 1.3 Confirm the roadmap reflects three separate follow-ups rather than one large mixed enhancement. — 1f8b01d
-- [x] 1.4 Confirm `UX-01` is the first implementation target and `UX-02`/`UX-03` remain follow-ups. — 1f8b01d
+- [x] 1.3 Confirm the roadmap reflects three separate follow-ups rather than one large mixed enhancement. — fb2c994
+- [x] 1.4 Confirm `UX-01` is the first implementation target and `UX-02`/`UX-03` remain follow-ups. — fb2c994
