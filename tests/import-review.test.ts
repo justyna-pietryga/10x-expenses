@@ -4,9 +4,18 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { ImportUploadForm } from "@/components/imports/ImportUploadForm";
-import { validateImportCommitPayload, validateSupportedBank } from "@/lib/imports/validation";
+import {
+  validateImportCategoryUpdatesPayload,
+  validateImportCommitPayload,
+  validateSupportedBank,
+} from "@/lib/imports/validation";
 import { createClient } from "@/lib/supabase";
-import { commitImportBatch, markBatchReviewComplete, updateTransactionCategoryAndMaybeRule } from "@/lib/imports/data";
+import {
+  commitImportBatch,
+  markBatchReviewComplete,
+  updateImportTransactionCategories,
+  updateTransactionCategoryAndMaybeRule,
+} from "@/lib/imports/data";
 import { parseIngCsv } from "@/lib/imports/ingCsv";
 import { parseRevolutCsv } from "@/lib/imports/revolutCsv";
 
@@ -198,6 +207,101 @@ function buildImportSupabaseStub(options?: {
   };
 }
 
+function buildBulkImportSupabaseStub(options?: {
+  categories?: { archived_at: string | null; id: string; name: string; user_id: string }[];
+  transactions?: Record<string, { category_id: string | null; id: string; user_id: string }>;
+}) {
+  const categories = options?.categories ?? [
+    {
+      archived_at: null,
+      id: "cat-food",
+      name: "Food",
+      user_id: "user-1",
+    },
+    {
+      archived_at: null,
+      id: "cat-travel",
+      name: "Travel",
+      user_id: "user-1",
+    },
+  ];
+  const transactions = options?.transactions ?? {
+    "tx-empty": {
+      category_id: null,
+      id: "tx-empty",
+      user_id: "user-1",
+    },
+    "tx-food": {
+      category_id: "cat-food",
+      id: "tx-food",
+      user_id: "user-1",
+    },
+  };
+  const transactionUpdates: unknown[] = [];
+
+  const supabase = {
+    from: vi.fn((table: string) => {
+      if (table === "budget_categories") {
+        return {
+          select: vi.fn().mockReturnValue(createSelectChain(categories)),
+        };
+      }
+
+      if (table === "transactions") {
+        return {
+          update: vi.fn((values: { category_id: string | null }) => {
+            transactionUpdates.push(values);
+            const filters = new Map<string, string>();
+            const chain = {
+              eq: vi.fn((field: string, value: string) => {
+                filters.set(field, value);
+                return chain;
+              }),
+              select: vi.fn(() => chain),
+              single: vi.fn(() => {
+                const transactionId = filters.get("id");
+                const userId = filters.get("user_id");
+                const transaction = transactionId ? transactions[transactionId] : null;
+
+                if (!transaction || transaction.user_id !== userId) {
+                  return {
+                    data: null,
+                    error: {
+                      code: "PGRST116",
+                      message: "not found",
+                    },
+                  };
+                }
+
+                return {
+                  data: {
+                    ...transaction,
+                    category_id: values.category_id,
+                  },
+                  error: null,
+                };
+              }),
+            };
+
+            return chain;
+          }),
+        };
+      }
+
+      if (table === "categorization_rules") {
+        throw new Error("Bulk category updates must not touch categorization rules");
+      }
+
+      throw new Error(`Unexpected table ${table}`);
+    }),
+  };
+
+  return {
+    supabase,
+    transactionUpdates,
+  };
+}
+
 const validRevolutCsv = readFileSync(
   resolve(process.cwd(), "context/foundation/resources/revolut-statement-example.csv"),
   "utf8",
@@ -288,6 +392,68 @@ describe("import validation", () => {
     });
 
     expect(payload.bank).toBe("ing");
+  });
+
+  it("accepts bulk category update payloads", () => {
+    expect(
+      validateImportCategoryUpdatesPayload({
+        updates: [
+          {
+            category_id: "cat-food",
+            transaction_id: "tx-1",
+          },
+          {
+            category_id: null,
+            transaction_id: "tx-2",
+          },
+        ],
+      }),
+    ).toEqual({
+      updates: [
+        {
+          category_id: "cat-food",
+          transaction_id: "tx-1",
+        },
+        {
+          category_id: null,
+          transaction_id: "tx-2",
+        },
+      ],
+    });
+  });
+
+  it("rejects empty bulk category update payloads", () => {
+    expect(() =>
+      validateImportCategoryUpdatesPayload({
+        updates: [],
+      }),
+    ).toThrow(/updates must contain at least one/);
+  });
+
+  it("rejects rule creation flags in bulk category update payloads", () => {
+    expect(() =>
+      validateImportCategoryUpdatesPayload({
+        save_rule: true,
+        updates: [
+          {
+            category_id: "cat-food",
+            transaction_id: "tx-1",
+          },
+        ],
+      }),
+    ).toThrow(/cannot create rules/);
+
+    expect(() =>
+      validateImportCategoryUpdatesPayload({
+        updates: [
+          {
+            category_id: "cat-food",
+            save_rule: true,
+            transaction_id: "tx-1",
+          },
+        ],
+      }),
+    ).toThrow(/cannot create rules/);
   });
 });
 
@@ -460,6 +626,124 @@ describe("import data helpers", () => {
       transaction: {
         category_id: "cat-travel",
       },
+    });
+  });
+
+  it("updates multiple imported transaction categories without creating rules", async () => {
+    const { supabase, transactionUpdates } = buildBulkImportSupabaseStub();
+
+    await expect(
+      updateImportTransactionCategories(supabase as never, "user-1", [
+        {
+          category_id: "cat-travel",
+          transaction_id: "tx-food",
+        },
+        {
+          category_id: "cat-food",
+          transaction_id: "tx-empty",
+        },
+      ]),
+    ).resolves.toMatchObject({
+      failed: [],
+      updated: [
+        {
+          category_id: "cat-travel",
+          id: "tx-food",
+        },
+        {
+          category_id: "cat-food",
+          id: "tx-empty",
+        },
+      ],
+    });
+    expect(transactionUpdates).toEqual([{ category_id: "cat-travel" }, { category_id: "cat-food" }]);
+  });
+
+  it("allows bulk updates to clear a category", async () => {
+    const { supabase } = buildBulkImportSupabaseStub();
+
+    await expect(
+      updateImportTransactionCategories(supabase as never, "user-1", [
+        {
+          category_id: null,
+          transaction_id: "tx-food",
+        },
+      ]),
+    ).resolves.toMatchObject({
+      failed: [],
+      updated: [
+        {
+          category_id: null,
+          id: "tx-food",
+        },
+      ],
+    });
+  });
+
+  it("returns mixed bulk category update results when one row fails", async () => {
+    const { supabase } = buildBulkImportSupabaseStub();
+
+    await expect(
+      updateImportTransactionCategories(supabase as never, "user-1", [
+        {
+          category_id: "cat-travel",
+          transaction_id: "tx-food",
+        },
+        {
+          category_id: "cat-travel",
+          transaction_id: "tx-missing",
+        },
+        {
+          category_id: "cat-unknown",
+          transaction_id: "tx-empty",
+        },
+      ]),
+    ).resolves.toMatchObject({
+      failed: [
+        {
+          error: "Imported transaction was not found",
+          transaction_id: "tx-missing",
+        },
+        {
+          error: "Selected category was not found",
+          transaction_id: "tx-empty",
+        },
+      ],
+      updated: [
+        {
+          category_id: "cat-travel",
+          id: "tx-food",
+        },
+      ],
+    });
+  });
+
+  it("does not bulk update transactions owned by another user", async () => {
+    const { supabase } = buildBulkImportSupabaseStub({
+      transactions: {
+        "tx-other-user": {
+          category_id: "cat-food",
+          id: "tx-other-user",
+          user_id: "user-2",
+        },
+      },
+    });
+
+    await expect(
+      updateImportTransactionCategories(supabase as never, "user-1", [
+        {
+          category_id: "cat-travel",
+          transaction_id: "tx-other-user",
+        },
+      ]),
+    ).resolves.toMatchObject({
+      failed: [
+        {
+          error: "Imported transaction was not found",
+          transaction_id: "tx-other-user",
+        },
+      ],
+      updated: [],
     });
   });
 
@@ -656,6 +940,110 @@ describe("import API routes", () => {
 
     expect(payload.transaction.category_id).toBe("cat-travel");
     expect(payload.rule?.target_category_id).toBe("cat-travel");
+  });
+
+  it("updates category assignments through the bulk transaction review route", async () => {
+    const bulkRoute: typeof import("@/pages/api/imports/transactions/bulk") =
+      await import("@/pages/api/imports/transactions/bulk");
+    const { supabase } = buildBulkImportSupabaseStub();
+
+    vi.mocked(createClient).mockReturnValue(supabase as never);
+
+    const response = await bulkRoute.PATCH({
+      cookies: {} as never,
+      locals: {
+        user: {
+          id: "user-1",
+          email: "user@example.com",
+        },
+      },
+      params: {},
+      redirect: vi.fn(),
+      request: new Request("http://localhost/api/imports/transactions/bulk", {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          updates: [
+            {
+              category_id: "cat-travel",
+              transaction_id: "tx-food",
+            },
+            {
+              category_id: "cat-travel",
+              transaction_id: "tx-missing",
+            },
+          ],
+        }),
+      }),
+    } as never);
+
+    expect(response.status).toBe(200);
+    const payload = (await response.json()) as {
+      failed: { error: string; transaction_id: string }[];
+      updated: { category_id: string | null; id: string }[];
+    };
+
+    expect(payload).toMatchObject({
+      failed: [
+        {
+          error: "Imported transaction was not found",
+          transaction_id: "tx-missing",
+        },
+      ],
+      updated: [
+        {
+          category_id: "cat-travel",
+          id: "tx-food",
+        },
+      ],
+    });
+  });
+
+  it("returns an error when no bulk transaction review rows can be saved", async () => {
+    const bulkRoute: typeof import("@/pages/api/imports/transactions/bulk") =
+      await import("@/pages/api/imports/transactions/bulk");
+    const { supabase } = buildBulkImportSupabaseStub();
+
+    vi.mocked(createClient).mockReturnValue(supabase as never);
+
+    const response = await bulkRoute.PATCH({
+      cookies: {} as never,
+      locals: {
+        user: {
+          id: "user-1",
+          email: "user@example.com",
+        },
+      },
+      params: {},
+      redirect: vi.fn(),
+      request: new Request("http://localhost/api/imports/transactions/bulk", {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          updates: [
+            {
+              category_id: "cat-travel",
+              transaction_id: "tx-missing",
+            },
+          ],
+        }),
+      }),
+    } as never);
+
+    expect(response.status).toBe(400);
+    const payload = (await response.json()) as {
+      error: string;
+      field: string | null;
+    };
+
+    expect(payload).toMatchObject({
+      error: "No transaction categories could be updated",
+      field: "updates",
+    });
   });
 });
 

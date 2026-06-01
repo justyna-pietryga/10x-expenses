@@ -2,7 +2,7 @@ import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 import { listActiveCategories } from "@/lib/budget/data";
 import type { Database, Tables } from "@/lib/database.types";
 import { ImportError } from "@/lib/imports/errors";
-import type { ImportCommitPayload } from "@/lib/imports/validation";
+import type { ImportCategoryUpdatePayload, ImportCommitPayload } from "@/lib/imports/validation";
 import { findMatchingRule, listRules } from "@/lib/rules/data";
 
 type ImportClient = SupabaseClient<Database>;
@@ -22,6 +22,11 @@ export type ExistingImportBatchSummary = Pick<
   | "source_filename"
   | "statement_month"
 >;
+
+export interface ImportCategoryUpdateFailure {
+  error: string;
+  transaction_id: string;
+}
 
 function mapPostgrestError(error: PostgrestError | null, fallbackMessage: string) {
   if (!error) {
@@ -81,6 +86,14 @@ async function ensureOwnedImportCategory(supabase: ImportClient, userId: string,
   }
 
   return category;
+}
+
+function mapTransactionUpdateFailure(error: PostgrestError | null) {
+  if (error?.code === "PGRST116") {
+    return "Imported transaction was not found";
+  }
+
+  return "Imported transaction could not be updated";
 }
 
 export async function commitImportBatch(supabase: ImportClient, userId: string, payload: ImportCommitPayload) {
@@ -275,6 +288,52 @@ export async function updateTransactionCategoryAndMaybeRule(
   return {
     rule,
     transaction,
+  };
+}
+
+export async function updateImportTransactionCategories(
+  supabase: ImportClient,
+  userId: string,
+  updates: ImportCategoryUpdatePayload["updates"],
+) {
+  const activeCategories = await listActiveCategories(supabase, userId);
+  const activeCategoryIds = new Set(activeCategories.map((category) => category.id));
+  const updated: ImportedTransaction[] = [];
+  const failed: ImportCategoryUpdateFailure[] = [];
+
+  for (const update of updates) {
+    if (update.category_id && !activeCategoryIds.has(update.category_id)) {
+      failed.push({
+        error: "Selected category was not found",
+        transaction_id: update.transaction_id,
+      });
+      continue;
+    }
+
+    const { data: transaction, error } = await supabase
+      .from("transactions")
+      .update({
+        category_id: update.category_id,
+      })
+      .eq("id", update.transaction_id)
+      .eq("user_id", userId)
+      .select()
+      .single();
+
+    if (error) {
+      failed.push({
+        error: mapTransactionUpdateFailure(error),
+        transaction_id: update.transaction_id,
+      });
+      continue;
+    }
+
+    updated.push(transaction);
+  }
+
+  return {
+    failed,
+    updated,
   };
 }
 
