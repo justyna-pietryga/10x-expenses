@@ -343,31 +343,31 @@ No database migration is expected. This change uses existing `transactions.categ
 
 #### Automated
 
-- [x] 1.1 `npm test -- tests/import-review.test.ts` passes with bulk validation, helper, and route coverage.
-- [x] 1.2 `npx astro check` passes.
-- [x] 1.3 Targeted `npx eslint src/lib/imports/validation.ts src/lib/imports/data.ts src/pages/api/imports/transactions/bulk.ts tests/import-review.test.ts` passes.
+- [x] 1.1 `npm test -- tests/import-review.test.ts` passes with bulk validation, helper, and route coverage. — 0980527
+- [x] 1.2 `npx astro check` passes. — 0980527
+- [x] 1.3 Targeted `npx eslint src/lib/imports/validation.ts src/lib/imports/data.ts src/pages/api/imports/transactions/bulk.ts tests/import-review.test.ts` passes. — 0980527
 
 #### Manual
 
-- [x] 1.4 Confirm the bulk endpoint accepts only `updates[].transaction_id` and `updates[].category_id`.
-- [x] 1.5 Confirm the bulk endpoint does not accept `save_rule` and does not create categorization rules.
-- [x] 1.6 Confirm updates are filtered by current user and cannot update another user's transactions or categories.
+- [x] 1.4 Confirm the bulk endpoint accepts only `updates[].transaction_id` and `updates[].category_id`. — 0980527
+- [x] 1.5 Confirm the bulk endpoint does not accept `save_rule` and does not create categorization rules. — 0980527
+- [x] 1.6 Confirm updates are filtered by current user and cannot update another user's transactions or categories. — 0980527
 
 ### Phase 2: Review Table Dirty-State UI
 
 #### Automated
 
-- [x] 2.1 `npm test -- tests/import-review.test.ts` passes with review table dirty-state coverage.
-- [x] 2.2 `npx astro check` passes.
-- [x] 2.3 Targeted `npx eslint src/components/imports/TransactionReviewTable.tsx tests/import-review.test.ts` passes.
+- [x] 2.1 `npm test -- tests/import-review.test.ts` passes with review table dirty-state coverage. — 8d4da4e
+- [x] 2.2 `npx astro check` passes. — 8d4da4e
+- [x] 2.3 Targeted `npx eslint src/components/imports/TransactionReviewTable.tsx tests/import-review.test.ts` passes. — 8d4da4e
 
 #### Manual
 
-- [x] 2.4 Confirm the table shows no unsaved-change controls before categories are changed.
-- [x] 2.5 Confirm changing categories on multiple rows shows the correct unsaved-change count.
-- [x] 2.6 Confirm `Discard changes` returns category selects to their persisted values.
-- [x] 2.7 Confirm `Save all changes` is category-only and does not create rules.
-- [x] 2.8 Confirm failed rows remain dirty and display row-level errors after a partial failure.
+- [x] 2.4 Confirm the table shows no unsaved-change controls before categories are changed. — 8d4da4e
+- [x] 2.5 Confirm changing categories on multiple rows shows the correct unsaved-change count. — 8d4da4e
+- [x] 2.6 Confirm `Discard changes` returns category selects to their persisted values. — 8cee8df
+- [x] 2.7 Confirm `Save all changes` is category-only and does not create rules. — 8cee8df
+- [x] 2.8 Confirm failed rows remain dirty and display row-level errors after a partial failure. — 8cee8df
 
 ### Phase 3: Workspace Wiring and Completion Guard
 
@@ -390,13 +390,13 @@ No database migration is expected. This change uses existing `transactions.categ
 
 #### Automated
 
-- [x] 4.1 `npm test -- tests/import-review.test.ts` passes.
-- [x] 4.2 `npx astro check` passes.
-- [x] 4.3 `npm run build` passes.
-- [x] 4.4 Targeted lint passes for the touched import API/UI/test files.
+- [x] 4.1 `npm test -- tests/import-review.test.ts` passes. — 8cee8df
+- [x] 4.2 `npx astro check` passes. — 8cee8df
+- [x] 4.3 `npm run build` passes. — 8cee8df
+- [x] 4.4 Targeted lint passes for the touched import API/UI/test files. — 8cee8df
 
 #### Manual
 
-- [x] 4.5 Review the plan brief and confirm `UX-01` is scoped to bulk category review only.
-- [x] 4.6 Confirm `UX-02` remains the future home for rule provenance, field-aware import rule creation, and current-batch rule application.
-- [x] 4.7 Confirm the manual verification instructions for each implementation phase are specific enough to follow step by step.
+- [x] 4.5 Review the plan brief and confirm `UX-01` is scoped to bulk category review only. — 8cee8df
+- [x] 4.6 Confirm `UX-02` remains the future home for rule provenance, field-aware import rule creation, and current-batch rule application. — 8cee8df
+- [x] 4.7 Confirm the manual verification instructions for each implementation phase are specific enough to follow step by step. — 8cee8df
