@@ -442,16 +442,16 @@ Do not commit real banking exports or unsanitized statement files. The provided 
 
 #### Automated
 
-- [x] 3.1 The `/imports` route type-checks with the widened two-bank upload state.
-- [x] 3.2 `npm run build` passes.
-- [x] 3.3 UI-focused tests cover explicit bank selection and preserve replacement warning behavior.
+- [x] 3.1 The `/imports` route type-checks with the widened two-bank upload state. — f6deb8d
+- [x] 3.2 `npm run build` passes. — f6deb8d
+- [x] 3.3 UI-focused tests cover explicit bank selection and preserve replacement warning behavior. — f6deb8d
 
 #### Manual
 
-- [x] 3.4 Visiting `/imports` while signed out redirects to `/auth/signin`.
-- [x] 3.5 A signed-in user can choose Revolut or ING before uploading.
-- [x] 3.6 Choosing ING and uploading the provided sample lands in the same normalized review flow with date, title, recipient, amount, and category.
-- [x] 3.7 The saved review experience remains category-only and does not fork by bank.
+- [x] 3.4 Visiting `/imports` while signed out redirects to `/auth/signin`. — f6deb8d
+- [x] 3.5 A signed-in user can choose Revolut or ING before uploading. — f6deb8d
+- [x] 3.6 Choosing ING and uploading the provided sample lands in the same normalized review flow with date, title, recipient, amount, and category. — f6deb8d
+- [x] 3.7 The saved review experience remains category-only and does not fork by bank. — f6deb8d
 
 ### Phase 4: Regression Coverage and Handoff
 
