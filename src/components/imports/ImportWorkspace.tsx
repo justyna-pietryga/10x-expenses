@@ -42,6 +42,13 @@ export async function saveImportCategoryChanges(
     throw new Error(payload.error ?? "Could not save these category changes");
   }
 
+  if (payload.updated.length === 0 && payload.failed.length > 0) {
+    return {
+      failed: payload.failed,
+      updated: payload.updated,
+    };
+  }
+
   return {
     failed: payload.failed,
     updated: payload.updated,

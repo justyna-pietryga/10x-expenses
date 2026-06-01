@@ -34,7 +34,7 @@ The main planning constraint is `time`: the PRD sets a 3-week after-hours MVP, s
 | S-02  | first-bank-import-review          | user can choose a supported bank, import one supported statement format, review parsed transactions, and replace an existing bank-month batch | F-01, S-01    | FR-001, FR-002, FR-003, FR-005, FR-006, FR-010              | done     |
 | S-03  | monthly-summary-and-rules         | user can save reusable categorization rules and see monthly category usage against income and limits                                          | S-01, S-02    | US-01, FR-001, FR-010, FR-011, FR-012                       | done     |
 | S-04  | second-supported-format           | user can repeat the import-and-review flow with a second supported statement format                                                           | S-02          | FR-004                                                      | done     |
-| UX-01 | import-review-bulk-categorization | user can review many imported transactions efficiently, save category changes in bulk, and clearly see unsaved state                          | S-02          | FR-006, FR-010                                              | proposed |
+| UX-01 | import-review-bulk-categorization | user can review many imported transactions efficiently, save category changes in bulk, and clearly see unsaved state                          | S-02          | FR-006, FR-010                                              | implemented |
 | UX-02 | import-review-rule-application    | user can create field-aware rules from import review, see rule-backed rows, and apply a new rule to matching rows in the current batch        | UX-01, S-03   | FR-010, FR-011                                              | proposed |
 | UX-03 | management-surface-density        | user can scan and manage categories and rules in denser operational layouts without excessive scrolling                                       | UX-01, UX-02  | FR-007, FR-011                                              | proposed |
 | UX-04 | uncategorized-review-prioritization | user can prioritize uncategorized transactions during import review by surfacing them first and/or filtering the list to only those rows     | UX-01         | FR-006, FR-010                                              | proposed |
@@ -128,7 +128,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** -
 - **Unknowns:** exact row-level error copy and save-all placement should be validated during implementation.
 - **Risk:** If review stays row-by-row, users must repeat low-value clicks and may lose trust in whether category edits were saved.
-- **Status:** proposed
+- **Status:** implemented
 
 ### UX-02: Import review rule application
 
@@ -175,7 +175,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 | S-02       | first-bank-import-review          | Support first-bank import, transaction review, and bank-month replace behavior | yes                   | Planned and implemented; archive pending  |
 | S-03       | monthly-summary-and-rules         | Show monthly summary and persist reusable categorization rules                 | yes                   | Planned and implemented; archive pending  |
 | S-04       | second-supported-format           | Add a second supported statement format to the import flow                     | yes                   | Implemented; archive pending              |
-| UX-01      | import-review-bulk-categorization | Improve import review with bulk category saving and clear unsaved state        | yes                   | Ready for a dedicated `/10x-plan` cycle   |
+| UX-01      | import-review-bulk-categorization | Improve import review with bulk category saving and clear unsaved state        | no                    | Implemented; archive pending              |
 | UX-02      | import-review-rule-application    | Add field-aware import rules and current-batch rule application                | no                    | Depends on UX-01 and S-03                 |
 | UX-03      | management-surface-density        | Compact category and rule management surfaces                                  | no                    | Depends on UX-01 and UX-02                |
 | UX-04      | uncategorized-review-prioritization | Prioritize uncategorized rows in import review with sort and/or filter modes | no                    | Depends on UX-01                          |

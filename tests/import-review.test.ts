@@ -1063,7 +1063,7 @@ describe("import API routes", () => {
     });
   });
 
-  it("returns an error when no bulk transaction review rows can be saved", async () => {
+  it("returns row-level failures when no bulk transaction review rows can be saved", async () => {
     const bulkRoute: typeof import("@/pages/api/imports/transactions/bulk") =
       await import("@/pages/api/imports/transactions/bulk");
     const { supabase } = buildBulkImportSupabaseStub();
@@ -1096,15 +1096,20 @@ describe("import API routes", () => {
       }),
     } as never);
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(200);
     const payload = (await response.json()) as {
-      error: string;
-      field: string | null;
+      failed: { error: string; transaction_id: string }[];
+      updated: { category_id: string | null; id: string }[];
     };
 
     expect(payload).toMatchObject({
-      error: "No transaction categories could be updated",
-      field: "updates",
+      failed: [
+        {
+          error: "Imported transaction was not found",
+          transaction_id: "tx-missing",
+        },
+      ],
+      updated: [],
     });
   });
 });
