@@ -401,7 +401,7 @@ describe("import data helpers", () => {
         transactions: [
           {
             amount: -59.94,
-            recipient: "LEWIATAN  KRAKOW 31505 POL",
+            recipient: "Lidl Warszawa",
             title: "TR.KART",
             transaction_date: "2026-05-28",
           },
@@ -413,7 +413,35 @@ describe("import data helpers", () => {
         review_completed_at: null,
         statement_month: "2026-05-01",
       },
+      transactions: [
+        {
+          category_id: "cat-food",
+        },
+      ],
     });
+  });
+
+  it("requires explicit confirmation before replacing an existing ING bank-month batch", async () => {
+    const supabase = buildImportSupabaseStub({ bank: "ing", existingBatch: true });
+
+    await expect(
+      commitImportBatch(supabase as never, "user-1", {
+        bank: "ing",
+        confirm_replace: false,
+        period_end: "2026-05-30",
+        period_start: "2026-05-16",
+        source_filename: "ing.csv",
+        statement_month: "2026-05-01",
+        transactions: [
+          {
+            amount: -59.94,
+            recipient: "Lidl Warszawa",
+            title: "TR.KART",
+            transaction_date: "2026-05-28",
+          },
+        ],
+      }),
+    ).rejects.toThrow(/Replacement confirmation is required/);
   });
 
   it("updates a transaction category and saves a reusable rule when requested", async () => {
@@ -642,7 +670,7 @@ describe("import UI", () => {
       }),
     );
 
-    expect(markup).toContain("data-testid=\"bank-selector\"");
+    expect(markup).toContain('data-testid="bank-selector"');
     expect(markup).toContain("Revolut CSV");
     expect(markup).toContain("ING CSV");
   });

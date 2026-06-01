@@ -3,7 +3,7 @@ project: "Expenses"
 version: 1
 status: draft
 created: 2026-05-25
-updated: 2026-05-31
+updated: 2026-06-01
 prd_version: 1
 main_goal: market-feedback
 top_blocker: time
@@ -33,7 +33,7 @@ The main planning constraint is `time`: the PRD sets a 3-week after-hours MVP, s
 | S-01 | budget-setup              | user can define income, custom categories, and percentage-based limits                                                                        | F-01          | FR-001, FR-007, FR-008, FR-009                              | done     |
 | S-02 | first-bank-import-review  | user can choose a supported bank, import one supported statement format, review parsed transactions, and replace an existing bank-month batch | F-01, S-01    | FR-001, FR-002, FR-003, FR-005, FR-006, FR-010              | done     |
 | S-03 | monthly-summary-and-rules | user can save reusable categorization rules and see monthly category usage against income and limits                                          | S-01, S-02    | US-01, FR-001, FR-010, FR-011, FR-012                       | done     |
-| S-04 | second-supported-format   | user can repeat the import-and-review flow with a second supported statement format                                                           | S-02          | FR-004                                                      | proposed |
+| S-04 | second-supported-format   | user can repeat the import-and-review flow with a second supported statement format                                                           | S-02          | FR-004                                                      | ready    |
 
 ## Baseline
 
@@ -110,7 +110,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** -
 - **Unknowns:** none.
 - **Risk:** Expanding format coverage too early stretches the MVP before one complete budget loop is proven, but leaving it out would miss a declared must-have requirement.
-- **Status:** proposed
+- **Status:** ready
 
 ## Backlog Handoff
 
@@ -120,7 +120,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 | S-01       | budget-setup              | Let users define income, categories, and percentage-based limits               | yes                   | Run `/10x-plan budget-setup`              |
 | S-02       | first-bank-import-review  | Support first-bank import, transaction review, and bank-month replace behavior | yes                   | Planned and implemented; archive pending  |
 | S-03       | monthly-summary-and-rules | Show monthly summary and persist reusable categorization rules                 | yes                   | Planned and implemented; archive pending  |
-| S-04       | second-supported-format   | Add a second supported statement format to the import flow                     | no                    | Depends on S-02                           |
+| S-04       | second-supported-format   | Add a second supported statement format to the import flow                     | yes                   | Implemented; archive pending              |
 
 This table is the clean handoff to Jira/Linear or any MCP-backed backlog. Include one row for every `F-NN` and `S-NN`. It should be compact enough to copy into issues, but it must not duplicate the detailed roadmap body.
 

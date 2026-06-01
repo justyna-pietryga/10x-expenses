@@ -457,12 +457,12 @@ Do not commit real banking exports or unsanitized statement files. The provided 
 
 #### Automated
 
-- [ ] 4.1 `npm test -- tests/import-review.test.ts` passes with both supported banks covered.
-- [ ] 4.2 `npx astro check` passes.
-- [ ] 4.3 `npm run build` passes.
-- [ ] 4.4 Targeted lint passes for the touched import and UI files.
+- [x] 4.1 `npm test -- tests/import-review.test.ts` passes with both supported banks covered.
+- [x] 4.2 `npx astro check` passes.
+- [x] 4.3 `npm run build` passes.
+- [x] 4.4 Targeted lint passes for the touched import and UI files.
 
 #### Manual
 
-- [ ] 4.5 Review the brief and full plan for phase clarity before starting `/10x-implement second-supported-format phase 1`.
-- [ ] 4.6 Confirm this slice stays limited to one exact ING CSV format and does not broaden into account-level import modeling or generic bank-ingestion infrastructure.
+- [x] 4.5 Review the brief and full plan for phase clarity before starting `/10x-implement second-supported-format phase 1`.
+- [x] 4.6 Confirm this slice stays limited to one exact ING CSV format and does not broaden into account-level import modeling or generic bank-ingestion infrastructure.
