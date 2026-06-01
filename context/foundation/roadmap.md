@@ -27,16 +27,16 @@ The main planning constraint is `time`: the PRD sets a 3-week after-hours MVP, s
 
 ## At a glance
 
-| ID    | Change ID                           | Outcome (user can ...)                                                                                                                        | Prerequisites | PRD refs                                                    | Status   |
-| ----- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ----------------------------------------------------------- | -------- |
-| F-01  | finance-domain-foundation           | (foundation) per-user finance records, import batches, categories, limits, rules, and summaries persist under one consistent domain model     | -             | Access Control, Non-Functional Requirements, Business Logic | done     |
-| S-01  | budget-setup                        | user can define income, custom categories, and percentage-based limits                                                                        | F-01          | FR-001, FR-007, FR-008, FR-009                              | done     |
-| S-02  | first-bank-import-review            | user can choose a supported bank, import one supported statement format, review parsed transactions, and replace an existing bank-month batch | F-01, S-01    | FR-001, FR-002, FR-003, FR-005, FR-006, FR-010              | done     |
-| S-03  | monthly-summary-and-rules           | user can save reusable categorization rules and see monthly category usage against income and limits                                          | S-01, S-02    | US-01, FR-001, FR-010, FR-011, FR-012                       | done     |
-| S-04  | second-supported-format             | user can repeat the import-and-review flow with a second supported statement format                                                           | S-02          | FR-004                                                      | done     |
-| UX-01 | import-review-workflow-enhancements | user can review many imported transactions efficiently, save category changes in bulk, and clearly see unsaved state                          | S-02          | FR-006, FR-010                                              | proposed |
-| UX-02 | import-review-rule-application      | user can create field-aware rules from import review, see rule-backed rows, and apply a new rule to matching rows in the current batch        | UX-01, S-03   | FR-010, FR-011                                              | proposed |
-| UX-03 | management-surface-density          | user can scan and manage categories and rules in denser operational layouts without excessive scrolling                                       | UX-01, UX-02  | FR-007, FR-011                                              | proposed |
+| ID    | Change ID                         | Outcome (user can ...)                                                                                                                        | Prerequisites | PRD refs                                                    | Status   |
+| ----- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ----------------------------------------------------------- | -------- |
+| F-01  | finance-domain-foundation         | (foundation) per-user finance records, import batches, categories, limits, rules, and summaries persist under one consistent domain model     | -             | Access Control, Non-Functional Requirements, Business Logic | done     |
+| S-01  | budget-setup                      | user can define income, custom categories, and percentage-based limits                                                                        | F-01          | FR-001, FR-007, FR-008, FR-009                              | done     |
+| S-02  | first-bank-import-review          | user can choose a supported bank, import one supported statement format, review parsed transactions, and replace an existing bank-month batch | F-01, S-01    | FR-001, FR-002, FR-003, FR-005, FR-006, FR-010              | done     |
+| S-03  | monthly-summary-and-rules         | user can save reusable categorization rules and see monthly category usage against income and limits                                          | S-01, S-02    | US-01, FR-001, FR-010, FR-011, FR-012                       | done     |
+| S-04  | second-supported-format           | user can repeat the import-and-review flow with a second supported statement format                                                           | S-02          | FR-004                                                      | done     |
+| UX-01 | import-review-bulk-categorization | user can review many imported transactions efficiently, save category changes in bulk, and clearly see unsaved state                          | S-02          | FR-006, FR-010                                              | proposed |
+| UX-02 | import-review-rule-application    | user can create field-aware rules from import review, see rule-backed rows, and apply a new rule to matching rows in the current batch        | UX-01, S-03   | FR-010, FR-011                                              | proposed |
+| UX-03 | management-surface-density        | user can scan and manage categories and rules in denser operational layouts without excessive scrolling                                       | UX-01, UX-02  | FR-007, FR-011                                              | proposed |
 
 ## Baseline
 
@@ -120,7 +120,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 ### UX-01: Import review bulk categorization
 
 - **Outcome:** user can review many imported transactions efficiently, save category changes in bulk, and clearly see unsaved state.
-- **Change ID:** import-review-workflow-enhancements
+- **Change ID:** import-review-bulk-categorization
 - **PRD refs:** FR-006, FR-010
 - **Prerequisites:** S-02
 - **Parallel with:** -
@@ -155,16 +155,16 @@ Foundations below assume these are present and do NOT re-scaffold them.
 
 ## Backlog Handoff
 
-| Roadmap ID | Change ID                           | Suggested issue title                                                          | Ready for `/10x-plan` | Notes                                        |
-| ---------- | ----------------------------------- | ------------------------------------------------------------------------------ | --------------------- | -------------------------------------------- |
-| F-01       | finance-domain-foundation           | Establish the finance domain foundation for per-user budget data               | yes                   | Run `/10x-plan finance-domain-foundation`    |
-| S-01       | budget-setup                        | Let users define income, categories, and percentage-based limits               | yes                   | Run `/10x-plan budget-setup`                 |
-| S-02       | first-bank-import-review            | Support first-bank import, transaction review, and bank-month replace behavior | yes                   | Planned and implemented; archive pending     |
-| S-03       | monthly-summary-and-rules           | Show monthly summary and persist reusable categorization rules                 | yes                   | Planned and implemented; archive pending     |
-| S-04       | second-supported-format             | Add a second supported statement format to the import flow                     | yes                   | Implemented; archive pending                 |
-| UX-01      | import-review-workflow-enhancements | Improve import review with bulk category saving and clear unsaved state        | yes                   | Current plan implements this first follow-up |
-| UX-02      | import-review-rule-application      | Add field-aware import rules and current-batch rule application                | no                    | Depends on UX-01 and S-03                    |
-| UX-03      | management-surface-density          | Compact category and rule management surfaces                                  | no                    | Depends on UX-01 and UX-02                   |
+| Roadmap ID | Change ID                         | Suggested issue title                                                          | Ready for `/10x-plan` | Notes                                     |
+| ---------- | --------------------------------- | ------------------------------------------------------------------------------ | --------------------- | ----------------------------------------- |
+| F-01       | finance-domain-foundation         | Establish the finance domain foundation for per-user budget data               | yes                   | Run `/10x-plan finance-domain-foundation` |
+| S-01       | budget-setup                      | Let users define income, categories, and percentage-based limits               | yes                   | Run `/10x-plan budget-setup`              |
+| S-02       | first-bank-import-review          | Support first-bank import, transaction review, and bank-month replace behavior | yes                   | Planned and implemented; archive pending  |
+| S-03       | monthly-summary-and-rules         | Show monthly summary and persist reusable categorization rules                 | yes                   | Planned and implemented; archive pending  |
+| S-04       | second-supported-format           | Add a second supported statement format to the import flow                     | yes                   | Implemented; archive pending              |
+| UX-01      | import-review-bulk-categorization | Improve import review with bulk category saving and clear unsaved state        | yes                   | Ready for a dedicated `/10x-plan` cycle   |
+| UX-02      | import-review-rule-application    | Add field-aware import rules and current-batch rule application                | no                    | Depends on UX-01 and S-03                 |
+| UX-03      | management-surface-density        | Compact category and rule management surfaces                                  | no                    | Depends on UX-01 and UX-02                |
 
 This table is the clean handoff to Jira/Linear or any MCP-backed backlog. Include one row for every `F-NN` and `S-NN`. It should be compact enough to copy into issues, but it must not duplicate the detailed roadmap body.
 
