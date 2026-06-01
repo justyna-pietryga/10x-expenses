@@ -11,6 +11,13 @@ export interface ImportCommitPayload {
   transactions: ImportedTransactionDraft[];
 }
 
+export interface ImportCategoryUpdatePayload {
+  updates: {
+    category_id: string | null;
+    transaction_id: string;
+  }[];
+}
+
 function validateDate(value: unknown, field: string) {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
     throw new ImportError(`${field} must use YYYY-MM-DD format`, { field });
@@ -124,6 +131,38 @@ export function validateImportCategoryId(value: unknown) {
   }
 
   return validateText(value, "category_id");
+}
+
+export function validateImportCategoryUpdatesPayload(payload: unknown): ImportCategoryUpdatePayload {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new ImportError("Bulk category update payload must be an object", { field: "payload" });
+  }
+
+  const updatesValue = (payload as Record<string, unknown>).updates;
+
+  if (!Array.isArray(updatesValue) || updatesValue.length === 0) {
+    throw new ImportError("updates must contain at least one transaction category change", { field: "updates" });
+  }
+
+  return {
+    updates: updatesValue.map((update, index) => validateImportCategoryUpdate(update, index)),
+  };
+}
+
+function validateImportCategoryUpdate(update: unknown, index: number) {
+  if (!update || typeof update !== "object" || Array.isArray(update)) {
+    throw new ImportError(`updates[${index}] must be an object`, { field: "updates" });
+  }
+
+  const record = update as Record<string, unknown>;
+
+  return {
+    category_id:
+      record.category_id == null || record.category_id === ""
+        ? null
+        : validateText(record.category_id, `updates[${index}].category_id`),
+    transaction_id: validateText(record.transaction_id, `updates[${index}].transaction_id`),
+  };
 }
 
 export function validateRuleOptIn(value: unknown) {

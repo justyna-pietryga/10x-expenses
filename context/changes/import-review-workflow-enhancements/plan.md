@@ -398,14 +398,14 @@ No database migration is expected for `UX-01`. The existing `transactions.catego
 
 #### Automated
 
-- [ ] 2.1 `npm test -- tests/import-review.test.ts` passes with bulk update helper and route coverage.
-- [ ] 2.2 `npx astro check` passes.
-- [ ] 2.3 Targeted `npx eslint` passes for touched import API/helper/test files.
+- [x] 2.1 `npm test -- tests/import-review.test.ts` passes with bulk update helper and route coverage.
+- [x] 2.2 `npx astro check` passes.
+- [x] 2.3 Targeted `npx eslint` passes for touched import API/helper/test files.
 
 #### Manual
 
-- [ ] 2.4 Confirm the new bulk endpoint is category-only and does not create rules.
-- [ ] 2.5 Confirm the endpoint cannot update another user's transactions or categories.
+- [x] 2.4 Confirm the new bulk endpoint is category-only and does not create rules.
+- [x] 2.5 Confirm the endpoint cannot update another user's transactions or categories.
 
 ### Phase 3: Batch-Oriented Review UI
 
