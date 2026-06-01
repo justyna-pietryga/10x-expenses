@@ -357,14 +357,14 @@ No database migration is expected. This change uses existing `transactions.categ
 
 #### Automated
 
-- [ ] 2.1 `npm test -- tests/import-review.test.ts` passes with review table dirty-state coverage.
-- [ ] 2.2 `npx astro check` passes.
-- [ ] 2.3 Targeted `npx eslint src/components/imports/TransactionReviewTable.tsx tests/import-review.test.ts` passes.
+- [x] 2.1 `npm test -- tests/import-review.test.ts` passes with review table dirty-state coverage.
+- [x] 2.2 `npx astro check` passes.
+- [x] 2.3 Targeted `npx eslint src/components/imports/TransactionReviewTable.tsx tests/import-review.test.ts` passes.
 
 #### Manual
 
-- [ ] 2.4 Confirm the table shows no unsaved-change controls before categories are changed.
-- [ ] 2.5 Confirm changing categories on multiple rows shows the correct unsaved-change count.
+- [x] 2.4 Confirm the table shows no unsaved-change controls before categories are changed.
+- [x] 2.5 Confirm changing categories on multiple rows shows the correct unsaved-change count.
 - [ ] 2.6 Confirm `Discard changes` returns category selects to their persisted values.
 - [ ] 2.7 Confirm `Save all changes` is category-only and does not create rules.
 - [ ] 2.8 Confirm failed rows remain dirty and display row-level errors after a partial failure.

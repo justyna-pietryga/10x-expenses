@@ -3,7 +3,11 @@ import type { BudgetCategory } from "@/lib/budget/data";
 import type { ImportBatch, ImportedTransaction } from "@/lib/imports/data";
 import { ImportUploadForm, type ImportPreviewPayload } from "@/components/imports/ImportUploadForm";
 import { ReviewCompletionBar } from "@/components/imports/ReviewCompletionBar";
-import { TransactionReviewTable } from "@/components/imports/TransactionReviewTable";
+import {
+  TransactionReviewTable,
+  type ImportCategoryDraftUpdate,
+  type ImportCategorySaveResult,
+} from "@/components/imports/TransactionReviewTable";
 
 interface Props {
   categories: BudgetCategory[];
@@ -103,6 +107,52 @@ export function ImportWorkspace({ categories, initialBatch, initialTransactions 
     });
   }
 
+  async function handleSaveCategoryChanges(updates: ImportCategoryDraftUpdate[]): Promise<ImportCategorySaveResult> {
+    const results = await Promise.all(
+      updates.map(async (update) => {
+        try {
+          await handleSaveCategory(update.transaction_id, update.category_id, false);
+
+          return {
+            category_id: update.category_id,
+            id: update.transaction_id,
+          };
+        } catch (saveError) {
+          return {
+            error: saveError instanceof Error ? saveError.message : "Could not update this category",
+            transaction_id: update.transaction_id,
+          };
+        }
+      }),
+    );
+
+    const updated = results.filter((result): result is ImportCategorySaveResult["updated"][number] => "id" in result);
+    const failed = results.filter((result): result is ImportCategorySaveResult["failed"][number] => "error" in result);
+
+    if (updated.length === 0 && failed.length > 0) {
+      throw new Error("Could not save these category changes");
+    }
+
+    if (updated.length > 0) {
+      startTransition(() => {
+        setNotice(
+          failed.length > 0
+            ? "Some category changes were saved, and some still need attention."
+            : "Category changes saved.",
+        );
+      });
+    }
+
+    return {
+      failed,
+      updated,
+    };
+  }
+
+  async function handleSaveRuleShortcut(transactionId: string, categoryId: string | null) {
+    await handleSaveCategory(transactionId, categoryId, true);
+  }
+
   async function handleCompleteReview() {
     if (!batch) {
       return;
@@ -160,8 +210,9 @@ export function ImportWorkspace({ categories, initialBatch, initialTransactions 
           <ReviewCompletionBar batch={batch} transactionCount={transactions.length} onComplete={handleCompleteReview} />
           <TransactionReviewTable
             categories={categories}
+            onSaveCategoryChanges={handleSaveCategoryChanges}
+            onSaveRuleShortcut={handleSaveRuleShortcut}
             transactions={transactions}
-            onSaveCategory={handleSaveCategory}
           />
         </div>
       ) : (

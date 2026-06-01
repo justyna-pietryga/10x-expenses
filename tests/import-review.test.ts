@@ -5,6 +5,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { ImportUploadForm } from "@/components/imports/ImportUploadForm";
 import {
+  buildBulkSaveFeedback,
+  buildDirtyCategoryUpdates,
+  TransactionReviewTable,
+} from "@/components/imports/TransactionReviewTable";
+import type { BudgetCategory } from "@/lib/budget/data";
+import {
   validateImportCategoryUpdatesPayload,
   validateImportCommitPayload,
   validateSupportedBank,
@@ -13,6 +19,7 @@ import { createClient } from "@/lib/supabase";
 import {
   commitImportBatch,
   markBatchReviewComplete,
+  type ImportedTransaction,
   updateImportTransactionCategories,
   updateTransactionCategoryAndMaybeRule,
 } from "@/lib/imports/data";
@@ -22,6 +29,56 @@ import { parseRevolutCsv } from "@/lib/imports/revolutCsv";
 vi.mock("@/lib/supabase", () => ({
   createClient: vi.fn(),
 }));
+
+const reviewCategories: BudgetCategory[] = [
+  {
+    archived_at: null,
+    carryover_enabled: false,
+    created_at: "2026-05-01T00:00:00.000Z",
+    id: "cat-food",
+    name: "Food",
+    percentage_limit: 30,
+    updated_at: "2026-05-01T00:00:00.000Z",
+    user_id: "user-1",
+  },
+  {
+    archived_at: null,
+    carryover_enabled: true,
+    created_at: "2026-05-01T00:00:00.000Z",
+    id: "cat-travel",
+    name: "Travel",
+    percentage_limit: 20,
+    updated_at: "2026-05-01T00:00:00.000Z",
+    user_id: "user-1",
+  },
+];
+
+const reviewTransactions: ImportedTransaction[] = [
+  {
+    amount: -12.34,
+    category_id: "cat-food",
+    created_at: "2026-05-30T08:00:00.000Z",
+    id: "tx-1",
+    import_batch_id: "batch-1",
+    recipient: "Lidl Warszawa",
+    title: "Lidl Warszawa",
+    transaction_date: "2026-05-03",
+    updated_at: "2026-05-30T08:00:00.000Z",
+    user_id: "user-1",
+  },
+  {
+    amount: -64.2,
+    category_id: null,
+    created_at: "2026-05-30T08:00:00.000Z",
+    id: "tx-2",
+    import_batch_id: "batch-1",
+    recipient: "PKP Intercity",
+    title: "PKP Intercity",
+    transaction_date: "2026-05-11",
+    updated_at: "2026-05-30T08:00:00.000Z",
+    user_id: "user-1",
+  },
+];
 
 function createSelectChain(data: unknown, error: { code?: string; message: string } | null = null) {
   return {
@@ -1044,6 +1101,126 @@ describe("import API routes", () => {
       error: "No transaction categories could be updated",
       field: "updates",
     });
+  });
+});
+
+describe("transaction review table", () => {
+  it("derives only changed category drafts as bulk updates", () => {
+    expect(
+      buildDirtyCategoryUpdates(reviewTransactions, {
+        "tx-1": "cat-food",
+        "tx-2": "cat-travel",
+      }),
+    ).toEqual([
+      {
+        category_id: "cat-travel",
+        transaction_id: "tx-2",
+      },
+    ]);
+  });
+
+  it("clears successful drafts and keeps row failures attached after a partial bulk save", () => {
+    expect(
+      buildBulkSaveFeedback(
+        {
+          "tx-1": "cat-travel",
+          "tx-2": "cat-food",
+        },
+        {
+          failed: [
+            {
+              error: "Selected category was not found",
+              transaction_id: "tx-2",
+            },
+          ],
+          updated: [
+            {
+              category_id: "cat-travel",
+              id: "tx-1",
+            },
+          ],
+        },
+      ),
+    ).toEqual({
+      drafts: {
+        "tx-2": "cat-food",
+      },
+      errorById: {
+        "tx-2": "Selected category was not found",
+      },
+      successById: {
+        "tx-1": "Category saved.",
+      },
+    });
+  });
+
+  it("shows no unsaved-change controls before categories are changed", () => {
+    const markup = renderToStaticMarkup(
+      createElement(TransactionReviewTable, {
+        categories: reviewCategories,
+        onSaveCategoryChanges: vi.fn(() =>
+          Promise.resolve({
+            failed: [],
+            updated: [],
+          }),
+        ),
+        onSaveRuleShortcut: vi.fn(() => Promise.resolve()),
+        transactions: reviewTransactions,
+      }),
+    );
+
+    expect(markup).not.toContain("Save all changes");
+    expect(markup).not.toContain("Discard changes");
+    expect(markup).not.toContain("Save category");
+  });
+
+  it("shows the correct unsaved-change count when multiple rows are dirty", () => {
+    const markup = renderToStaticMarkup(
+      createElement(TransactionReviewTable, {
+        categories: reviewCategories,
+        initialDrafts: {
+          "tx-1": "cat-travel",
+          "tx-2": "cat-food",
+        },
+        onSaveCategoryChanges: vi.fn(() =>
+          Promise.resolve({
+            failed: [],
+            updated: [],
+          }),
+        ),
+        onSaveRuleShortcut: vi.fn(() => Promise.resolve()),
+        transactions: reviewTransactions,
+      }),
+    );
+
+    expect(markup).toContain("2 unsaved changes");
+    expect(markup).toContain("Save all changes");
+    expect(markup).toContain("Discard changes");
+  });
+
+  it("shows row-level failure copy for rows that still need attention", () => {
+    const markup = renderToStaticMarkup(
+      createElement(TransactionReviewTable, {
+        categories: reviewCategories,
+        initialDrafts: {
+          "tx-2": "cat-food",
+        },
+        initialRowErrors: {
+          "tx-2": "Selected category was not found",
+        },
+        onSaveCategoryChanges: vi.fn(() =>
+          Promise.resolve({
+            failed: [],
+            updated: [],
+          }),
+        ),
+        onSaveRuleShortcut: vi.fn(() => Promise.resolve()),
+        transactions: reviewTransactions,
+      }),
+    );
+
+    expect(markup).toContain("Unsaved category change.");
+    expect(markup).toContain("Selected category was not found");
   });
 });
 
