@@ -37,6 +37,7 @@ The main planning constraint is `time`: the PRD sets a 3-week after-hours MVP, s
 | UX-01 | import-review-bulk-categorization | user can review many imported transactions efficiently, save category changes in bulk, and clearly see unsaved state                          | S-02          | FR-006, FR-010                                              | proposed |
 | UX-02 | import-review-rule-application    | user can create field-aware rules from import review, see rule-backed rows, and apply a new rule to matching rows in the current batch        | UX-01, S-03   | FR-010, FR-011                                              | proposed |
 | UX-03 | management-surface-density        | user can scan and manage categories and rules in denser operational layouts without excessive scrolling                                       | UX-01, UX-02  | FR-007, FR-011                                              | proposed |
+| UX-04 | uncategorized-review-prioritization | user can prioritize uncategorized transactions during import review by surfacing them first and/or filtering the list to only those rows     | UX-01         | FR-006, FR-010                                              | proposed |
 
 ## Baseline
 
@@ -153,6 +154,18 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Risk:** If the management UI remains too spacious after workflows expand, routine category/rule maintenance becomes slow and visually noisy.
 - **Status:** proposed
 
+### UX-04: Uncategorized review prioritization
+
+- **Outcome:** user can prioritize uncategorized transactions during import review by surfacing them first and/or filtering the list to only those rows.
+- **Change ID:** uncategorized-review-prioritization
+- **PRD refs:** FR-006, FR-010
+- **Prerequisites:** UX-01
+- **Parallel with:** -
+- **Blockers:** UX-01 should finish first so the base review interaction model and save lifecycle are stable before adding new view modes.
+- **Unknowns:** whether the MVP should ship sorting, filtering, or both; how the chosen mode interacts with bulk edits; and whether the preference should persist per user.
+- **Risk:** If uncategorized rows remain buried in the full transaction list, users spend review time scanning already-resolved items instead of clearing the rows that still need decisions.
+- **Status:** proposed
+
 ## Backlog Handoff
 
 | Roadmap ID | Change ID                         | Suggested issue title                                                          | Ready for `/10x-plan` | Notes                                     |
@@ -165,6 +178,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 | UX-01      | import-review-bulk-categorization | Improve import review with bulk category saving and clear unsaved state        | yes                   | Ready for a dedicated `/10x-plan` cycle   |
 | UX-02      | import-review-rule-application    | Add field-aware import rules and current-batch rule application                | no                    | Depends on UX-01 and S-03                 |
 | UX-03      | management-surface-density        | Compact category and rule management surfaces                                  | no                    | Depends on UX-01 and UX-02                |
+| UX-04      | uncategorized-review-prioritization | Prioritize uncategorized rows in import review with sort and/or filter modes | no                    | Depends on UX-01                          |
 
 This table is the clean handoff to Jira/Linear or any MCP-backed backlog. Include one row for every `F-NN` and `S-NN`. It should be compact enough to copy into issues, but it must not duplicate the detailed roadmap body.
 
