@@ -1035,6 +1035,143 @@ describe("import API routes", () => {
     });
   });
 
+  it("rejects commit requests that do not use application/json", async () => {
+    const commitRoute: typeof import("@/pages/api/imports/commit") = await import("@/pages/api/imports/commit");
+    const supabase = buildImportSupabaseStub();
+
+    vi.mocked(createClient).mockReturnValue(supabase as never);
+
+    const response = await commitRoute.POST({
+      cookies: {} as never,
+      locals: {
+        user: {
+          id: "user-1",
+          email: "user@example.com",
+        },
+      },
+      params: {},
+      redirect: vi.fn(),
+      request: new Request("http://localhost/api/imports/commit", {
+        method: "POST",
+        headers: {
+          "content-type": "text/plain",
+        },
+        body: JSON.stringify({}),
+      }),
+    } as never);
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      error: "This endpoint expects application/json",
+      field: "content-type",
+    });
+  });
+
+  it("rejects commit requests with missing imported transactions", async () => {
+    const commitRoute: typeof import("@/pages/api/imports/commit") = await import("@/pages/api/imports/commit");
+    const supabase = buildImportSupabaseStub();
+
+    vi.mocked(createClient).mockReturnValue(supabase as never);
+
+    const response = await commitRoute.POST({
+      cookies: {} as never,
+      locals: {
+        user: {
+          id: "user-1",
+          email: "user@example.com",
+        },
+      },
+      params: {},
+      redirect: vi.fn(),
+      request: new Request("http://localhost/api/imports/commit", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          bank: "revolut",
+          confirm_replace: false,
+          period_end: "2026-05-28",
+          period_start: "2026-05-03",
+          source_filename: "revolut.csv",
+          statement_month: "2026-05-01",
+        }),
+      }),
+    } as never);
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      error: "transactions must contain at least one imported row",
+      field: "transactions",
+    });
+  });
+
+  it("rejects preview uploads with a non-CSV file extension", async () => {
+    const previewRoute: typeof import("@/pages/api/imports/preview") = await import("@/pages/api/imports/preview");
+    const supabase = buildImportSupabaseStub();
+
+    vi.mocked(createClient).mockReturnValue(supabase as never);
+
+    const formData = new FormData();
+    formData.set("bank", "revolut");
+    formData.set("file", new File(["not-a-csv"], "revolut.txt", { type: "text/plain" }));
+
+    const response = await previewRoute.POST({
+      cookies: {} as never,
+      locals: {
+        user: {
+          id: "user-1",
+          email: "user@example.com",
+        },
+      },
+      params: {},
+      redirect: vi.fn(),
+      request: new Request("http://localhost/api/imports/preview", {
+        method: "POST",
+        body: formData,
+      }),
+    } as never);
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      error: "The uploaded file must use the .csv extension",
+      field: "file",
+    });
+  });
+
+  it("rejects preview uploads with an empty CSV file", async () => {
+    const previewRoute: typeof import("@/pages/api/imports/preview") = await import("@/pages/api/imports/preview");
+    const supabase = buildImportSupabaseStub();
+
+    vi.mocked(createClient).mockReturnValue(supabase as never);
+
+    const formData = new FormData();
+    formData.set("bank", "revolut");
+    formData.set("file", new File([""], "revolut.csv", { type: "text/csv" }));
+
+    const response = await previewRoute.POST({
+      cookies: {} as never,
+      locals: {
+        user: {
+          id: "user-1",
+          email: "user@example.com",
+        },
+      },
+      params: {},
+      redirect: vi.fn(),
+      request: new Request("http://localhost/api/imports/preview", {
+        method: "POST",
+        body: formData,
+      }),
+    } as never);
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      error: "The uploaded CSV file is empty",
+      field: "file",
+    });
+  });
+
   it("returns a replacement confirmation error from the commit route", async () => {
     const commitRoute: typeof import("@/pages/api/imports/commit") = await import("@/pages/api/imports/commit");
     const supabase = buildImportSupabaseStub({ existingBatch: true });

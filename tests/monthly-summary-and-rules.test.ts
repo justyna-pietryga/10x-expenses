@@ -48,15 +48,62 @@ function createDeleteSingleChain(data: unknown, error: { code?: string; message:
   };
 }
 
-type SummaryStubRow = Record<string, any>;
+interface SummaryBatchRow {
+  bank: string;
+  created_at: string;
+  id: string;
+  imported_at: string;
+  period_end: string;
+  period_start: string;
+  review_completed_at: string | null;
+  source_filename: string;
+  statement_month: string;
+  updated_at: string;
+  user_id: string;
+}
+
+interface SummaryTransactionRow {
+  amount: number;
+  category_id: string | null;
+  created_at: string;
+  id: string;
+  import_batch_id: string;
+  recipient: string;
+  title: string;
+  transaction_date: string;
+  updated_at: string;
+  user_id: string;
+}
+
+interface MonthlyIncomeRow {
+  amount: number;
+  created_at: string;
+  id: string;
+  is_estimated: boolean;
+  month: string;
+  updated_at: string;
+  user_id: string;
+}
+
+interface SummarySnapshotRecord {
+  created_at: string;
+  generated_at: string;
+  id: string;
+  month: string;
+  summary_snapshot: Record<string, unknown>;
+  total_income: number;
+  total_spent: number;
+  updated_at: string;
+  user_id: string;
+}
 
 interface SummaryStubOptions {
-  existingSummary?: SummaryStubRow | null;
-  historicalBatches?: SummaryStubRow[];
-  historicalTransactions?: SummaryStubRow[];
-  monthlyIncomes?: SummaryStubRow[];
-  selectedBatches?: SummaryStubRow[];
-  selectedTransactions?: SummaryStubRow[];
+  existingSummary?: SummarySnapshotRecord | null;
+  historicalBatches?: SummaryBatchRow[];
+  historicalTransactions?: SummaryTransactionRow[];
+  monthlyIncomes?: MonthlyIncomeRow[];
+  selectedBatches?: SummaryBatchRow[];
+  selectedTransactions?: SummaryTransactionRow[];
 }
 
 function buildSummarySupabaseStub(options: SummaryStubOptions = {}) {
@@ -200,7 +247,7 @@ function buildSummarySupabaseStub(options: SummaryStubOptions = {}) {
     ...selectedTransactions.filter((transaction) => transaction.import_batch_id === "batch-may-reviewed"),
   ];
 
-  let monthlySummaryRecord = options.existingSummary ?? null;
+  let monthlySummaryRecord: SummarySnapshotRecord | null = options.existingSummary ?? null;
 
   const supabase = {
     from: vi.fn((table: string) => {
@@ -309,13 +356,15 @@ function buildSummarySupabaseStub(options: SummaryStubOptions = {}) {
             };
             return chain;
           }),
-          upsert: vi.fn().mockImplementation((payload: SummaryStubRow) => ({
-            select: vi.fn().mockReturnThis(),
-            single: vi.fn().mockImplementation(async () => {
+          upsert: vi
+            .fn()
+            .mockImplementation((payload: Omit<SummarySnapshotRecord, "created_at" | "id" | "updated_at">) => ({
+              select: vi.fn().mockReturnThis(),
+              single: vi.fn().mockImplementation(() => {
                 monthlySummaryRecord = {
-                  created_at: (monthlySummaryRecord as { created_at?: string } | null)?.created_at ?? "2026-05-31T12:00:00.000Z",
+                  created_at: monthlySummaryRecord?.created_at ?? "2026-05-31T12:00:00.000Z",
                   generated_at: payload.generated_at,
-                  id: (monthlySummaryRecord as { id?: string } | null)?.id ?? "summary-1",
+                  id: monthlySummaryRecord?.id ?? "summary-1",
                   month: payload.month,
                   summary_snapshot: payload.summary_snapshot,
                   total_income: payload.total_income,
@@ -323,9 +372,9 @@ function buildSummarySupabaseStub(options: SummaryStubOptions = {}) {
                   updated_at: "2026-05-31T12:00:00.000Z",
                   user_id: payload.user_id,
                 };
-                return { data: monthlySummaryRecord, error: null };
-            }),
-          })),
+                return Promise.resolve({ data: monthlySummaryRecord, error: null });
+              }),
+            })),
         };
       }
 
@@ -546,15 +595,8 @@ describe("summary data helpers", () => {
         updated_at: "2026-05-15T12:00:00.000Z",
       },
     });
-    const statefulSupabase = supabase as typeof supabase & {
-      __state: {
-        monthlySummaryRecord: () => SummaryStubRow | null;
-        selectedTransactions: SummaryStubRow[];
-      };
-    };
-
     const firstSummary = await loadDashboardSummary(supabase as never, "user-1", "2026-05-01");
-    const firstSnapshot = statefulSupabase.__state.monthlySummaryRecord();
+    const firstSnapshot = supabase.__state.monthlySummaryRecord();
     if (!firstSnapshot) {
       throw new Error("Expected the first load to refresh the monthly summary snapshot");
     }
@@ -562,10 +604,10 @@ describe("summary data helpers", () => {
     expect(firstSummary.reviewed_categorized_spend).toBe(200);
     expect(firstSnapshot.total_spent).toBe(280);
 
-    statefulSupabase.__state.selectedTransactions[0].amount = -260;
+    supabase.__state.selectedTransactions[0].amount = -260;
 
     const secondSummary = await loadDashboardSummary(supabase as never, "user-1", "2026-05-01");
-    const secondSnapshot = statefulSupabase.__state.monthlySummaryRecord();
+    const secondSnapshot = supabase.__state.monthlySummaryRecord();
     if (!secondSnapshot) {
       throw new Error("Expected the second load to keep a refreshed monthly summary snapshot");
     }
@@ -645,6 +687,32 @@ describe("summary and rule API routes", () => {
 
     expect(payload.selected_month).toBe("2026-05-01");
     expect(payload.incomplete_review_spend).toBe(30);
+  });
+
+  it("rejects invalid selected-month values with the summary JSON error contract", async () => {
+    const summaryRoute: typeof import("@/pages/api/dashboard/summary") = await import("@/pages/api/dashboard/summary");
+    const supabase = buildSummarySupabaseStub();
+
+    vi.mocked(createClient).mockReturnValue(supabase as never);
+
+    const response = await summaryRoute.GET({
+      cookies: {} as never,
+      locals: {
+        user: {
+          id: "user-1",
+          email: "user@example.com",
+        },
+      },
+      params: {},
+      redirect: vi.fn(),
+      request: new Request("http://localhost/api/dashboard/summary?month=2026-05-15"),
+    } as never);
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      error: "Month must point to the first day of the month",
+      field: "month",
+    });
   });
 
   it("creates, updates, and deletes field-aware rules through the API", async () => {

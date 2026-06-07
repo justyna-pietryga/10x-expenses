@@ -311,11 +311,11 @@ No schema migration is expected for this rollout. The only allowed production-co
 
 #### Automated
 
-- [x] 2.1 `tests/monthly-summary-and-rules.test.ts` covers default selected-month behavior with no explicit `month`.
-- [x] 2.2 `tests/monthly-summary-and-rules.test.ts` covers a pending-only month with incomplete-review separation.
-- [x] 2.3 `tests/monthly-summary-and-rules.test.ts` covers snapshot refresh behavior when a prior summary already exists.
-- [x] 2.4 `npm test -- tests/monthly-summary-and-rules.test.ts` passes.
-- [x] 2.5 `npx astro check` passes.
+- [x] 2.1 `tests/monthly-summary-and-rules.test.ts` covers default selected-month behavior with no explicit `month`. — 50254c1
+- [x] 2.2 `tests/monthly-summary-and-rules.test.ts` covers a pending-only month with incomplete-review separation. — 50254c1
+- [x] 2.3 `tests/monthly-summary-and-rules.test.ts` covers snapshot refresh behavior when a prior summary already exists. — 50254c1
+- [x] 2.4 `npm test -- tests/monthly-summary-and-rules.test.ts` passes. — 50254c1
+- [x] 2.5 `npx astro check` passes. — 50254c1
 
 #### Manual
 
@@ -327,16 +327,16 @@ No schema migration is expected for this rollout. The only allowed production-co
 
 #### Automated
 
-- [ ] 3.1 `tests/import-review.test.ts` covers user-facing invalid boundary cases for commit and preview routes.
-- [ ] 3.2 `tests/monthly-summary-and-rules.test.ts` covers invalid selected-month rejection at the summary route.
-- [ ] 3.3 `npm test -- tests/import-review.test.ts tests/monthly-summary-and-rules.test.ts` passes.
-- [ ] 3.4 Targeted lint passes for the touched test files.
+- [x] 3.1 `tests/import-review.test.ts` covers user-facing invalid boundary cases for commit and preview routes.
+- [x] 3.2 `tests/monthly-summary-and-rules.test.ts` covers invalid selected-month rejection at the summary route.
+- [x] 3.3 `npm test -- tests/import-review.test.ts tests/monthly-summary-and-rules.test.ts` passes.
+- [x] 3.4 Targeted lint passes for the touched test files.
 
 #### Manual
 
-- [ ] 3.5 Review the negative route cases and confirm they exercise real request boundaries rather than duplicating pure validator tests.
-- [ ] 3.6 Confirm the new import-route assertions stay focused on malformed user inputs, not internal Supabase failures already covered elsewhere.
-- [ ] 3.7 Confirm the summary invalid-month case preserves the current JSON error contract shape.
+- [x] 3.5 Review the negative route cases and confirm they exercise real request boundaries rather than duplicating pure validator tests.
+- [x] 3.6 Confirm the new import-route assertions stay focused on malformed user inputs, not internal Supabase failures already covered elsewhere.
+- [x] 3.7 Confirm the summary invalid-month case preserves the current JSON error contract shape.
 
 ### Phase 4: Cookbook and Rollout Alignment
 
