@@ -96,6 +96,49 @@ function mapTransactionUpdateFailure(error: PostgrestError | null) {
   return "Imported transaction could not be updated";
 }
 
+function buildImportedTransactionRows(
+  userId: string,
+  batchId: string,
+  transactions: ImportCommitPayload["transactions"],
+  rules: CategorizationRule[],
+) {
+  return transactions.map((transaction) => ({
+    amount: transaction.amount,
+    category_id: assignCategoryId(transaction, rules),
+    import_batch_id: batchId,
+    recipient: transaction.recipient,
+    title: transaction.title,
+    transaction_date: transaction.transaction_date,
+    user_id: userId,
+  }));
+}
+
+async function restoreImportTransactions(
+  supabase: ImportClient,
+  transactions: ImportedTransaction[],
+  fallbackMessage: string,
+) {
+  if (transactions.length === 0) {
+    return;
+  }
+
+  const restoreRows: Database["public"]["Tables"]["transactions"]["Insert"][] = transactions.map((transaction) => ({
+    amount: transaction.amount,
+    category_id: transaction.category_id,
+    created_at: transaction.created_at,
+    id: transaction.id,
+    import_batch_id: transaction.import_batch_id,
+    recipient: transaction.recipient,
+    title: transaction.title,
+    transaction_date: transaction.transaction_date,
+    updated_at: transaction.updated_at,
+    user_id: transaction.user_id,
+  }));
+  const { error } = await supabase.from("transactions").insert(restoreRows).select();
+
+  mapPostgrestError(error ?? null, fallbackMessage);
+}
+
 export async function commitImportBatch(supabase: ImportClient, userId: string, payload: ImportCommitPayload) {
   const existingBatch = await findExistingImportBatch(supabase, userId, payload.bank, payload.statement_month);
 
@@ -108,8 +151,18 @@ export async function commitImportBatch(supabase: ImportClient, userId: string, 
 
   const rules = await listCategorizationRules(supabase, userId);
   let batch: ImportBatch;
+  const nextTransactions = buildImportedTransactionRows(userId, existingBatch?.id ?? "", payload.transactions, rules);
 
   if (existingBatch) {
+    const { data: previousTransactions, error: previousTransactionsError } = await supabase
+      .from("transactions")
+      .select("*")
+      .eq("import_batch_id", existingBatch.id)
+      .eq("user_id", userId)
+      .order("transaction_date", { ascending: true });
+
+    mapPostgrestError(previousTransactionsError, "Previous batch transactions could not be loaded");
+
     const deleteResult = await supabase
       .from("transactions")
       .delete()
@@ -118,26 +171,56 @@ export async function commitImportBatch(supabase: ImportClient, userId: string, 
 
     mapPostgrestError(deleteResult.error ?? null, "Previous batch transactions could not be replaced");
 
-    const { data, error } = await supabase
-      .from("statement_import_batches")
-      .update({
-        imported_at: new Date().toISOString(),
-        period_end: payload.period_end,
-        period_start: payload.period_start,
-        review_completed_at: null,
-        source_filename: payload.source_filename,
-      })
-      .eq("id", existingBatch.id)
-      .eq("user_id", userId)
-      .select()
-      .single();
+    try {
+      const { data: insertedTransactions, error: transactionError } = await supabase
+        .from("transactions")
+        .insert(nextTransactions.map((transaction) => ({ ...transaction, import_batch_id: existingBatch.id })))
+        .select();
 
-    mapPostgrestError(error, "Existing import batch could not be updated");
-    if (!data) {
-      throw new ImportError("Existing import batch could not be updated", { status: 500 });
+      mapPostgrestError(transactionError, "Imported transactions could not be saved");
+
+      const { data, error } = await supabase
+        .from("statement_import_batches")
+        .update({
+          imported_at: new Date().toISOString(),
+          period_end: payload.period_end,
+          period_start: payload.period_start,
+          review_completed_at: null,
+          source_filename: payload.source_filename,
+        })
+        .eq("id", existingBatch.id)
+        .eq("user_id", userId)
+        .select()
+        .single();
+
+      mapPostgrestError(error, "Existing import batch could not be updated");
+      if (!data) {
+        throw new ImportError("Existing import batch could not be updated", { status: 500 });
+      }
+
+      batch = data;
+
+      return {
+        batch,
+        replaced: true,
+        transactions: insertedTransactions ?? [],
+      };
+    } catch (error) {
+      const cleanupResult = await supabase
+        .from("transactions")
+        .delete()
+        .eq("import_batch_id", existingBatch.id)
+        .eq("user_id", userId);
+
+      mapPostgrestError(cleanupResult.error ?? null, "Failed to clean up a partial replacement");
+      await restoreImportTransactions(
+        supabase,
+        previousTransactions ?? [],
+        "Previous batch transactions could not be restored after a failed replacement",
+      );
+
+      throw error;
     }
-
-    batch = data;
   } else {
     const { data, error } = await supabase
       .from("statement_import_batches")
@@ -163,17 +246,7 @@ export async function commitImportBatch(supabase: ImportClient, userId: string, 
 
   const { data: transactions, error: transactionError } = await supabase
     .from("transactions")
-    .insert(
-      payload.transactions.map((transaction) => ({
-        amount: transaction.amount,
-        category_id: assignCategoryId(transaction, rules),
-        import_batch_id: batch.id,
-        recipient: transaction.recipient,
-        title: transaction.title,
-        transaction_date: transaction.transaction_date,
-        user_id: userId,
-      })),
-    )
+    .insert(nextTransactions.map((transaction) => ({ ...transaction, import_batch_id: batch.id })))
     .select();
 
   mapPostgrestError(transactionError, "Imported transactions could not be saved");

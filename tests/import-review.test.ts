@@ -28,6 +28,7 @@ import {
   updateImportTransactionCategories,
   updateTransactionCategoryAndMaybeRule,
 } from "@/lib/imports/data";
+import type { Database } from "@/lib/database.types";
 import { parseIngCsv } from "@/lib/imports/ingCsv";
 import { parseRevolutCsv } from "@/lib/imports/revolutCsv";
 
@@ -117,19 +118,11 @@ function createUpdateSingleChain(data: unknown, error: { code?: string; message:
   };
 }
 
-function createDeleteChain(error: { code?: string; message: string } | null = null) {
-  return {
-    eq: vi.fn().mockReturnThis(),
-    then(resolve: (value: { error: typeof error }) => unknown) {
-      resolve({ error });
-    },
-  };
-}
-
 function buildImportSupabaseStub(options?: {
   bank?: "revolut" | "ing";
   completeBatchUpdate?: boolean;
   existingBatch?: boolean;
+  failReplacementInsert?: boolean;
 }) {
   const bank = options?.bank ?? "revolut";
   const existingBatch = options?.existingBatch
@@ -182,6 +175,22 @@ function buildImportSupabaseStub(options?: {
       user_id: "user-1",
     },
   ];
+  const existingTransactions: ImportedTransaction[] = options?.existingBatch
+    ? [
+        {
+          id: "tx-existing-1",
+          amount: -88.12,
+          category_id: "cat-food",
+          created_at: "2026-05-01T08:00:00.000Z",
+          import_batch_id: "batch-existing",
+          recipient: "Old Merchant",
+          title: "Old Merchant",
+          transaction_date: "2026-05-04",
+          updated_at: "2026-05-01T08:00:00.000Z",
+          user_id: "user-1",
+        },
+      ]
+    : [];
   const updatedTransaction = {
     ...insertedTransactions[0],
     category_id: "cat-travel",
@@ -195,8 +204,13 @@ function buildImportSupabaseStub(options?: {
     updated_at: "2026-05-30T08:00:00.000Z",
     user_id: "user-1",
   };
+  let batchTransactions: ImportedTransaction[] = options?.existingBatch ? [...existingTransactions] : [];
+  let insertCallCount = 0;
 
   return {
+    __getBatchTransactions() {
+      return batchTransactions;
+    },
     from: vi.fn((table: string) => {
       if (table === "statement_import_batches") {
         return {
@@ -229,8 +243,83 @@ function buildImportSupabaseStub(options?: {
 
       if (table === "transactions") {
         return {
-          delete: vi.fn().mockReturnValue(createDeleteChain()),
-          insert: vi.fn().mockReturnValue(createInsertManyChain(insertedTransactions)),
+          delete: vi.fn(() => {
+            const filters = new Map<string, string>();
+            const chain = {
+              eq: vi.fn((field: string, value: string) => {
+                filters.set(field, value);
+
+                if (field === "user_id") {
+                  const importBatchId = filters.get("import_batch_id");
+
+                  if (importBatchId) {
+                    batchTransactions = batchTransactions.filter(
+                      (transaction) => transaction.import_batch_id !== importBatchId || transaction.user_id !== value,
+                    );
+                  }
+                }
+
+                return chain;
+              }),
+              then(resolve: (value: { error: null }) => unknown) {
+                resolve({ error: null });
+              },
+            };
+
+            return chain;
+          }),
+          insert: vi.fn((rows: Database["public"]["Tables"]["transactions"]["Insert"][]) => {
+            insertCallCount += 1;
+
+            if (options?.failReplacementInsert && options.existingBatch && insertCallCount === 1) {
+              return createInsertManyChain(null, {
+                code: "23505",
+                message: "replacement insert failed",
+              });
+            }
+
+            const inserted: ImportedTransaction[] = rows.map((row, index) => ({
+              ...row,
+              amount: row.amount,
+              category_id: row.category_id ?? null,
+              created_at: row.created_at ?? "2026-05-30T08:00:00.000Z",
+              id: row.id ?? `tx-restored-${index + 1}`,
+              import_batch_id: row.import_batch_id,
+              recipient: row.recipient,
+              title: row.title,
+              transaction_date: row.transaction_date,
+              updated_at: row.updated_at ?? "2026-05-30T08:00:00.000Z",
+              user_id: row.user_id,
+            }));
+            batchTransactions = inserted;
+
+            return createInsertManyChain(inserted);
+          }),
+          select: vi.fn().mockImplementation(() => {
+            const filters = new Map<string, string>();
+            const chain = {
+              eq: vi.fn((field: string, value: string) => {
+                filters.set(field, value);
+                return chain;
+              }),
+              order: vi.fn().mockImplementation(() =>
+                Promise.resolve({
+                  data: batchTransactions.filter((transaction) => {
+                    const importBatchId = filters.get("import_batch_id");
+                    const userId = filters.get("user_id");
+
+                    return (
+                      (!importBatchId || transaction.import_batch_id === importBatchId) &&
+                      (!userId || transaction.user_id === userId)
+                    );
+                  }),
+                  error: null,
+                }),
+              ),
+            };
+
+            return chain;
+          }),
           update: vi.fn().mockReturnValue(createUpdateSingleChain(updatedTransaction)),
         };
       }
@@ -615,6 +704,37 @@ describe("import data helpers", () => {
     });
   });
 
+  it("restores the previous month state when replacement transaction persistence fails", async () => {
+    const supabase = buildImportSupabaseStub({ existingBatch: true, failReplacementInsert: true });
+
+    await expect(
+      commitImportBatch(supabase as never, "user-1", {
+        bank: "revolut",
+        confirm_replace: true,
+        period_end: "2026-05-28",
+        period_start: "2026-05-03",
+        source_filename: "revolut.csv",
+        statement_month: "2026-05-01",
+        transactions: [
+          {
+            amount: -12.34,
+            recipient: "Lidl Warszawa",
+            title: "Lidl Warszawa",
+            transaction_date: "2026-05-03",
+          },
+        ],
+      }),
+    ).rejects.toThrow(/replacement insert failed/);
+
+    expect(supabase.__getBatchTransactions()).toMatchObject([
+      {
+        id: "tx-existing-1",
+        import_batch_id: "batch-existing",
+        recipient: "Old Merchant",
+      },
+    ]);
+  });
+
   it("creates an ING batch with the shared persistence flow", async () => {
     const supabase = buildImportSupabaseStub({ bank: "ing" });
 
@@ -963,6 +1083,56 @@ describe("import API routes", () => {
 
     expect(payload.error).toMatch(/Replacement confirmation is required/);
     expect(payload.field).toBe("confirm_replace");
+  });
+
+  it("returns a truthful error when a confirmed replacement fails mid-flight", async () => {
+    const commitRoute: typeof import("@/pages/api/imports/commit") = await import("@/pages/api/imports/commit");
+    const supabase = buildImportSupabaseStub({ existingBatch: true, failReplacementInsert: true });
+
+    vi.mocked(createClient).mockReturnValue(supabase as never);
+
+    const response = await commitRoute.POST({
+      cookies: {} as never,
+      locals: {
+        user: {
+          id: "user-1",
+          email: "user@example.com",
+        },
+      },
+      params: {},
+      redirect: vi.fn(),
+      request: new Request("http://localhost/api/imports/commit", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          bank: "revolut",
+          confirm_replace: true,
+          period_end: "2026-05-28",
+          period_start: "2026-05-03",
+          source_filename: "revolut.csv",
+          statement_month: "2026-05-01",
+          transactions: [
+            {
+              amount: -12.34,
+              recipient: "Lidl Warszawa",
+              title: "Lidl Warszawa",
+              transaction_date: "2026-05-03",
+            },
+          ],
+        }),
+      }),
+    } as never);
+
+    expect(response.status).toBe(409);
+    const payload = JSON.parse(await response.text()) as {
+      error: string;
+      field: string | null;
+    };
+
+    expect(payload.error).toMatch(/replacement insert failed/);
+    expect(payload.field).toBeNull();
   });
 
   it("updates category assignments through the transaction review route", async () => {
