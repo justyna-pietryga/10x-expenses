@@ -319,9 +319,9 @@ No schema migration is expected for this rollout. The only allowed production-co
 
 #### Manual
 
-- [x] 2.6 Read the new summary test names and confirm they preserve the current dashboard default-month contract.
-- [x] 2.7 Confirm the pending-only month scenario keeps category totals separate from incomplete imported spend.
-- [x] 2.8 Confirm the snapshot-refresh case still treats live tables as the source of truth rather than the prior cached snapshot.
+- [x] 2.6 Read the new summary test names and confirm they preserve the current dashboard default-month contract. — ad67392
+- [x] 2.7 Confirm the pending-only month scenario keeps category totals separate from incomplete imported spend. — ad67392
+- [x] 2.8 Confirm the snapshot-refresh case still treats live tables as the source of truth rather than the prior cached snapshot. — ad67392
 
 ### Phase 3: Request-Boundary Rejection Coverage
 
@@ -342,14 +342,14 @@ No schema migration is expected for this rollout. The only allowed production-co
 
 #### Automated
 
-- [x] 4.1 `context/foundation/test-plan.md` Phase 1 cookbook placeholders are replaced with concrete integration-test guidance.
-- [x] 4.2 `npm test` passes for the touched finance-domain suites.
-- [x] 4.3 `npm run lint` passes.
-- [x] 4.4 `npx astro check` passes.
-- [x] 4.5 `npm run build` passes.
+- [x] 4.1 `context/foundation/test-plan.md` Phase 1 cookbook placeholders are replaced with concrete integration-test guidance. — ad67392
+- [x] 4.2 `npm test` passes for the touched finance-domain suites. — ad67392
+- [x] 4.3 `npm run lint` passes. — ad67392
+- [x] 4.4 `npx astro check` passes. — ad67392
+- [x] 4.5 `npm run build` passes. — ad67392
 
 #### Manual
 
-- [x] 4.6 Read the updated cookbook entry and confirm a fresh contributor could identify the right suite and seam for a new import or summary integrity test.
-- [x] 4.7 Confirm the cookbook language describes business behaviors and cheapest useful layers, not implementation trivia.
-- [x] 4.8 Confirm the rollout remains clearly bounded to Phase 1 and does not absorb Phase 2 review-persistence work.
+- [x] 4.6 Read the updated cookbook entry and confirm a fresh contributor could identify the right suite and seam for a new import or summary integrity test. — ad67392
+- [x] 4.7 Confirm the cookbook language describes business behaviors and cheapest useful layers, not implementation trivia. — ad67392
+- [x] 4.8 Confirm the rollout remains clearly bounded to Phase 1 and does not absorb Phase 2 review-persistence work. — ad67392
