@@ -319,37 +319,37 @@ No schema migration is expected for this rollout. The only allowed production-co
 
 #### Manual
 
-- [ ] 2.6 Read the new summary test names and confirm they preserve the current dashboard default-month contract.
-- [ ] 2.7 Confirm the pending-only month scenario keeps category totals separate from incomplete imported spend.
-- [ ] 2.8 Confirm the snapshot-refresh case still treats live tables as the source of truth rather than the prior cached snapshot.
+- [x] 2.6 Read the new summary test names and confirm they preserve the current dashboard default-month contract.
+- [x] 2.7 Confirm the pending-only month scenario keeps category totals separate from incomplete imported spend.
+- [x] 2.8 Confirm the snapshot-refresh case still treats live tables as the source of truth rather than the prior cached snapshot.
 
 ### Phase 3: Request-Boundary Rejection Coverage
 
 #### Automated
 
-- [x] 3.1 `tests/import-review.test.ts` covers user-facing invalid boundary cases for commit and preview routes.
-- [x] 3.2 `tests/monthly-summary-and-rules.test.ts` covers invalid selected-month rejection at the summary route.
-- [x] 3.3 `npm test -- tests/import-review.test.ts tests/monthly-summary-and-rules.test.ts` passes.
-- [x] 3.4 Targeted lint passes for the touched test files.
+- [x] 3.1 `tests/import-review.test.ts` covers user-facing invalid boundary cases for commit and preview routes. â€” 49edc3a
+- [x] 3.2 `tests/monthly-summary-and-rules.test.ts` covers invalid selected-month rejection at the summary route. â€” 49edc3a
+- [x] 3.3 `npm test -- tests/import-review.test.ts tests/monthly-summary-and-rules.test.ts` passes. â€” 49edc3a
+- [x] 3.4 Targeted lint passes for the touched test files. â€” 49edc3a
 
 #### Manual
 
-- [x] 3.5 Review the negative route cases and confirm they exercise real request boundaries rather than duplicating pure validator tests.
-- [x] 3.6 Confirm the new import-route assertions stay focused on malformed user inputs, not internal Supabase failures already covered elsewhere.
-- [x] 3.7 Confirm the summary invalid-month case preserves the current JSON error contract shape.
+- [x] 3.5 Review the negative route cases and confirm they exercise real request boundaries rather than duplicating pure validator tests. â€” 49edc3a
+- [x] 3.6 Confirm the new import-route assertions stay focused on malformed user inputs, not internal Supabase failures already covered elsewhere. â€” 49edc3a
+- [x] 3.7 Confirm the summary invalid-month case preserves the current JSON error contract shape. â€” 49edc3a
 
 ### Phase 4: Cookbook and Rollout Alignment
 
 #### Automated
 
-- [ ] 4.1 `context/foundation/test-plan.md` Phase 1 cookbook placeholders are replaced with concrete integration-test guidance.
-- [ ] 4.2 `npm test` passes for the touched finance-domain suites.
-- [ ] 4.3 `npm run lint` passes.
-- [ ] 4.4 `npx astro check` passes.
-- [ ] 4.5 `npm run build` passes.
+- [x] 4.1 `context/foundation/test-plan.md` Phase 1 cookbook placeholders are replaced with concrete integration-test guidance.
+- [x] 4.2 `npm test` passes for the touched finance-domain suites.
+- [x] 4.3 `npm run lint` passes.
+- [x] 4.4 `npx astro check` passes.
+- [x] 4.5 `npm run build` passes.
 
 #### Manual
 
-- [ ] 4.6 Read the updated cookbook entry and confirm a fresh contributor could identify the right suite and seam for a new import or summary integrity test.
-- [ ] 4.7 Confirm the cookbook language describes business behaviors and cheapest useful layers, not implementation trivia.
-- [ ] 4.8 Confirm the rollout remains clearly bounded to Phase 1 and does not absorb Phase 2 review-persistence work.
+- [x] 4.6 Read the updated cookbook entry and confirm a fresh contributor could identify the right suite and seam for a new import or summary integrity test.
+- [x] 4.7 Confirm the cookbook language describes business behaviors and cheapest useful layers, not implementation trivia.
+- [x] 4.8 Confirm the rollout remains clearly bounded to Phase 1 and does not absorb Phase 2 review-persistence work.

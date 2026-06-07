@@ -1,18 +1,18 @@
 # Test Plan
 
 > Phased test rollout for this project. Strategy is frozen at the top
-> (§1-§5); cookbook patterns at the bottom (§6) fill in as phases ship.
+> (Section 1-Section 5); cookbook patterns at the bottom (Section 6) fill in as phases ship.
 > Read before writing any new test.
 >
-> Refresh: re-run `/10x-test-plan --refresh` when stale (see §8).
+> Refresh: re-run `/10x-test-plan --refresh` when stale (see Section 8).
 >
-> Last updated: 2026-06-02
+> Last updated: 2026-06-07
 
 ## 1. Strategy
 
 Tests follow three non-negotiable principles for this project:
 
-1. **Cost × signal.** The cheapest test that gives a real signal for the risk wins. Do not promote to e2e because e2e "feels safer." Do not put a vision model on top of a deterministic visual diff that already catches the regression.
+1. **Cost x signal.** The cheapest test that gives a real signal for the risk wins. Do not promote to e2e because e2e "feels safer." Do not put a vision model on top of a deterministic visual diff that already catches the regression.
 2. **User concerns are first-class evidence.** Risks anchored in "the team is worried about X, and the failure would surface somewhere in <area>" carry the same weight as PRD lines or hot-spot data.
 3. **Risks are scenarios, not code locations.** This plan documents what could fail and why we believe it's likely, drawn from documents, interview, and codebase signal. It does NOT claim to know which line owns the failure. That knowledge is produced by `/10x-research` during each rollout phase. If the plan and research disagree about where the failure lives, research is the ground truth.
 
@@ -20,7 +20,7 @@ Hot-spot scope used for likelihood weighting: `src`, `supabase`.
 
 ## 2. Risk Map
 
-The top failure scenarios this project must protect against, ordered by risk = impact × likelihood. Risks are failure scenarios in user/business terms, not test names. The Source column cites the evidence that surfaced this risk, never a specific file as where the failure lives.
+The top failure scenarios this project must protect against, ordered by risk = impact x likelihood. Risks are failure scenarios in user/business terms, not test names. The Source column cites the evidence that surfaced this risk, never a specific file as where the failure lives.
 
 | # | Risk (failure scenario) | Impact | Likelihood | Source (evidence - not anchor) |
 |---|---|---|---|---|
@@ -48,7 +48,7 @@ Each row is a discrete rollout phase that will open its own change folder via `/
 
 | # | Phase name | Goal (one line) | Risks covered | Test types | Status | Change folder |
 |---|---|---|---|---|---|---|
-| 1 | Critical import and summary integrity | Defend the core data-integrity path for import replacement, summary gating, and summary correctness. | #1, #2, #6 | integration | change opened | testing-critical-import-and-summary-integrity |
+| 1 | Critical import and summary integrity | Defend the core data-integrity path for import replacement, summary gating, and summary correctness. | #1, #2, #6 | integration | implemented | testing-critical-import-and-summary-integrity |
 | 2 | Review persistence and rule application | Catch review-flow regressions where UI state drifts from persisted state or mutates the wrong rows. | #3, #4 | integration | not started | - |
 | 3 | Auth and ownership boundaries | Prove finance flows enforce ownership, not just authentication. | #5 | integration | not started | - |
 | 4 | Quality gates and cookbook wiring | Lock the floor with stable suite commands, rollout patterns, and required gates. | cross-cutting | gates | not started | - |
@@ -73,40 +73,48 @@ The classic test base for this project. AI-native tools, if any, carry a `checke
 
 ## 5. Quality Gates
 
-The full set of gates that must pass before a change reaches production. "Required for §3 Phase <N>" means the gate is enforced once that rollout phase lands; before that, the gate is planned.
+The full set of gates that must pass before a change reaches production. "Required for Section 3 Phase <N>" means the gate is enforced once that rollout phase lands; before that, the gate is planned.
 
 | Gate | Where | Required? | Catches |
 |---|---|---|---|
 | lint + typecheck + build | local + CI | required | syntactic, type, and build drift |
-| unit + integration | local + CI | required after §3 Phase 1 | import, summary, and API logic regressions |
-| auth or ownership integration checks | local + CI | required after §3 Phase 3 | cross-user access or mutation regressions |
+| unit + integration | local + CI | required | import, summary, and API logic regressions |
+| auth or ownership integration checks | local + CI | required after Section 3 Phase 3 | cross-user access or mutation regressions |
 | e2e on critical flows | CI on PR | optional | broken browser-level paths that integration cannot expose cheaply |
-| post-edit hook | local (agent loop) | planned after §3 Phase 4 | regressions at edit time |
+| post-edit hook | local (agent loop) | planned after Section 3 Phase 4 | regressions at edit time |
 | pre-prod smoke | between merge + prod | optional | environment-specific failures |
 
 ## 6. Cookbook Patterns
 
-How to add new tests in this project. Each sub-section is filled in once the relevant rollout phase ships; before that, the sub-section reads "TBD - see §3 Phase <N>."
+How to add new tests in this project. Each sub-section is filled in once the relevant rollout phase ships; before that, the sub-section reads "TBD - see Section 3 Phase <N>."
 
 ### 6.1 Adding an integration test for import or summary behavior
 
-- TBD - see §3 Phase 1 for import replacement, summary gating, and summary correctness patterns.
+- Extend the existing finance-domain root suites before creating a new harness: use `tests/import-review.test.ts` for import contracts and `tests/monthly-summary-and-rules.test.ts` for summary contracts.
+- Stay at the current cheapest useful seam: direct helper calls for data behavior such as `commitImportBatch` or `loadDashboardSummary`, plus direct Astro route invocation when the risk is request or response truthfulness.
+- Keep assertions on business outcomes, not query choreography. Phase 1 patterns now cover preserved month state on replacement failure, default month selection on the freshest import, pending-only months that remain untrusted, and cached summary snapshots that refresh from live tables.
+- Reuse the hand-built Supabase stub style already in those suites. Do not introduce browser coverage or generic mocks when the helper or route seam already exposes the regression clearly.
 
 ### 6.2 Adding an integration test for review persistence
 
-- TBD - see §3 Phase 2 for bulk-save truthfulness and mutation-scope patterns.
+- TBD - see Section 3 Phase 2 for bulk-save truthfulness and mutation-scope patterns.
 
 ### 6.3 Adding an integration test for auth or ownership checks
 
-- TBD - see §3 Phase 3 for finance-flow ownership boundary patterns.
+- TBD - see Section 3 Phase 3 for finance-flow ownership boundary patterns.
 
 ### 6.4 Adding a test for a new API endpoint
 
-- TBD - see §3 Phase 1 and §3 Phase 3 for the preferred endpoint-level integration pattern in this repo.
+- Treat API routes as thin integration boundaries. Build a real `Request`, call the exported Astro handler directly, and assert the structured JSON payload plus status code the user would actually receive.
+- Prefer endpoint tests for boundary failures and contract truthfulness: wrong content type, malformed payload shape, invalid query values, or helper failures that must surface as stable JSON errors.
+- If the endpoint mostly forwards to a domain helper, pair one helper-level test for the stateful business behavior with one route-level test for the HTTP contract instead of duplicating the same assertion at multiple layers.
+- Phase 3 will add ownership-specific endpoint guidance. Until then, follow the Phase 1 route pattern for import and summary boundaries.
 
 ### 6.5 Per-rollout-phase notes
 
-- TBD - see §3 Phase 4.
+- Phase 1 shipped with two reusable boundaries: finance-domain coverage belongs in the existing root suites, and the preferred layer is helper plus route integration rather than browser automation.
+- The oracle for import and summary work is user-truthful persisted state: one clean bank-month batch after replace attempts, and summary totals that never treat pending review data as trusted spend.
+- Phase 1 stayed intentionally bounded to import replacement integrity, summary trust edges, and invalid request rejection. Review-persistence and mutation-scope risks remain Phase 2 work.
 
 ## 7. What We Deliberately Don't Test
 
@@ -118,7 +126,7 @@ Exclusions agreed during the rollout. Future contributors should respect these u
 
 ## 8. Freshness Ledger
 
-- Strategy (§1-§5) last reviewed: 2026-06-02
+- Strategy (Section 1-Section 5) last reviewed: 2026-06-07
 - Stack versions last verified: 2026-06-02
 - AI-native tool references last verified: 2026-06-02
 
@@ -127,4 +135,4 @@ Refresh (`/10x-test-plan --refresh`) when:
 - a new top-3 risk surfaces from the roadmap or archive,
 - a recommended tool's `checked:` date is older than three months,
 - the project's tech stack changes (new framework, new test runner),
-- §7 negative-space no longer matches what the team believes.
+- Section 7 negative-space no longer matches what the team believes.
