@@ -1,7 +1,7 @@
 ---
 change_id: testing-critical-import-and-summary-integrity
 title: Testing critical import and summary integrity
-status: implemented
+status: impl_reviewed
 created: 2026-06-02
 updated: 2026-06-07
 archived_at: null
