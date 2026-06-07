@@ -5,6 +5,7 @@ AGENTS.md
 CLAUDE.md
 
 .dev.vars
+auth.json
 
 # build output
 dist/
