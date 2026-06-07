@@ -295,27 +295,27 @@ No schema migration is expected for this rollout. The only allowed production-co
 
 #### Automated
 
-- [x] 1.1 `tests/import-review.test.ts` covers same-month replacement failure behavior at the helper level.
-- [x] 1.2 `tests/import-review.test.ts` covers replacement failure truthfulness at the commit-route level.
-- [x] 1.3 `npm test -- tests/import-review.test.ts` passes.
-- [x] 1.4 `npx astro check` passes after the import helper change.
-- [x] 1.5 Targeted lint passes for `src/lib/imports/data.ts` and `tests/import-review.test.ts`.
+- [x] 1.1 `tests/import-review.test.ts` covers same-month replacement failure behavior at the helper level. — 78e51f2
+- [x] 1.2 `tests/import-review.test.ts` covers replacement failure truthfulness at the commit-route level. — 78e51f2
+- [x] 1.3 `npm test -- tests/import-review.test.ts` passes. — 78e51f2
+- [x] 1.4 `npx astro check` passes after the import helper change. — 78e51f2
+- [x] 1.5 Targeted lint passes for `src/lib/imports/data.ts` and `tests/import-review.test.ts`. — 78e51f2
 
 #### Manual
 
-- [x] 1.6 Read the replacement test names and confirm they describe business outcomes, not internal mock choreography.
-- [x] 1.7 Review the import helper change and confirm the bank-month contract is still "one truthful month state" after a failed replacement attempt.
-- [x] 1.8 Confirm the new coverage still keeps explicit replacement confirmation as a separate concern from replacement safety.
+- [x] 1.6 Read the replacement test names and confirm they describe business outcomes, not internal mock choreography. — 78e51f2
+- [x] 1.7 Review the import helper change and confirm the bank-month contract is still "one truthful month state" after a failed replacement attempt. — 78e51f2
+- [x] 1.8 Confirm the new coverage still keeps explicit replacement confirmation as a separate concern from replacement safety. — 78e51f2
 
 ### Phase 2: Summary Trust Edge Coverage
 
 #### Automated
 
-- [ ] 2.1 `tests/monthly-summary-and-rules.test.ts` covers default selected-month behavior with no explicit `month`.
-- [ ] 2.2 `tests/monthly-summary-and-rules.test.ts` covers a pending-only month with incomplete-review separation.
-- [ ] 2.3 `tests/monthly-summary-and-rules.test.ts` covers snapshot refresh behavior when a prior summary already exists.
-- [ ] 2.4 `npm test -- tests/monthly-summary-and-rules.test.ts` passes.
-- [ ] 2.5 `npx astro check` passes.
+- [x] 2.1 `tests/monthly-summary-and-rules.test.ts` covers default selected-month behavior with no explicit `month`.
+- [x] 2.2 `tests/monthly-summary-and-rules.test.ts` covers a pending-only month with incomplete-review separation.
+- [x] 2.3 `tests/monthly-summary-and-rules.test.ts` covers snapshot refresh behavior when a prior summary already exists.
+- [x] 2.4 `npm test -- tests/monthly-summary-and-rules.test.ts` passes.
+- [x] 2.5 `npx astro check` passes.
 
 #### Manual
 
