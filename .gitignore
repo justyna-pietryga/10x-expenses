@@ -5,6 +5,8 @@ AGENTS.md
 CLAUDE.md
 
 .dev.vars
+auth.json
+.playwright-cli/
 
 # build output
 dist/
