@@ -2,7 +2,7 @@ import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 import { listActiveCategories } from "@/lib/budget/data";
 import type { Database, Tables } from "@/lib/database.types";
 import { ImportError } from "@/lib/imports/errors";
-import type { ImportCommitPayload } from "@/lib/imports/validation";
+import type { ImportCategoryUpdatePayload, ImportCommitPayload } from "@/lib/imports/validation";
 import { findMatchingRule, listRules } from "@/lib/rules/data";
 
 type ImportClient = SupabaseClient<Database>;
@@ -22,6 +22,11 @@ export type ExistingImportBatchSummary = Pick<
   | "source_filename"
   | "statement_month"
 >;
+
+export interface ImportCategoryUpdateFailure {
+  error: string;
+  transaction_id: string;
+}
 
 function mapPostgrestError(error: PostgrestError | null, fallbackMessage: string) {
   if (!error) {
@@ -83,6 +88,57 @@ async function ensureOwnedImportCategory(supabase: ImportClient, userId: string,
   return category;
 }
 
+function mapTransactionUpdateFailure(error: PostgrestError | null) {
+  if (error?.code === "PGRST116") {
+    return "Imported transaction was not found";
+  }
+
+  return "Imported transaction could not be updated";
+}
+
+function buildImportedTransactionRows(
+  userId: string,
+  batchId: string,
+  transactions: ImportCommitPayload["transactions"],
+  rules: CategorizationRule[],
+) {
+  return transactions.map((transaction) => ({
+    amount: transaction.amount,
+    category_id: assignCategoryId(transaction, rules),
+    import_batch_id: batchId,
+    recipient: transaction.recipient,
+    title: transaction.title,
+    transaction_date: transaction.transaction_date,
+    user_id: userId,
+  }));
+}
+
+async function restoreImportTransactions(
+  supabase: ImportClient,
+  transactions: ImportedTransaction[],
+  fallbackMessage: string,
+) {
+  if (transactions.length === 0) {
+    return;
+  }
+
+  const restoreRows: Database["public"]["Tables"]["transactions"]["Insert"][] = transactions.map((transaction) => ({
+    amount: transaction.amount,
+    category_id: transaction.category_id,
+    created_at: transaction.created_at,
+    id: transaction.id,
+    import_batch_id: transaction.import_batch_id,
+    recipient: transaction.recipient,
+    title: transaction.title,
+    transaction_date: transaction.transaction_date,
+    updated_at: transaction.updated_at,
+    user_id: transaction.user_id,
+  }));
+  const { error } = await supabase.from("transactions").insert(restoreRows).select();
+
+  mapPostgrestError(error ?? null, fallbackMessage);
+}
+
 export async function commitImportBatch(supabase: ImportClient, userId: string, payload: ImportCommitPayload) {
   const existingBatch = await findExistingImportBatch(supabase, userId, payload.bank, payload.statement_month);
 
@@ -95,8 +151,18 @@ export async function commitImportBatch(supabase: ImportClient, userId: string, 
 
   const rules = await listCategorizationRules(supabase, userId);
   let batch: ImportBatch;
+  const nextTransactions = buildImportedTransactionRows(userId, existingBatch?.id ?? "", payload.transactions, rules);
 
   if (existingBatch) {
+    const { data: previousTransactions, error: previousTransactionsError } = await supabase
+      .from("transactions")
+      .select("*")
+      .eq("import_batch_id", existingBatch.id)
+      .eq("user_id", userId)
+      .order("transaction_date", { ascending: true });
+
+    mapPostgrestError(previousTransactionsError, "Previous batch transactions could not be loaded");
+
     const deleteResult = await supabase
       .from("transactions")
       .delete()
@@ -105,26 +171,56 @@ export async function commitImportBatch(supabase: ImportClient, userId: string, 
 
     mapPostgrestError(deleteResult.error ?? null, "Previous batch transactions could not be replaced");
 
-    const { data, error } = await supabase
-      .from("statement_import_batches")
-      .update({
-        imported_at: new Date().toISOString(),
-        period_end: payload.period_end,
-        period_start: payload.period_start,
-        review_completed_at: null,
-        source_filename: payload.source_filename,
-      })
-      .eq("id", existingBatch.id)
-      .eq("user_id", userId)
-      .select()
-      .single();
+    try {
+      const { data: insertedTransactions, error: transactionError } = await supabase
+        .from("transactions")
+        .insert(nextTransactions.map((transaction) => ({ ...transaction, import_batch_id: existingBatch.id })))
+        .select();
 
-    mapPostgrestError(error, "Existing import batch could not be updated");
-    if (!data) {
-      throw new ImportError("Existing import batch could not be updated", { status: 500 });
+      mapPostgrestError(transactionError, "Imported transactions could not be saved");
+
+      const { data, error } = await supabase
+        .from("statement_import_batches")
+        .update({
+          imported_at: new Date().toISOString(),
+          period_end: payload.period_end,
+          period_start: payload.period_start,
+          review_completed_at: null,
+          source_filename: payload.source_filename,
+        })
+        .eq("id", existingBatch.id)
+        .eq("user_id", userId)
+        .select()
+        .single();
+
+      mapPostgrestError(error, "Existing import batch could not be updated");
+      if (!data) {
+        throw new ImportError("Existing import batch could not be updated", { status: 500 });
+      }
+
+      batch = data;
+
+      return {
+        batch,
+        replaced: true,
+        transactions: insertedTransactions ?? [],
+      };
+    } catch (error) {
+      const cleanupResult = await supabase
+        .from("transactions")
+        .delete()
+        .eq("import_batch_id", existingBatch.id)
+        .eq("user_id", userId);
+
+      mapPostgrestError(cleanupResult.error ?? null, "Failed to clean up a partial replacement");
+      await restoreImportTransactions(
+        supabase,
+        previousTransactions ?? [],
+        "Previous batch transactions could not be restored after a failed replacement",
+      );
+
+      throw error;
     }
-
-    batch = data;
   } else {
     const { data, error } = await supabase
       .from("statement_import_batches")
@@ -150,17 +246,7 @@ export async function commitImportBatch(supabase: ImportClient, userId: string, 
 
   const { data: transactions, error: transactionError } = await supabase
     .from("transactions")
-    .insert(
-      payload.transactions.map((transaction) => ({
-        amount: transaction.amount,
-        category_id: assignCategoryId(transaction, rules),
-        import_batch_id: batch.id,
-        recipient: transaction.recipient,
-        title: transaction.title,
-        transaction_date: transaction.transaction_date,
-        user_id: userId,
-      })),
-    )
+    .insert(nextTransactions.map((transaction) => ({ ...transaction, import_batch_id: batch.id })))
     .select();
 
   mapPostgrestError(transactionError, "Imported transactions could not be saved");
@@ -275,6 +361,52 @@ export async function updateTransactionCategoryAndMaybeRule(
   return {
     rule,
     transaction,
+  };
+}
+
+export async function updateImportTransactionCategories(
+  supabase: ImportClient,
+  userId: string,
+  updates: ImportCategoryUpdatePayload["updates"],
+) {
+  const activeCategories = await listActiveCategories(supabase, userId);
+  const activeCategoryIds = new Set(activeCategories.map((category) => category.id));
+  const updated: ImportedTransaction[] = [];
+  const failed: ImportCategoryUpdateFailure[] = [];
+
+  for (const update of updates) {
+    if (update.category_id && !activeCategoryIds.has(update.category_id)) {
+      failed.push({
+        error: "Selected category was not found",
+        transaction_id: update.transaction_id,
+      });
+      continue;
+    }
+
+    const { data: transaction, error } = await supabase
+      .from("transactions")
+      .update({
+        category_id: update.category_id,
+      })
+      .eq("id", update.transaction_id)
+      .eq("user_id", userId)
+      .select()
+      .single();
+
+    if (error) {
+      failed.push({
+        error: mapTransactionUpdateFailure(error),
+        transaction_id: update.transaction_id,
+      });
+      continue;
+    }
+
+    updated.push(transaction);
+  }
+
+  return {
+    failed,
+    updated,
   };
 }
 

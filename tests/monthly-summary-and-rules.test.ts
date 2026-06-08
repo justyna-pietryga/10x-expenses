@@ -48,7 +48,65 @@ function createDeleteSingleChain(data: unknown, error: { code?: string; message:
   };
 }
 
-function buildSummarySupabaseStub() {
+interface SummaryBatchRow {
+  bank: string;
+  created_at: string;
+  id: string;
+  imported_at: string;
+  period_end: string;
+  period_start: string;
+  review_completed_at: string | null;
+  source_filename: string;
+  statement_month: string;
+  updated_at: string;
+  user_id: string;
+}
+
+interface SummaryTransactionRow {
+  amount: number;
+  category_id: string | null;
+  created_at: string;
+  id: string;
+  import_batch_id: string;
+  recipient: string;
+  title: string;
+  transaction_date: string;
+  updated_at: string;
+  user_id: string;
+}
+
+interface MonthlyIncomeRow {
+  amount: number;
+  created_at: string;
+  id: string;
+  is_estimated: boolean;
+  month: string;
+  updated_at: string;
+  user_id: string;
+}
+
+interface SummarySnapshotRecord {
+  created_at: string;
+  generated_at: string;
+  id: string;
+  month: string;
+  summary_snapshot: Record<string, unknown>;
+  total_income: number;
+  total_spent: number;
+  updated_at: string;
+  user_id: string;
+}
+
+interface SummaryStubOptions {
+  existingSummary?: SummarySnapshotRecord | null;
+  historicalBatches?: SummaryBatchRow[];
+  historicalTransactions?: SummaryTransactionRow[];
+  monthlyIncomes?: MonthlyIncomeRow[];
+  selectedBatches?: SummaryBatchRow[];
+  selectedTransactions?: SummaryTransactionRow[];
+}
+
+function buildSummarySupabaseStub(options: SummaryStubOptions = {}) {
   const categories = [
     {
       id: "cat-food",
@@ -71,7 +129,7 @@ function buildSummarySupabaseStub() {
       updated_at: "2026-04-01T00:00:00.000Z",
     },
   ];
-  const monthlyIncomes = [
+  const monthlyIncomes = options.monthlyIncomes ?? [
     {
       id: "income-apr",
       user_id: "user-1",
@@ -91,7 +149,7 @@ function buildSummarySupabaseStub() {
       updated_at: "2026-05-01T00:00:00.000Z",
     },
   ];
-  const selectedBatches = [
+  const selectedBatches = options.selectedBatches ?? [
     {
       id: "batch-may-reviewed",
       user_id: "user-1",
@@ -119,7 +177,7 @@ function buildSummarySupabaseStub() {
       updated_at: "2026-05-30T12:00:00.000Z",
     },
   ];
-  const historicalBatches = [
+  const historicalBatches = options.historicalBatches ?? [
     {
       id: "batch-apr-reviewed",
       user_id: "user-1",
@@ -135,7 +193,7 @@ function buildSummarySupabaseStub() {
     },
     ...selectedBatches,
   ];
-  const selectedTransactions = [
+  const selectedTransactions = options.selectedTransactions ?? [
     {
       id: "tx-may-food",
       user_id: "user-1",
@@ -173,7 +231,7 @@ function buildSummarySupabaseStub() {
       updated_at: "2026-05-07T00:00:00.000Z",
     },
   ];
-  const historicalTransactions = [
+  const historicalTransactions = options.historicalTransactions ?? [
     {
       id: "tx-apr-travel",
       user_id: "user-1",
@@ -189,30 +247,35 @@ function buildSummarySupabaseStub() {
     ...selectedTransactions.filter((transaction) => transaction.import_batch_id === "batch-may-reviewed"),
   ];
 
-  return {
+  let monthlySummaryRecord: SummarySnapshotRecord | null = options.existingSummary ?? null;
+
+  const supabase = {
     from: vi.fn((table: string) => {
       if (table === "statement_import_batches") {
         return {
           select: vi.fn().mockImplementation((columns: string) => {
             if (columns === "statement_month, review_completed_at") {
-              return createSelectChain([
-                { statement_month: "2026-05-01", review_completed_at: selectedBatches[0].review_completed_at },
-                { statement_month: "2026-05-01", review_completed_at: selectedBatches[1].review_completed_at },
-                { statement_month: "2026-04-01", review_completed_at: historicalBatches[0].review_completed_at },
-              ]);
+              return createSelectChain(
+                historicalBatches.map((batch) => ({
+                  review_completed_at: batch.review_completed_at,
+                  statement_month: batch.statement_month,
+                })),
+              );
             }
 
             let data = historicalBatches;
             const chain = {
               eq: vi.fn().mockImplementation((field: string, value: string) => {
-                if (field === "statement_month" && value === "2026-05-01") {
-                  data = selectedBatches;
+                if (field === "statement_month") {
+                  data = historicalBatches.filter((batch) => batch.statement_month === value);
                 }
 
                 return chain;
               }),
-              lte: vi.fn().mockImplementation(() => {
-                data = historicalBatches;
+              lte: vi.fn().mockImplementation((field: string, value: string) => {
+                if (field === "statement_month") {
+                  data = historicalBatches.filter((batch) => batch.statement_month <= value);
+                }
                 return chain;
               }),
               order: vi.fn().mockImplementation(() => Promise.resolve({ data, error: null })),
@@ -261,7 +324,10 @@ function buildSummarySupabaseStub() {
           select: vi.fn().mockImplementation(() => ({
             eq: vi.fn().mockReturnThis(),
             in: vi.fn().mockImplementation((_field: string, values: string[]) => {
-              const data = values.includes("batch-may-pending") ? selectedTransactions : historicalTransactions;
+              const selectedBatchIds = selectedBatches.map((batch) => batch.id);
+              const data = values.every((value) => selectedBatchIds.includes(value))
+                ? selectedTransactions.filter((transaction) => values.includes(transaction.import_batch_id))
+                : historicalTransactions.filter((transaction) => values.includes(transaction.import_batch_id));
               return {
                 order: vi.fn().mockResolvedValue({ data, error: null }),
               };
@@ -278,20 +344,37 @@ function buildSummarySupabaseStub() {
 
       if (table === "monthly_summaries") {
         return {
-          select: vi.fn().mockReturnValue(createSelectChain(null)),
-          upsert: vi.fn().mockReturnValue(
-            createInsertSingleChain({
-              id: "summary-1",
-              user_id: "user-1",
-              month: "2026-05-01",
-              total_income: 1000,
-              total_spent: 280,
-              generated_at: "2026-05-31T12:00:00.000Z",
-              summary_snapshot: {},
-              created_at: "2026-05-31T12:00:00.000Z",
-              updated_at: "2026-05-31T12:00:00.000Z",
-            }),
-          ),
+          select: vi.fn().mockImplementation(() => {
+            const chain = {
+              eq: vi.fn().mockReturnThis(),
+              maybeSingle: vi.fn().mockImplementation(() =>
+                Promise.resolve({
+                  data: monthlySummaryRecord,
+                  error: null,
+                }),
+              ),
+            };
+            return chain;
+          }),
+          upsert: vi
+            .fn()
+            .mockImplementation((payload: Omit<SummarySnapshotRecord, "created_at" | "id" | "updated_at">) => ({
+              select: vi.fn().mockReturnThis(),
+              single: vi.fn().mockImplementation(() => {
+                monthlySummaryRecord = {
+                  created_at: monthlySummaryRecord?.created_at ?? "2026-05-31T12:00:00.000Z",
+                  generated_at: payload.generated_at,
+                  id: monthlySummaryRecord?.id ?? "summary-1",
+                  month: payload.month,
+                  summary_snapshot: payload.summary_snapshot,
+                  total_income: payload.total_income,
+                  total_spent: payload.total_spent,
+                  updated_at: "2026-05-31T12:00:00.000Z",
+                  user_id: payload.user_id,
+                };
+                return Promise.resolve({ data: monthlySummaryRecord, error: null });
+              }),
+            })),
         };
       }
 
@@ -337,6 +420,13 @@ function buildSummarySupabaseStub() {
       throw new Error(`Unexpected table ${table}`);
     }),
   };
+
+  return Object.assign(supabase, {
+    __state: {
+      monthlySummaryRecord: () => monthlySummaryRecord,
+      selectedTransactions,
+    },
+  });
 }
 
 describe("summary data helpers", () => {
@@ -361,6 +451,170 @@ describe("summary data helpers", () => {
         reviewed_spend: 0,
       }),
     );
+  });
+
+  it("defaults to the latest imported month when no month is requested, even if review is still pending", async () => {
+    const supabase = buildSummarySupabaseStub();
+
+    const summary = await loadDashboardSummary(supabase as never, "user-1", null);
+
+    expect(summary.selected_month).toBe("2026-05-01");
+    expect(summary.available_months[0]).toEqual(
+      expect.objectContaining({
+        has_completed_review: true,
+        has_pending_review: true,
+        month: "2026-05-01",
+      }),
+    );
+    expect(summary.incomplete_review_spend).toBe(30);
+  });
+
+  it("keeps pending-only months fully untrusted while preserving incomplete-review warnings", async () => {
+    const supabase = buildSummarySupabaseStub({
+      historicalBatches: [
+        {
+          id: "batch-may-reviewed",
+          user_id: "user-1",
+          bank: "revolut",
+          statement_month: "2026-05-01",
+          period_start: "2026-05-01",
+          period_end: "2026-05-29",
+          source_filename: "may-reviewed.csv",
+          imported_at: "2026-05-29T12:00:00.000Z",
+          review_completed_at: "2026-05-30T12:00:00.000Z",
+          created_at: "2026-05-29T12:00:00.000Z",
+          updated_at: "2026-05-29T12:00:00.000Z",
+        },
+        {
+          id: "batch-jun-pending",
+          user_id: "user-1",
+          bank: "revolut",
+          statement_month: "2026-06-01",
+          period_start: "2026-06-01",
+          period_end: "2026-06-30",
+          source_filename: "jun-pending.csv",
+          imported_at: "2026-06-30T12:00:00.000Z",
+          review_completed_at: null,
+          created_at: "2026-06-30T12:00:00.000Z",
+          updated_at: "2026-06-30T12:00:00.000Z",
+        },
+      ],
+      historicalTransactions: [
+        {
+          id: "tx-may-food",
+          user_id: "user-1",
+          import_batch_id: "batch-may-reviewed",
+          amount: -90,
+          category_id: "cat-food",
+          recipient: "Lidl",
+          title: "Card payment",
+          transaction_date: "2026-05-05",
+          created_at: "2026-05-05T00:00:00.000Z",
+          updated_at: "2026-05-05T00:00:00.000Z",
+        },
+      ],
+      monthlyIncomes: [
+        {
+          id: "income-may",
+          user_id: "user-1",
+          month: "2026-05-01",
+          amount: 1000,
+          is_estimated: false,
+          created_at: "2026-05-01T00:00:00.000Z",
+          updated_at: "2026-05-01T00:00:00.000Z",
+        },
+        {
+          id: "income-jun",
+          user_id: "user-1",
+          month: "2026-06-01",
+          amount: 1200,
+          is_estimated: false,
+          created_at: "2026-06-01T00:00:00.000Z",
+          updated_at: "2026-06-01T00:00:00.000Z",
+        },
+      ],
+      selectedBatches: [
+        {
+          id: "batch-jun-pending",
+          user_id: "user-1",
+          bank: "revolut",
+          statement_month: "2026-06-01",
+          period_start: "2026-06-01",
+          period_end: "2026-06-30",
+          source_filename: "jun-pending.csv",
+          imported_at: "2026-06-30T12:00:00.000Z",
+          review_completed_at: null,
+          created_at: "2026-06-30T12:00:00.000Z",
+          updated_at: "2026-06-30T12:00:00.000Z",
+        },
+      ],
+      selectedTransactions: [
+        {
+          id: "tx-jun-food",
+          user_id: "user-1",
+          import_batch_id: "batch-jun-pending",
+          amount: -140,
+          category_id: "cat-food",
+          recipient: "Biedronka",
+          title: "Card payment",
+          transaction_date: "2026-06-03",
+          created_at: "2026-06-03T00:00:00.000Z",
+          updated_at: "2026-06-03T00:00:00.000Z",
+        },
+      ],
+    });
+
+    const summary = await loadDashboardSummary(supabase as never, "user-1", null);
+
+    expect(summary.selected_month).toBe("2026-06-01");
+    expect(summary.reviewed_categorized_spend).toBe(0);
+    expect(summary.reviewed_uncategorized_spend).toBe(0);
+    expect(summary.incomplete_review_spend).toBe(140);
+    expect(summary.warning_batches).toEqual([
+      expect.objectContaining({
+        id: "batch-jun-pending",
+        source_filename: "jun-pending.csv",
+      }),
+    ]);
+    expect(summary.category_rows.map((row) => row.reviewed_spend)).toEqual([0, 0]);
+  });
+
+  it("recomputes from live transactions and refreshes the cached snapshot on repeated loads", async () => {
+    const supabase = buildSummarySupabaseStub({
+      existingSummary: {
+        id: "summary-existing",
+        user_id: "user-1",
+        month: "2026-05-01",
+        total_income: 1000,
+        total_spent: 999,
+        generated_at: "2026-05-15T12:00:00.000Z",
+        summary_snapshot: {
+          reviewed_categorized_spend: 999,
+        },
+        created_at: "2026-05-15T12:00:00.000Z",
+        updated_at: "2026-05-15T12:00:00.000Z",
+      },
+    });
+    const firstSummary = await loadDashboardSummary(supabase as never, "user-1", "2026-05-01");
+    const firstSnapshot = supabase.__state.monthlySummaryRecord();
+    if (!firstSnapshot) {
+      throw new Error("Expected the first load to refresh the monthly summary snapshot");
+    }
+
+    expect(firstSummary.reviewed_categorized_spend).toBe(200);
+    expect(firstSnapshot.total_spent).toBe(280);
+
+    supabase.__state.selectedTransactions[0].amount = -260;
+
+    const secondSummary = await loadDashboardSummary(supabase as never, "user-1", "2026-05-01");
+    const secondSnapshot = supabase.__state.monthlySummaryRecord();
+    if (!secondSnapshot) {
+      throw new Error("Expected the second load to keep a refreshed monthly summary snapshot");
+    }
+
+    expect(secondSummary.reviewed_categorized_spend).toBe(260);
+    expect(secondSummary.total_imported_spend).toBe(340);
+    expect(secondSnapshot.total_spent).toBe(340);
   });
 });
 
@@ -433,6 +687,32 @@ describe("summary and rule API routes", () => {
 
     expect(payload.selected_month).toBe("2026-05-01");
     expect(payload.incomplete_review_spend).toBe(30);
+  });
+
+  it("rejects invalid selected-month values with the summary JSON error contract", async () => {
+    const summaryRoute: typeof import("@/pages/api/dashboard/summary") = await import("@/pages/api/dashboard/summary");
+    const supabase = buildSummarySupabaseStub();
+
+    vi.mocked(createClient).mockReturnValue(supabase as never);
+
+    const response = await summaryRoute.GET({
+      cookies: {} as never,
+      locals: {
+        user: {
+          id: "user-1",
+          email: "user@example.com",
+        },
+      },
+      params: {},
+      redirect: vi.fn(),
+      request: new Request("http://localhost/api/dashboard/summary?month=2026-05-15"),
+    } as never);
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      error: "Month must point to the first day of the month",
+      field: "month",
+    });
   });
 
   it("creates, updates, and deletes field-aware rules through the API", async () => {

@@ -4,16 +4,29 @@ import { Button } from "@/components/ui/button";
 
 interface Props {
   batch: ImportBatch;
+  completionBlockedReason?: string | null;
+  isCompletionBlocked?: boolean;
   onComplete: () => Promise<void>;
   transactionCount: number;
 }
 
-export function ReviewCompletionBar({ batch, onComplete, transactionCount }: Props) {
+export function ReviewCompletionBar({
+  batch,
+  completionBlockedReason,
+  isCompletionBlocked = false,
+  onComplete,
+  transactionCount,
+}: Props) {
   const [error, setError] = useState<string | null>(null);
   const [isCompleting, setIsCompleting] = useState(false);
   const isComplete = Boolean(batch.review_completed_at);
+  const isActionBlocked = isCompletionBlocked || isCompleting;
 
   async function handleComplete() {
+    if (isCompletionBlocked) {
+      return;
+    }
+
     setIsCompleting(true);
     setError(null);
 
@@ -39,6 +52,9 @@ export function ReviewCompletionBar({ batch, onComplete, transactionCount }: Pro
           <p className="mt-3 text-sm leading-6 text-slate-200/75">
             {transactionCount} imported transaction{transactionCount === 1 ? "" : "s"} in {batch.statement_month}
           </p>
+          {isCompletionBlocked && completionBlockedReason && (
+            <p className="mt-3 text-sm text-amber-200">{completionBlockedReason}</p>
+          )}
           {error && <p className="mt-3 text-sm text-rose-300">{error}</p>}
         </div>
 
@@ -58,7 +74,7 @@ export function ReviewCompletionBar({ batch, onComplete, transactionCount }: Pro
           <Button
             type="button"
             className="rounded-2xl bg-cyan-300 text-slate-950 hover:bg-cyan-200"
-            disabled={isCompleting}
+            disabled={isActionBlocked}
             onClick={() => {
               void handleComplete();
             }}

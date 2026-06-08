@@ -3,7 +3,11 @@ import type { BudgetCategory } from "@/lib/budget/data";
 import type { ImportBatch, ImportedTransaction } from "@/lib/imports/data";
 import { ImportUploadForm, type ImportPreviewPayload } from "@/components/imports/ImportUploadForm";
 import { ReviewCompletionBar } from "@/components/imports/ReviewCompletionBar";
-import { TransactionReviewTable } from "@/components/imports/TransactionReviewTable";
+import {
+  TransactionReviewTable,
+  type ImportCategoryDraftUpdate,
+  type ImportCategorySaveResult,
+} from "@/components/imports/TransactionReviewTable";
 
 interface Props {
   categories: BudgetCategory[];
@@ -17,11 +21,66 @@ interface CommitPayload {
   transactions: ImportedTransaction[];
 }
 
+interface BulkCategorySaveResponse extends ImportCategorySaveResult {
+  error?: string;
+}
+
+export async function saveImportCategoryChanges(
+  updates: ImportCategoryDraftUpdate[],
+  fetchFn: typeof fetch = fetch,
+): Promise<ImportCategorySaveResult> {
+  const response = await fetchFn("/api/imports/transactions/bulk", {
+    method: "PATCH",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ updates }),
+  });
+  const payload = (await response.json()) as BulkCategorySaveResponse;
+
+  if (!response.ok) {
+    throw new Error(payload.error ?? "Could not save these category changes");
+  }
+
+  if (payload.updated.length === 0 && payload.failed.length > 0) {
+    return {
+      failed: payload.failed,
+      updated: payload.updated,
+    };
+  }
+
+  return {
+    failed: payload.failed,
+    updated: payload.updated,
+  };
+}
+
+export function mergeImportedTransactionCategoryUpdates(
+  transactions: ImportedTransaction[],
+  updates: ImportCategorySaveResult["updated"],
+) {
+  const categoryById = new Map(updates.map((update) => [update.id, update.category_id]));
+
+  return transactions.map((transaction) => {
+    const nextCategoryId = categoryById.get(transaction.id);
+
+    if (nextCategoryId === undefined) {
+      return transaction;
+    }
+
+    return {
+      ...transaction,
+      category_id: nextCategoryId,
+    };
+  });
+}
+
 export function ImportWorkspace({ categories, initialBatch, initialTransactions }: Props) {
   const [preview, setPreview] = useState<ImportPreviewPayload | null>(null);
   const [batch, setBatch] = useState(initialBatch);
   const [transactions, setTransactions] = useState(initialTransactions);
   const [error, setError] = useState<string | null>(null);
+  const [hasDirtyCategoryChanges, setHasDirtyCategoryChanges] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [isCommitting, setIsCommitting] = useState(false);
 
@@ -103,8 +162,29 @@ export function ImportWorkspace({ categories, initialBatch, initialTransactions 
     });
   }
 
+  async function handleSaveCategoryChanges(updates: ImportCategoryDraftUpdate[]): Promise<ImportCategorySaveResult> {
+    const result = await saveImportCategoryChanges(updates);
+
+    if (result.updated.length > 0) {
+      startTransition(() => {
+        setTransactions((current) => mergeImportedTransactionCategoryUpdates(current, result.updated));
+        setNotice(
+          result.failed.length > 0
+            ? "Some category changes were saved, and some still need attention."
+            : "Category changes saved.",
+        );
+      });
+    }
+
+    return result;
+  }
+
+  async function handleSaveRuleShortcut(transactionId: string, categoryId: string | null) {
+    await handleSaveCategory(transactionId, categoryId, true);
+  }
+
   async function handleCompleteReview() {
-    if (!batch) {
+    if (!batch || hasDirtyCategoryChanges) {
       return;
     }
 
@@ -157,11 +237,21 @@ export function ImportWorkspace({ categories, initialBatch, initialTransactions 
 
       {batch ? (
         <div className="space-y-6">
-          <ReviewCompletionBar batch={batch} transactionCount={transactions.length} onComplete={handleCompleteReview} />
+          <ReviewCompletionBar
+            batch={batch}
+            completionBlockedReason={
+              hasDirtyCategoryChanges ? "Save or discard category changes before marking this review complete." : null
+            }
+            isCompletionBlocked={hasDirtyCategoryChanges}
+            transactionCount={transactions.length}
+            onComplete={handleCompleteReview}
+          />
           <TransactionReviewTable
             categories={categories}
+            onDirtyStateChange={setHasDirtyCategoryChanges}
+            onSaveCategoryChanges={handleSaveCategoryChanges}
+            onSaveRuleShortcut={handleSaveRuleShortcut}
             transactions={transactions}
-            onSaveCategory={handleSaveCategory}
           />
         </div>
       ) : (

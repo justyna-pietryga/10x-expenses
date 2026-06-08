@@ -1,4 +1,5 @@
 import type { AstroCookies } from "astro";
+import { isBudgetError } from "@/lib/budget/errors";
 import { validateMonthString } from "@/lib/budget/validation";
 import { isRuleError } from "@/lib/rules/errors";
 import { SummaryError, isSummaryError } from "@/lib/summary/errors";
@@ -60,6 +61,16 @@ export function summaryJson(data: Record<string, unknown>, status = 200) {
 
 export function summaryErrorResponse(error: unknown) {
   if (isSummaryError(error)) {
+    return summaryJson(
+      {
+        error: error.message,
+        field: error.field ?? null,
+      },
+      error.status,
+    );
+  }
+
+  if (isBudgetError(error)) {
     return summaryJson(
       {
         error: error.message,
