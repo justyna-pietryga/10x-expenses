@@ -165,6 +165,7 @@ export function CategoryManager({ categories, totalPercentage, onChange }: Props
         <div className="grid gap-3 md:grid-cols-[1.3fr_.8fr_auto]">
           <input
             type="text"
+            aria-label="Category name"
             value={newCategory.name}
             onChange={(event) => {
               setNewCategory((prev) => ({ ...prev, name: event.target.value }));
@@ -174,6 +175,7 @@ export function CategoryManager({ categories, totalPercentage, onChange }: Props
           />
           <input
             type="number"
+            aria-label="Category percentage limit"
             min="0"
             max="100"
             step="0.01"
@@ -224,6 +226,7 @@ export function CategoryManager({ categories, totalPercentage, onChange }: Props
                 <div className="grid gap-3 md:grid-cols-[1.3fr_.8fr_auto]">
                   <input
                     type="text"
+                    aria-label="Category name"
                     value={isEditing ? editingDraft.name : category.name}
                     onChange={(event) => {
                       if (!isEditing) {
@@ -238,6 +241,7 @@ export function CategoryManager({ categories, totalPercentage, onChange }: Props
                   <div className="space-y-2">
                     <input
                       type="number"
+                      aria-label="Category percentage limit"
                       min="0"
                       max="100"
                       step="0.01"

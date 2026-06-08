@@ -7,6 +7,10 @@ CLAUDE.md
 .dev.vars
 auth.json
 .playwright-cli/
+playwright-report/
+playwright-test/
+test-results/
+playwright/
 
 # build output
 dist/
