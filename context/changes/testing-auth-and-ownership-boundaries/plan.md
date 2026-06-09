@@ -371,32 +371,32 @@ No schema migration is expected. This rollout should stay test- and documentatio
 
 #### Automated
 
-- [x] 2.1 Cross-user category update and archive attempts stay hidden behind existing `404` outcomes.
-- [x] 2.2 Cross-user import transaction and batch operations stay hidden behind existing `404` or row-failure outcomes.
-- [x] 2.3 Cross-user rule update, delete, and foreign target-category scenarios stay hidden behind existing not-found behavior.
-- [x] 2.4 Existing `401` auth-denial and genuine `404` missing-record contracts remain intact.
-- [x] 2.5 `npm test -- tests/auth-and-ownership-boundaries.test.ts` passes.
-- [x] 2.6 `npx astro check` passes after the helper changes.
+- [x] 2.1 Cross-user category update and archive attempts stay hidden behind existing `404` outcomes. — bd96a1b
+- [x] 2.2 Cross-user import transaction and batch operations stay hidden behind existing `404` or row-failure outcomes. — bd96a1b
+- [x] 2.3 Cross-user rule update, delete, and foreign target-category scenarios stay hidden behind existing not-found behavior. — bd96a1b
+- [x] 2.4 Existing `401` auth-denial and genuine `404` missing-record contracts remain intact. — bd96a1b
+- [x] 2.5 `npm test -- tests/auth-and-ownership-boundaries.test.ts` passes. — bd96a1b
+- [x] 2.6 `npx astro check` passes after the helper changes. — bd96a1b
 
 #### Manual
 
-- [x] 2.7 Review the ownership tests and confirm they document hidden denial under the current anon-key plus RLS architecture instead of claiming a forbidden distinction the runtime cannot prove.
-- [x] 2.8 Confirm the route JSON shape remains stable while the ownership semantics stay hidden behind the current not-found or row-failure contract.
+- [x] 2.7 Review the ownership tests and confirm they document hidden denial under the current anon-key plus RLS architecture instead of claiming a forbidden distinction the runtime cannot prove. — bd96a1b
+- [x] 2.8 Confirm the route JSON shape remains stable while the ownership semantics stay hidden behind the current not-found or row-failure contract. — bd96a1b
 
 ### Phase 3: Budget and Import Ownership Coverage
 
 #### Automated
 
-- [ ] 3.1 The Phase 3 suite proves budget reads and writes remain scoped to the authenticated user.
-- [ ] 3.2 The Phase 3 suite proves the full import lifecycle denies cross-user access on both read and write paths.
-- [ ] 3.3 Existing budget and import suites still pass after any minimal contract-alignment updates.
-- [ ] 3.4 `npm test -- tests/auth-and-ownership-boundaries.test.ts tests/budget-setup.test.ts tests/import-review.test.ts` passes.
+- [x] 3.1 The Phase 3 suite proves budget reads and writes remain scoped to the authenticated user.
+- [x] 3.2 The Phase 3 suite proves the full import lifecycle denies cross-user access on both read and write paths.
+- [x] 3.3 Existing budget and import suites still pass after any minimal contract-alignment updates.
+- [x] 3.4 `npm test -- tests/auth-and-ownership-boundaries.test.ts tests/budget-setup.test.ts tests/import-review.test.ts` passes.
 
 #### Manual
 
-- [ ] 3.5 Read the budget ownership test names and confirm they cover both read and write boundaries rather than only auth checks.
-- [ ] 3.6 Read the import ownership test names and confirm they cover batch-level and row-level denial paths separately.
-- [ ] 3.7 Confirm the older Phase 1 and Phase 2 suites remain focused on their original risks instead of absorbing broad ownership work.
+- [x] 3.5 Read the budget ownership test names and confirm they cover both read and write boundaries rather than only auth checks.
+- [x] 3.6 Read the import ownership test names and confirm they cover batch-level and row-level denial paths separately.
+- [x] 3.7 Confirm the older Phase 1 and Phase 2 suites remain focused on their original risks instead of absorbing broad ownership work.
 
 ### Phase 4: Rules and Summary Read-Isolation Coverage
 
