@@ -348,72 +348,72 @@ No schema migration is expected. Production changes are allowed only if the new 
 
 #### Automated
 
-- [x] 1.1 `tests/review-persistence-and-rule-application.test.ts` exists and runs as the dedicated Phase 2 integration suite.
-- [x] 1.2 The new suite reuses direct helper and direct Astro route seams instead of introducing browser setup or generic mocks.
-- [x] 1.3 `npm test -- tests/review-persistence-and-rule-application.test.ts` passes.
+- [x] 1.1 `tests/review-persistence-and-rule-application.test.ts` exists and runs as the dedicated Phase 2 integration suite. — cde4be7
+- [x] 1.2 The new suite reuses direct helper and direct Astro route seams instead of introducing browser setup or generic mocks. — cde4be7
+- [x] 1.3 `npm test -- tests/review-persistence-and-rule-application.test.ts` passes. — cde4be7
 
 #### Manual
 
-- [x] 1.4 Read the suite structure and confirm it is clearly partitioned into review persistence, completion boundary, and rule lifecycle sections.
-- [x] 1.5 Confirm the dedicated suite stays Phase 2-specific instead of duplicating broad Phase 1 import and summary coverage.
+- [x] 1.4 Read the suite structure and confirm it is clearly partitioned into review persistence, completion boundary, and rule lifecycle sections. — cde4be7
+- [x] 1.5 Confirm the dedicated suite stays Phase 2-specific instead of duplicating broad Phase 1 import and summary coverage. — cde4be7
 
 ### Phase 2: Review Persistence Truthfulness
 
 #### Automated
 
-- [x] 2.1 The new suite proves persisted transaction state matches helper-level `updated` / `failed` results.
-- [x] 2.2 The new suite proves `/api/imports/transactions/bulk` returns truthful mixed-result payloads.
-- [x] 2.3 The new suite proves successful drafts clear while failed drafts remain attached after reconciliation.
-- [x] 2.4 `npm test -- tests/review-persistence-and-rule-application.test.ts` passes.
-- [x] 2.5 Targeted lint passes for the dedicated Phase 2 suite.
+- [x] 2.1 The new suite proves persisted transaction state matches helper-level `updated` / `failed` results. — cde4be7
+- [x] 2.2 The new suite proves `/api/imports/transactions/bulk` returns truthful mixed-result payloads. — cde4be7
+- [x] 2.3 The new suite proves successful drafts clear while failed drafts remain attached after reconciliation. — cde4be7
+- [x] 2.4 `npm test -- tests/review-persistence-and-rule-application.test.ts` passes. — cde4be7
+- [x] 2.5 Targeted lint passes for the dedicated Phase 2 suite. — cde4be7
 
 #### Manual
 
-- [x] 2.6 Read the mixed-save test names and confirm they describe user-truthful persisted outcomes rather than internal query order.
-- [x] 2.7 Confirm the tests preserve the chosen partial-success contract instead of silently redefining it as all-or-nothing.
+- [x] 2.6 Read the mixed-save test names and confirm they describe user-truthful persisted outcomes rather than internal query order. — cde4be7
+- [x] 2.7 Confirm the tests preserve the chosen partial-success contract instead of silently redefining it as all-or-nothing. — cde4be7
 
 ### Phase 3: Review Completion Boundary Truthfulness
 
 #### Automated
 
-- [x] 3.1 The new suite proves completion remains blocked while dirty drafts still exist at the client-side contract seam.
-- [x] 3.2 The new suite proves completion becomes available again after successful category persistence reconciliation.
-- [x] 3.3 The new suite proves the completion route returns a truthful updated batch state.
-- [x] 3.4 `npm test -- tests/review-persistence-and-rule-application.test.ts` passes.
+- [x] 3.1 The new suite proves completion remains blocked while dirty drafts still exist at the client-side contract seam. — cde4be7
+- [x] 3.2 The new suite proves completion becomes available again after successful category persistence reconciliation. — cde4be7
+- [x] 3.3 The new suite proves the completion route returns a truthful updated batch state. — cde4be7
+- [x] 3.4 `npm test -- tests/review-persistence-and-rule-application.test.ts` passes. — cde4be7
 
 #### Manual
 
-- [x] 3.5 Confirm the completion-boundary assertions complement, rather than duplicate, the existing E2E dirty-state smoke.
-- [x] 3.6 Confirm the tests keep the focus on truthful saved-versus-unsaved state, not generic UI rendering.
+- [x] 3.5 Confirm the completion-boundary assertions complement, rather than duplicate, the existing E2E dirty-state smoke. — cde4be7
+- [x] 3.6 Confirm the tests keep the focus on truthful saved-versus-unsaved state, not generic UI rendering. — cde4be7
 
 ### Phase 4: Dashboard Rule Lifecycle and Downstream Mutation Scope
 
 #### Automated
 
-- [x] 4.1 The new suite covers create, update, and delete rule contracts through the dashboard route seams.
-- [x] 4.2 The new suite proves `recipient`, `title`, and `both` matching only mutate intended future imported rows.
-- [x] 4.3 The new suite proves deleted rules stop affecting downstream imports.
-- [x] 4.4 `npm test -- tests/review-persistence-and-rule-application.test.ts` passes.
-- [x] 4.5 `npx astro check` passes.
+- [x] 4.1 The new suite covers create, update, and delete rule contracts through the dashboard route seams. — cde4be7
+- [x] 4.2 The new suite proves `recipient`, `title`, and `both` matching only mutate intended future imported rows. — cde4be7
+- [x] 4.3 The new suite proves deleted rules stop affecting downstream imports. — cde4be7
+- [x] 4.4 `npm test -- tests/review-persistence-and-rule-application.test.ts` passes. — cde4be7
+- [x] 4.5 `npx astro check` passes. — cde4be7
 
 #### Manual
 
-- [x] 4.6 Read the rule-lifecycle test names and confirm they describe downstream user-visible categorization outcomes, not only helper internals.
-- [x] 4.7 Confirm the match-field coverage demonstrates both intended matches and untouched non-matches.
-- [x] 4.8 Confirm the scope stays on future import categorization effects rather than drifting into summary behavior already covered elsewhere.
+- [x] 4.6 Read the rule-lifecycle test names and confirm they describe downstream user-visible categorization outcomes, not only helper internals. — cde4be7
+- [x] 4.7 Confirm the match-field coverage demonstrates both intended matches and untouched non-matches. — cde4be7
+- [x] 4.8 Confirm the scope stays on future import categorization effects rather than drifting into summary behavior already covered elsewhere. — cde4be7
 
 ### Phase 5: Cookbook and Rollout Alignment
 
 #### Automated
 
-- [x] 5.1 `context/foundation/test-plan.md` contains concrete Phase 2 cookbook guidance for review persistence and rule application.
-- [x] 5.2 `npm test -- tests/review-persistence-and-rule-application.test.ts` passes.
-- [x] 5.3 `npm run lint` passes.
-- [x] 5.4 `npx astro check` passes.
-- [x] 5.5 `npm run build` passes.
+- [x] 5.1 `context/foundation/test-plan.md` contains concrete Phase 2 cookbook guidance for review persistence and rule application. — cde4be7
+- [x] 5.2 `npm test -- tests/review-persistence-and-rule-application.test.ts` passes. — cde4be7
+- [x] 5.3 `npm run lint` passes. — cde4be7
+- [x] 5.4 `npx astro check` passes. — cde4be7
+- [x] 5.5 `npm run build` passes. — cde4be7
 
 #### Manual
 
-- [x] 5.6 Read the updated Phase 2 cookbook entry and confirm a new contributor could identify the dedicated suite and correct seam for future work.
-- [x] 5.7 Confirm the cookbook guidance stays pattern-oriented and does not degrade into a per-test changelog.
-- [x] 5.8 Confirm the rollout remains clearly bounded to Phase 2 and does not absorb Phase 3 ownership concerns.
+- [x] 5.6 Read the updated Phase 2 cookbook entry and confirm a new contributor could identify the dedicated suite and correct seam for future work. — cde4be7
+- [x] 5.7 Confirm the cookbook guidance stays pattern-oriented and does not degrade into a per-test changelog. — cde4be7
+- [x] 5.8 Confirm the rollout remains clearly bounded to Phase 2 and does not absorb Phase 3 ownership concerns. — cde4be7

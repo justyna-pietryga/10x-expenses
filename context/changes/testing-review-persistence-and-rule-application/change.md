@@ -1,7 +1,7 @@
 ---
 change_id: testing-review-persistence-and-rule-application
 title: Review persistence and rule application
-status: implementing
+status: implemented
 created: 2026-06-09
 updated: 2026-06-09
 archived_at: null
