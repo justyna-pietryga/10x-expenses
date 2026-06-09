@@ -1,8 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
+import { createClient } from "@/lib/supabase";
 import { updateCategory, type BudgetCategory, type MonthlyIncome } from "@/lib/budget/data";
 import { deleteRule, type CategorizationRule } from "@/lib/rules/data";
 import { loadDashboardSummary } from "@/lib/summary/data";
-import { markBatchReviewComplete, type ImportBatch, type ImportedTransaction } from "@/lib/imports/data";
+import {
+  loadImportBatchReview,
+  markBatchReviewComplete,
+  type ImportBatch,
+  type ImportedTransaction,
+} from "@/lib/imports/data";
 
 vi.mock("@/lib/supabase", () => ({
   createClient: vi.fn(),
@@ -155,6 +161,11 @@ function unauthenticatedContext() {
     params: {},
     redirect: vi.fn(),
   };
+}
+
+async function readJson<T>(response: Response): Promise<T> {
+  const payload: unknown = await response.json();
+  return payload as T;
 }
 
 interface OwnershipState {
@@ -450,6 +461,37 @@ function createOwnershipSupabaseStub(state = createOwnershipState()) {
             };
             return chain;
           }),
+          update: vi.fn((payload: Partial<ImportedTransaction>) => {
+            let transactionId: string | null = null;
+            let ownerId: string | null = null;
+            const chain = {
+              eq(field: string, value: string) {
+                if (field === "id") {
+                  transactionId = value;
+                }
+                if (field === "user_id") {
+                  ownerId = value;
+                }
+                return chain;
+              },
+              select() {
+                return chain;
+              },
+              async single() {
+                const transaction = state.transactions.find(
+                  (item) => item.id === transactionId && item.user_id === ownerId,
+                );
+
+                if (!transaction) {
+                  return notFoundResult();
+                }
+
+                Object.assign(transaction, payload, { updated_at: CREATED_AT });
+                return createSelectResult({ ...transaction });
+              },
+            };
+            return chain;
+          }),
         };
       }
 
@@ -495,6 +537,34 @@ function createOwnershipSupabaseStub(state = createOwnershipState()) {
               order: vi.fn(async () =>
                 createSelectResult(state.rules.filter((item) => !userFilter || item.user_id === userFilter)),
               ),
+            };
+            return chain;
+          }),
+          update: vi.fn((payload: Partial<CategorizationRule>) => {
+            let ruleId: string | null = null;
+            let ownerId: string | null = null;
+            const chain = {
+              eq(field: string, value: string) {
+                if (field === "id") {
+                  ruleId = value;
+                }
+                if (field === "user_id") {
+                  ownerId = value;
+                }
+                return chain;
+              },
+              select() {
+                return chain;
+              },
+              async single() {
+                const rule = state.rules.find((item) => item.id === ruleId && item.user_id === ownerId);
+                if (!rule) {
+                  return notFoundResult();
+                }
+
+                Object.assign(rule, payload, { updated_at: CREATED_AT });
+                return createSelectResult({ ...rule });
+              },
             };
             return chain;
           }),
@@ -659,5 +729,130 @@ describe("rules and summary ownership baselines", () => {
       },
     ]);
     expect(summary.selected_month).toBe("2026-06-01");
+  });
+});
+
+describe("adapted ownership contract under anon-key plus RLS", () => {
+  it("keeps foreign budget category mutations hidden behind the same 404 route contract", async () => {
+    const categoryItemRoute: typeof import("@/pages/api/budget/categories/[id]") =
+      await import("@/pages/api/budget/categories/[id]");
+    const supabase = createOwnershipSupabaseStub();
+    vi.mocked(createClient).mockReturnValue(supabase as never);
+
+    const response = await categoryItemRoute.DELETE({
+      ...authenticatedContext(USER_A),
+      params: { id: "cat-2" },
+      request: new Request("http://localhost/api/budget/categories/cat-2", { method: "DELETE" }),
+    } as never);
+
+    expect(response.status).toBe(404);
+    await expect(readJson<{ error: string; field: string | null }>(response)).resolves.toEqual({
+      error: "Active category was not found",
+      field: null,
+    });
+  });
+
+  it("keeps foreign import batch review loads and completion hidden behind not-found behavior", async () => {
+    const completeRoute: typeof import("@/pages/api/imports/batches/[id]/complete") =
+      await import("@/pages/api/imports/batches/[id]/complete");
+    const supabase = createOwnershipSupabaseStub();
+    vi.mocked(createClient).mockReturnValue(supabase as never);
+
+    await expect(loadImportBatchReview(supabase as never, USER_A.id, "batch-2")).rejects.toThrow(/not found/i);
+
+    const response = await completeRoute.POST({
+      ...authenticatedContext(USER_A),
+      params: { id: "batch-2" },
+      request: new Request("http://localhost/api/imports/batches/batch-2/complete", { method: "POST" }),
+    } as never);
+
+    expect(response.status).toBe(404);
+    await expect(readJson<{ error: string; field: string | null }>(response)).resolves.toEqual({
+      error: "Import batch was not found",
+      field: null,
+    });
+  });
+
+  it("keeps foreign import transaction mutations hidden at both single-row and bulk boundaries", async () => {
+    const transactionRoute: typeof import("@/pages/api/imports/transactions/[id]") =
+      await import("@/pages/api/imports/transactions/[id]");
+    const bulkRoute: typeof import("@/pages/api/imports/transactions/bulk") =
+      await import("@/pages/api/imports/transactions/bulk");
+    const supabase = createOwnershipSupabaseStub();
+    vi.mocked(createClient).mockReturnValue(supabase as never);
+
+    const singleResponse = await transactionRoute.PATCH({
+      ...authenticatedContext(USER_A),
+      params: { id: "tx-2" },
+      request: new Request("http://localhost/api/imports/transactions/tx-2", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ category_id: "cat-1", save_rule: false }),
+      }),
+    } as never);
+
+    expect(singleResponse.status).toBe(404);
+    await expect(readJson<{ error: string; field: string | null }>(singleResponse)).resolves.toEqual({
+      error: "Imported transaction was not found",
+      field: null,
+    });
+
+    const bulkResponse = await bulkRoute.PATCH({
+      ...authenticatedContext(USER_A),
+      request: new Request("http://localhost/api/imports/transactions/bulk", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          updates: [{ category_id: "cat-1", transaction_id: "tx-2" }],
+        }),
+      }),
+    } as never);
+
+    expect(bulkResponse.status).toBe(200);
+    await expect(
+      readJson<{ failed: { error: string; transaction_id: string }[]; updated: unknown[] }>(bulkResponse),
+    ).resolves.toEqual({
+      failed: [{ error: "Imported transaction was not found", transaction_id: "tx-2" }],
+      updated: [],
+    });
+  });
+
+  it("keeps foreign rules and foreign target categories hidden behind not-found style errors", async () => {
+    const ruleItemRoute: typeof import("@/pages/api/rules/[id]") = await import("@/pages/api/rules/[id]");
+    const ruleCollectionRoute: typeof import("@/pages/api/rules/index") = await import("@/pages/api/rules/index");
+    const supabase = createOwnershipSupabaseStub();
+    vi.mocked(createClient).mockReturnValue(supabase as never);
+
+    const deleteResponse = await ruleItemRoute.DELETE({
+      ...authenticatedContext(USER_A),
+      params: { id: "rule-2" },
+      request: new Request("http://localhost/api/rules/rule-2", { method: "DELETE" }),
+    } as never);
+
+    expect(deleteResponse.status).toBe(404);
+    await expect(readJson<{ error: string; field: string | null }>(deleteResponse)).resolves.toEqual({
+      error: "Categorization rule was not found",
+      field: null,
+    });
+
+    const createResponse = await ruleCollectionRoute.POST({
+      ...authenticatedContext(USER_A),
+      request: new Request("http://localhost/api/rules", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          match_field: "recipient",
+          match_text: "merchant",
+          target_category_id: "cat-2",
+        }),
+      }),
+      params: {},
+    } as never);
+
+    expect(createResponse.status).toBe(404);
+    await expect(readJson<{ error: string; field: string | null }>(createResponse)).resolves.toEqual({
+      error: "Selected category was not found",
+      field: "target_category_id",
+    });
   });
 });

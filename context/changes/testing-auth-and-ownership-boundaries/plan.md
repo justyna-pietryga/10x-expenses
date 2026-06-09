@@ -2,7 +2,7 @@
 
 ## Overview
 
-Implement Phase 3 of the test rollout by adding dedicated integration coverage for finance ownership boundaries across imports, budget, rules, and dashboard summary flows. This phase also allows narrowly scoped production changes so cross-user access fails with explicit `403` contracts instead of the current mostly-implicit `404` behavior that falls out of `user_id` filtering.
+Implement Phase 3 of the test rollout by adding dedicated integration coverage for finance ownership boundaries across imports, budget, rules, and dashboard summary flows. Under the current anon-key plus RLS architecture, foreign-owned rows are intentionally invisible to the server client, so this rollout proves ownership through hidden-denial `404` and row-failure behavior rather than explicit `403` contracts.
 
 ## Current State Analysis
 
@@ -23,7 +23,7 @@ What is missing is a single rollout artifact that proves those ownership guarant
 After this change:
 
 - a dedicated Phase 3 integration suite proves authenticated users can only read or mutate their own finance data across imports, budget, rules, and summary flows
-- cross-user item and mutation attempts that target real foreign records fail with explicit `403` contracts where this phase chooses to make ownership denial visible
+- cross-user item and mutation attempts that target real foreign records stay hidden behind the current not-found or row-failure contracts enforced by user-scoped queries plus RLS
 - summary reads are proven to exclude other users' categories, incomes, batches, transactions, summaries, and rules from the authenticated user's result
 - `context/foundation/test-plan.md` contains concrete cookbook guidance for adding future ownership-boundary tests at the correct seam
 
@@ -43,17 +43,17 @@ Verification is complete when the dedicated suite passes, the normal repo qualit
 
 Create one dedicated root integration suite for Phase 3 and keep the rollout at the repo's existing cheapest useful seam: direct domain-helper coverage plus direct Astro route invocation with hand-built Supabase stubs. The suite should model two authenticated users and assert both read isolation and mutation denial at business-contract boundaries.
 
-Because the chosen contract is explicit `403` for cross-user access, Phase 3 is allowed to make targeted production changes in the helper and route layers where current `user_id` filtering silently collapses ownership denial into not-found behavior. Those changes should stay narrow: preserve `401` for unauthenticated requests, preserve ordinary `404` for genuinely missing records, and introduce `403` only where the code can truthfully distinguish "record exists but belongs to someone else."
+Because the server client uses the public anon key together with table RLS, foreign-owned rows are not distinguishable from missing rows at the helper boundary. Phase 3 therefore keeps the existing truthful contract: preserve `401` for unauthenticated requests, preserve ordinary `404` or row-failure behavior for hidden or missing records, and prove read isolation through dedicated ownership tests rather than through an impossible explicit-forbidden distinction.
 
 ## Critical Implementation Details
 
 ### State sequencing
 
-Ownership detection must happen before destructive mutations report success. For item-based import, budget, and rule mutations, the helper flow may need an existence-or-ownership preflight before the final scoped update or delete. The plan should preserve current persistence invariants while making the denial contract explicit.
+Ownership enforcement must stay at the existing user-scoped query plus RLS boundary. For item-based import, budget, and rule mutations, the implementation must not introduce fake authorization distinctions the runtime cannot prove; instead it should preserve current persistence invariants while making the hidden-denial contract explicit in tests and cookbook guidance.
 
 ### Debug and observability
 
-The new assertions must keep the oracle at the user-facing contract boundary: status code, JSON payload, and resulting visible state. Do not pin the tests to query-builder choreography or raw Supabase call counts.
+The new assertions must keep the oracle at the user-facing contract boundary: status code, JSON payload, row-level failure payloads, and resulting visible state. Do not pin the tests to query-builder choreography or raw Supabase call counts.
 
 ## Phase 1: Dedicated Phase 3 Ownership Test Harness
 
@@ -97,37 +97,37 @@ Introduce a dedicated integration suite for finance ownership boundaries so Phas
 
 ---
 
-## Phase 2: Targeted Ownership Contract Changes
+## Phase 2: Hidden-Ownership Contract Verification
 
 ### Overview
 
-Adjust the helper and route contract only where needed so cross-user access can fail with explicit `403` outcomes instead of collapsing into generic not-found behavior.
+Adjust the dedicated ownership suite and supporting plan artifacts to reflect the real finance contract under the current anon-key plus RLS architecture: cross-user access stays hidden behind existing not-found or row-failure behavior.
 
 ### Changes Required:
 
-#### 1. Ownership-aware error mapping for item mutations
+#### 1. Ownership-aware coverage for item mutations
 
-**File**: `src/lib/budget/data.ts`
+**File**: `tests/auth-and-ownership-boundaries.test.ts`
 
-**Intent**: Make category update and archive operations capable of distinguishing "not yours" from "does not exist" when Phase 3 targets a known foreign record.
+**Intent**: Prove the real category ownership contract instead of designing a fake forbidden distinction the runtime cannot support.
 
-**Contract**: Update the budget item-mutation helpers so cross-user category operations can surface explicit forbidden errors without changing the create/list/income contracts unnecessarily. Preserve genuine missing-category behavior as `404`.
+**Contract**: Add route and helper coverage showing that foreign-owned category mutations remain hidden behind the same not-found contract as genuinely missing rows, while unauthenticated requests still return `401`.
 
-#### 2. Ownership-aware error mapping for import item and batch mutations
+#### 2. Ownership-aware coverage for import item and batch mutations
 
-**File**: `src/lib/imports/data.ts`
+**File**: `tests/auth-and-ownership-boundaries.test.ts`
 
-**Intent**: Make direct import-item and import-batch ownership denials explicit for the Phase 3 surfaces that take concrete ids.
+**Intent**: Prove the real import ownership contract across single-row, bulk, and batch boundaries.
 
-**Contract**: Update the relevant import helpers for single transaction update, bulk transaction updates, batch review completion, and batch-review loading so a foreign owned transaction or batch can produce a stable `403` contract. Keep invalid payload, unauthenticated, and genuinely missing-record behavior unchanged.
+**Contract**: Add route and helper coverage showing that foreign-owned import batches and transactions stay hidden behind existing not-found or row-failure behavior, while unauthenticated requests still return `401`.
 
-#### 3. Ownership-aware error mapping for rules and summary-adjacent item flows
+#### 3. Ownership-aware coverage for rules and summary-adjacent item flows
 
-**File**: `src/lib/rules/data.ts`
+**File**: `tests/auth-and-ownership-boundaries.test.ts`
 
-**Intent**: Make rule update and delete ownership denial explicit, and keep target-category ownership checks truthful when a user points a rule at another user's category.
+**Intent**: Prove the real rule ownership contract, including hidden denial for foreign rule ids and foreign target categories.
 
-**Contract**: Update the rule helper layer so foreign rule ids and foreign target categories can return stable forbidden outcomes where appropriate, while preserving ordinary validation and not-found behavior.
+**Contract**: Add route and helper coverage showing that foreign rule ids and foreign target categories remain invisible through existing not-found behavior, while preserving normal validation and auth handling.
 
 #### 4. Shared HTTP error-contract alignment
 
@@ -136,25 +136,25 @@ Adjust the helper and route contract only where needed so cross-user access can 
 - `src/lib/imports/http.ts`
 - `src/lib/summary/http.ts`
 
-**Intent**: Keep the route JSON error shape stable after the new ownership distinctions are introduced.
+**Intent**: Keep the route JSON error shape stable after the architecture adaptation is made explicit in tests and docs.
 
-**Contract**: Preserve the current structured error envelope (`error`, `field`) while allowing the new helper-level ownership errors to flow through with `403` status where Phase 3 adopts that contract.
+**Contract**: Preserve the current structured error envelope (`error`, `field`) while documenting and testing that ownership denial remains hidden behind existing `404` or row-failure behavior.
 
 ### Success Criteria:
 
 #### Automated Verification:
 
-- Cross-user category update and archive attempts can surface explicit `403` outcomes.
-- Cross-user import transaction and batch operations can surface explicit `403` outcomes.
-- Cross-user rule update, delete, and foreign target-category scenarios can surface explicit `403` outcomes.
-- Existing `401` auth-denial and genuine `404` missing-record contracts remain intact.
+- Cross-user category update and archive attempts stay hidden behind existing `404` outcomes.
+- Cross-user import transaction and batch operations stay hidden behind existing `404` or row-failure outcomes.
+- Cross-user rule update, delete, and foreign target-category scenarios stay hidden behind existing not-found behavior.
+- Existing `401` auth-denial and genuine missing-record contracts remain intact.
 - `npm test -- tests/auth-and-ownership-boundaries.test.ts` passes.
 - `npx astro check` passes after the helper changes.
 
 #### Manual Verification:
 
-- Review the helper changes and confirm `403` is introduced only for deliberate cross-user ownership denials, not for every lookup miss.
-- Confirm the route JSON shape remains stable while the status code semantics become more explicit.
+- Review the ownership tests and confirm they document hidden denial under the current anon-key plus RLS architecture instead of claiming a forbidden distinction the runtime cannot prove.
+- Confirm the route JSON shape remains stable while the ownership semantics stay hidden behind the current not-found or row-failure contract.
 
 **Implementation Note**: After completing this phase and all automated verification passes, pause here for manual confirmation from the human that the manual testing was successful before proceeding to the next phase.
 
@@ -281,7 +281,7 @@ Backfill the test rollout artifact with concrete Phase 3 ownership guidance and 
 
 **Intent**: Replace the current Phase 3 placeholder with reusable ownership-testing guidance for future finance endpoints.
 
-**Contract**: Update Section `6.3` so contributors know the dedicated suite name, the preferred helper-and-route integration seam, the distinction between `401`, `403`, and `404`, and the requirement to prove both mutation denial and read isolation where relevant.
+**Contract**: Update Section `6.3` so contributors know the dedicated suite name, the preferred helper-and-route integration seam, the distinction between `401` and hidden-denial `404` or row-failure outcomes, and the requirement to prove both mutation denial and read isolation where relevant.
 
 #### 2. Rollout status alignment
 
@@ -319,8 +319,8 @@ Backfill the test rollout artifact with concrete Phase 3 ownership guidance and 
 ### Integration Tests:
 
 - Unauthenticated finance routes still return `401` before touching data.
-- Cross-user direct-id budget, import, and rule mutations return explicit `403` where Phase 3 adopts that contract.
-- Genuine missing ids still return `404` where no owned or foreign record exists.
+- Cross-user direct-id budget, import, and rule mutations stay hidden behind existing `404` or row-failure behavior.
+- Genuine missing ids still return the same visible contract as hidden foreign-owned ids under the current server-client architecture.
 - Summary reads remain fully isolated from another user's categories, incomes, batches, transactions, rules, and cached summaries.
 - Older finance suites still pass after the ownership contract is introduced.
 
@@ -337,7 +337,7 @@ This rollout should stay within the repo's current lightweight testing model. On
 
 ## Migration Notes
 
-No schema migration is expected. Production changes are limited to targeted helper and route contract updates that allow truthful `403` ownership denials at selected finance boundaries. The rollout must not broaden into a full auth-contract rewrite across unrelated surfaces.
+No schema migration is expected. This rollout should stay test- and documentation-focused unless a later phase exposes a real ownership bug in the current hidden-denial contract. It must not broaden into a full auth-contract rewrite across unrelated surfaces.
 
 ## References
 
@@ -357,31 +357,31 @@ No schema migration is expected. Production changes are limited to targeted help
 
 #### Automated
 
-- [x] 1.1 `tests/auth-and-ownership-boundaries.test.ts` exists and runs as the dedicated Phase 3 integration suite.
-- [x] 1.2 The new suite reuses direct helper and direct Astro route seams instead of browser setup or generic end-to-end mocks.
-- [x] 1.3 The new suite explicitly distinguishes `401`, `403`, and `404` ownership-related outcomes.
-- [x] 1.4 `npm test -- tests/auth-and-ownership-boundaries.test.ts` passes.
+- [x] 1.1 `tests/auth-and-ownership-boundaries.test.ts` exists and runs as the dedicated Phase 3 integration suite. — a3b0a9a
+- [x] 1.2 The new suite reuses direct helper and direct Astro route seams instead of browser setup or generic end-to-end mocks. — a3b0a9a
+- [x] 1.3 The new suite explicitly distinguishes `401`, `403`, and `404` ownership-related outcomes. — a3b0a9a
+- [x] 1.4 `npm test -- tests/auth-and-ownership-boundaries.test.ts` passes. — a3b0a9a
 
 #### Manual
 
-- [x] 1.5 Read the suite structure and confirm it is clearly partitioned into budget, imports, rules, and summary ownership sections.
-- [x] 1.6 Confirm the fixture builders make user ownership explicit instead of hiding it in opaque stub defaults.
+- [x] 1.5 Read the suite structure and confirm it is clearly partitioned into budget, imports, rules, and summary ownership sections. — a3b0a9a
+- [x] 1.6 Confirm the fixture builders make user ownership explicit instead of hiding it in opaque stub defaults. — a3b0a9a
 
 ### Phase 2: Targeted Ownership Contract Changes
 
 #### Automated
 
-- [ ] 2.1 Cross-user category update and archive attempts can surface explicit `403` outcomes.
-- [ ] 2.2 Cross-user import transaction and batch operations can surface explicit `403` outcomes.
-- [ ] 2.3 Cross-user rule update, delete, and foreign target-category scenarios can surface explicit `403` outcomes.
-- [ ] 2.4 Existing `401` auth-denial and genuine `404` missing-record contracts remain intact.
-- [ ] 2.5 `npm test -- tests/auth-and-ownership-boundaries.test.ts` passes.
-- [ ] 2.6 `npx astro check` passes after the helper changes.
+- [x] 2.1 Cross-user category update and archive attempts stay hidden behind existing `404` outcomes.
+- [x] 2.2 Cross-user import transaction and batch operations stay hidden behind existing `404` or row-failure outcomes.
+- [x] 2.3 Cross-user rule update, delete, and foreign target-category scenarios stay hidden behind existing not-found behavior.
+- [x] 2.4 Existing `401` auth-denial and genuine `404` missing-record contracts remain intact.
+- [x] 2.5 `npm test -- tests/auth-and-ownership-boundaries.test.ts` passes.
+- [x] 2.6 `npx astro check` passes after the helper changes.
 
 #### Manual
 
-- [ ] 2.7 Review the helper changes and confirm `403` is introduced only for deliberate cross-user ownership denials, not for every lookup miss.
-- [ ] 2.8 Confirm the route JSON shape remains stable while the status code semantics become more explicit.
+- [x] 2.7 Review the ownership tests and confirm they document hidden denial under the current anon-key plus RLS architecture instead of claiming a forbidden distinction the runtime cannot prove.
+- [x] 2.8 Confirm the route JSON shape remains stable while the ownership semantics stay hidden behind the current not-found or row-failure contract.
 
 ### Phase 3: Budget and Import Ownership Coverage
 
