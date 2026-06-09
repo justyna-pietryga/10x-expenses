@@ -49,7 +49,7 @@ Each row is a discrete rollout phase that will open its own change folder via `/
 | # | Phase name | Goal (one line) | Risks covered | Test types | Status | Change folder |
 |---|---|---|---|---|---|---|
 | 1 | Critical import and summary integrity | Defend the core data-integrity path for import replacement, summary gating, and summary correctness. | #1, #2, #6 | integration | implemented | testing-critical-import-and-summary-integrity |
-| 2 | Review persistence and rule application | Catch review-flow regressions where UI state drifts from persisted state or mutates the wrong rows. | #3, #4 | integration | not started | - |
+| 2 | Review persistence and rule application | Catch review-flow regressions where UI state drifts from persisted state or mutates the wrong rows. | #3, #4 | integration | implemented | testing-review-persistence-and-rule-application |
 | 3 | Auth and ownership boundaries | Prove finance flows enforce ownership, not just authentication. | #5 | integration | not started | - |
 | 4 | Quality gates and cookbook wiring | Lock the floor with stable suite commands, rollout patterns, and required gates. | cross-cutting | gates | not started | - |
 
@@ -97,7 +97,11 @@ How to add new tests in this project. Each sub-section is filled in once the rel
 
 ### 6.2 Adding an integration test for review persistence
 
-- TBD - see Section 3 Phase 2 for bulk-save truthfulness and mutation-scope patterns.
+- Extend `tests/review-persistence-and-rule-application.test.ts` for Phase 2 finance-domain coverage instead of growing the Phase 1 suites. This suite owns truthful bulk-save behavior, review-completion boundary checks, and dashboard-rule downstream mutation-scope coverage.
+- Keep the oracle at the persistence boundary: assert which rows really changed, which rows stayed untouched, and whether the route payload told the truth about both. Do not stop at response-shape assertions when the risk is saved-state drift.
+- Treat bulk category save and rule creation as separate contracts. Bulk save may return mixed `updated` and `failed` rows; row-level or dashboard rule flows then influence future imports, but they do not redefine the bulk-save truthfulness contract.
+- For rule mutation-scope work, prove both positive and negative cases across `recipient`, `title`, and `both` matching. The goal is not "a rule matched once"; it is "only the intended future imported rows changed category."
+- Prefer helper-plus-route integration over browser coverage here. The existing Playwright smoke already covers the user-visible dirty-state slice of risk `#3`; Phase 2 integration work should stay below that layer unless a future risk genuinely needs the browser.
 
 ### 6.3 Adding an integration test for auth or ownership checks
 
@@ -114,7 +118,10 @@ How to add new tests in this project. Each sub-section is filled in once the rel
 
 - Phase 1 shipped with two reusable boundaries: finance-domain coverage belongs in the existing root suites, and the preferred layer is helper plus route integration rather than browser automation.
 - The oracle for import and summary work is user-truthful persisted state: one clean bank-month batch after replace attempts, and summary totals that never treat pending review data as trusted spend.
-- Phase 1 stayed intentionally bounded to import replacement integrity, summary trust edges, and invalid request rejection. Review-persistence and mutation-scope risks remain Phase 2 work.
+- Phase 1 stayed intentionally bounded to import replacement integrity, summary trust edges, and invalid request rejection.
+- Phase 2 shipped in a dedicated suite, `tests/review-persistence-and-rule-application.test.ts`, because the review and rule risks needed their own fixture builders and would have made the Phase 1 suites harder to reason about.
+- The oracle for Phase 2 is "persisted rows plus truthful payload": mixed bulk saves are acceptable only when successful rows really persist, failed rows remain untouched, and the UI reconciliation keeps those two states visible to the user.
+- Rule coverage in Phase 2 is lifecycle-aware: dashboard rule create, update, and delete behavior must be proven through to future import categorization outcomes, including untouched non-matching rows.
 
 ## 7. What We Deliberately Don't Test
 
