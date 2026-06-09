@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 /**
  * NOTE:
  * That is the seed test example to reflect the way the e2e test should be shaped in this project
- * including test name convention. 
+ * including test name convention.
  * The risk does not exist in test-plan.md. It serves as an not overcomplicated example.
  * If some real test are useful but does not exist in test-plan.md - skip indicating risk number.
  */
