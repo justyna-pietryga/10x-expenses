@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { createClient } from "@/lib/supabase";
 import { updateCategory, type BudgetCategory, type MonthlyIncome } from "@/lib/budget/data";
@@ -25,6 +27,10 @@ const USER_B = {
 };
 
 const CREATED_AT = "2026-06-09T08:00:00.000Z";
+const VALID_REVOLUT_CSV = readFileSync(
+  resolve(process.cwd(), "context/foundation/resources/revolut-statement-example.csv"),
+  "utf8",
+);
 
 function makeCategory(id: string, userId = USER_A.id, overrides: Partial<BudgetCategory> = {}): BudgetCategory {
   return {
@@ -224,6 +230,23 @@ function createOwnershipSupabaseStub(state = createOwnershipState()) {
     from(table: string) {
       if (table === "budget_categories") {
         return {
+          insert: vi.fn((payload: Omit<BudgetCategory, "archived_at" | "created_at" | "id" | "updated_at">) => {
+            const created = makeCategory(`cat-created-${state.categories.length + 1}`, payload.user_id, {
+              carryover_enabled: payload.carryover_enabled,
+              name: payload.name,
+              percentage_limit: payload.percentage_limit,
+            });
+            state.categories.push(created);
+
+            return {
+              select() {
+                return this;
+              },
+              async single() {
+                return createSelectResult(created);
+              },
+            };
+          }),
           select: vi.fn(() => {
             let userFilter: string | null = null;
             let archivedAtFilter: string | null | undefined;
@@ -329,11 +352,60 @@ function createOwnershipSupabaseStub(state = createOwnershipState()) {
             };
             return chain;
           }),
+          upsert: vi.fn((payload: Omit<MonthlyIncome, "created_at" | "id" | "updated_at">) => {
+            const existing = state.monthlyIncomes.find(
+              (item) => item.user_id === payload.user_id && item.month === payload.month,
+            );
+            const saved =
+              existing ??
+              makeIncome(`income-created-${state.monthlyIncomes.length + 1}`, payload.user_id, {
+                month: payload.month,
+              });
+
+            Object.assign(saved, {
+              amount: payload.amount,
+              is_estimated: payload.is_estimated,
+              updated_at: CREATED_AT,
+            });
+
+            if (!existing) {
+              state.monthlyIncomes.push(saved);
+            }
+
+            return {
+              select() {
+                return this;
+              },
+              async single() {
+                return createSelectResult(saved);
+              },
+            };
+          }),
         };
       }
 
       if (table === "statement_import_batches") {
         return {
+          insert: vi.fn((payload: Omit<ImportBatch, "created_at" | "id" | "imported_at" | "updated_at">) => {
+            const created = makeBatch(`batch-created-${state.batches.length + 1}`, payload.user_id, {
+              bank: payload.bank,
+              period_end: payload.period_end,
+              period_start: payload.period_start,
+              review_completed_at: payload.review_completed_at,
+              source_filename: payload.source_filename,
+              statement_month: payload.statement_month,
+            });
+            state.batches.push(created);
+
+            return {
+              select() {
+                return this;
+              },
+              async single() {
+                return createSelectResult(created);
+              },
+            };
+          }),
           select: vi.fn(() => {
             let idFilter: string | null = null;
             let userFilter: string | null = null;
@@ -428,6 +500,25 @@ function createOwnershipSupabaseStub(state = createOwnershipState()) {
 
       if (table === "transactions") {
         return {
+          insert: vi.fn((rows: Omit<ImportedTransaction, "created_at" | "id" | "updated_at">[]) => {
+            const created = rows.map((row, index) =>
+              makeTransaction(`tx-created-${state.transactions.length + index + 1}`, row.user_id, {
+                amount: row.amount,
+                category_id: row.category_id ?? null,
+                import_batch_id: row.import_batch_id,
+                recipient: row.recipient,
+                title: row.title,
+                transaction_date: row.transaction_date,
+              }),
+            );
+            state.transactions.push(...created);
+
+            return {
+              async select() {
+                return createSelectResult(created);
+              },
+            };
+          }),
           select: vi.fn(() => {
             let batchFilter: string | null = null;
             let userFilter: string | null = null;
@@ -853,6 +944,126 @@ describe("adapted ownership contract under anon-key plus RLS", () => {
     await expect(readJson<{ error: string; field: string | null }>(createResponse)).resolves.toEqual({
       error: "Selected category was not found",
       field: "target_category_id",
+    });
+  });
+});
+
+describe("budget ownership coverage", () => {
+  it("keeps category reads and income reads scoped to the authenticated user", async () => {
+    const supabase = createOwnershipSupabaseStub({
+      categories: [
+        makeCategory("cat-a", USER_A.id, { name: "Food" }),
+        makeCategory("cat-b", USER_B.id, { name: "Travel" }),
+      ],
+      monthlyIncomes: [
+        makeIncome("income-a", USER_A.id, { amount: 3000, month: "2026-06-01" }),
+        makeIncome("income-b", USER_B.id, { amount: 5100, month: "2026-06-01" }),
+      ],
+    });
+    const { listActiveCategories, loadMonthlyIncome } = await import("@/lib/budget/data");
+
+    await expect(listActiveCategories(supabase as never, USER_A.id)).resolves.toEqual([
+      expect.objectContaining({ id: "cat-a", user_id: USER_A.id }),
+    ]);
+    await expect(loadMonthlyIncome(supabase as never, USER_A.id, "2026-06-01")).resolves.toEqual(
+      expect.objectContaining({ id: "income-a", user_id: USER_A.id }),
+    );
+  });
+
+  it("keeps income writes scoped to the authenticated user", async () => {
+    const incomeRoute: typeof import("@/pages/api/budget/income") = await import("@/pages/api/budget/income");
+    const supabase = createOwnershipSupabaseStub();
+    vi.mocked(createClient).mockReturnValue(supabase as never);
+
+    const response = await incomeRoute.POST({
+      ...authenticatedContext(USER_A),
+      request: new Request("http://localhost/api/budget/income", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ month: "2026-07", amount: 3800, is_estimated: true }),
+      }),
+    } as never);
+
+    expect(response.status).toBe(200);
+    await expect(readJson<{ income: MonthlyIncome }>(response)).resolves.toEqual({
+      income: expect.objectContaining({
+        month: "2026-07-01",
+        user_id: USER_A.id,
+      }),
+    });
+    expect(
+      supabase.__state.monthlyIncomes.some((income) => income.user_id === USER_B.id && income.month === "2026-07-01"),
+    ).toBe(false);
+  });
+
+  it("keeps category creation scoped to the authenticated user", async () => {
+    const categoryCollectionRoute: typeof import("@/pages/api/budget/categories/index") =
+      await import("@/pages/api/budget/categories/index");
+    const supabase = createOwnershipSupabaseStub();
+    vi.mocked(createClient).mockReturnValue(supabase as never);
+
+    const response = await categoryCollectionRoute.POST({
+      ...authenticatedContext(USER_A),
+      request: new Request("http://localhost/api/budget/categories", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ carryover_enabled: true, name: "Health", percentage_limit: 15 }),
+      }),
+      params: {},
+    } as never);
+
+    expect(response.status).toBe(201);
+    await expect(readJson<{ category: BudgetCategory }>(response)).resolves.toEqual({
+      category: expect.objectContaining({ name: "Health", user_id: USER_A.id }),
+    });
+    expect(
+      supabase.__state.categories.some((category) => category.name === "Health" && category.user_id === USER_B.id),
+    ).toBe(false);
+  });
+});
+
+describe("import ownership coverage", () => {
+  it("keeps existing batch lookup scoped to the authenticated user", async () => {
+    const supabase = createOwnershipSupabaseStub({
+      batches: [
+        makeBatch("batch-owner", USER_A.id, { bank: "revolut", statement_month: "2026-06-01" }),
+        makeBatch("batch-other", USER_B.id, { bank: "revolut", statement_month: "2026-06-01" }),
+      ],
+    });
+    const { findExistingImportBatch } = await import("@/lib/imports/data");
+
+    await expect(findExistingImportBatch(supabase as never, USER_A.id, "revolut", "2026-06-01")).resolves.toEqual(
+      expect.objectContaining({ id: "batch-owner", user_id: USER_A.id }),
+    );
+  });
+
+  it("keeps preview batch lookup scoped to the authenticated user", async () => {
+    const previewRoute: typeof import("@/pages/api/imports/preview") = await import("@/pages/api/imports/preview");
+    const supabase = createOwnershipSupabaseStub({
+      batches: [makeBatch("batch-other-only", USER_B.id, { bank: "revolut", statement_month: "2026-05-01" })],
+    });
+    vi.mocked(createClient).mockReturnValue(supabase as never);
+
+    const formData = new FormData();
+    formData.set("bank", "revolut");
+    formData.set("file", new File([VALID_REVOLUT_CSV], "owner.csv", { type: "text/csv" }));
+
+    const response = await previewRoute.POST({
+      ...authenticatedContext(USER_A),
+      request: new Request("http://localhost/api/imports/preview", {
+        method: "POST",
+        body: formData,
+      }),
+      params: {},
+    } as never);
+
+    expect(response.status).toBe(200);
+    await expect(
+      readJson<{ existing_batch: ImportBatch | null; source_filename: string; statement_month: string }>(response),
+    ).resolves.toMatchObject({
+      existing_batch: null,
+      source_filename: "owner.csv",
+      statement_month: "2026-05-01",
     });
   });
 });
