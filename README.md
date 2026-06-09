@@ -55,6 +55,25 @@ npm run dev
 - `npm run lint` - Run ESLint with type-checked rules
 - `npm run lint:fix` - Auto-fix ESLint issues
 - `npm run format` - Run Prettier
+- `npm run test:e2e` - Run Playwright browser tests
+- `npm run test:e2e:headed` - Run Playwright tests in a visible browser
+- `npm run test:e2e:install` - Install Playwright browser binaries
+
+## Playwright E2E Setup
+
+Use the seed spec in `tests/e2e/seed.spec.ts` as the starter pattern for future browser tests.
+
+1. Install Playwright browsers:
+
+```bash
+npm run test:e2e:install
+```
+
+2. Run the seed test:
+
+```bash
+npm run test:e2e
+```
 
 ## Project Structure
 
