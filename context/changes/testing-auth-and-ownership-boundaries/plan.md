@@ -418,14 +418,14 @@ No schema migration is expected. This rollout should stay test- and documentatio
 
 #### Automated
 
-- [x] 5.1 `context/foundation/test-plan.md` contains concrete Phase 3 cookbook guidance for auth and ownership integration checks.
-- [x] 5.2 The rollout table reflects Phase 3 as implemented with the new change folder.
-- [x] 5.3 `npm run lint` passes.
-- [x] 5.4 `npx astro check` passes.
-- [x] 5.5 `npm run build` passes.
+- [x] 5.1 `context/foundation/test-plan.md` contains concrete Phase 3 cookbook guidance for auth and ownership integration checks. — b65f602
+- [x] 5.2 The rollout table reflects Phase 3 as implemented with the new change folder. — b65f602
+- [x] 5.3 `npm run lint` passes. — b65f602
+- [x] 5.4 `npx astro check` passes. — b65f602
+- [x] 5.5 `npm run build` passes. — b65f602
 
 #### Manual
 
-- [x] 5.6 Read the updated Phase 3 cookbook entry and confirm a contributor could add a new ownership-boundary test without rediscovering the seam or status-code rules.
-- [x] 5.7 Confirm the cookbook language stays pattern-oriented and does not degrade into a changelog of individual assertions.
-- [x] 5.8 Confirm the rollout remains bounded to finance ownership checks and does not absorb unrelated auth UX or middleware work.
+- [x] 5.6 Read the updated Phase 3 cookbook entry and confirm a contributor could add a new ownership-boundary test without rediscovering the seam or status-code rules. — b65f602
+- [x] 5.7 Confirm the cookbook language stays pattern-oriented and does not degrade into a changelog of individual assertions. — b65f602
+- [x] 5.8 Confirm the rollout remains bounded to finance ownership checks and does not absorb unrelated auth UX or middleware work. — b65f602

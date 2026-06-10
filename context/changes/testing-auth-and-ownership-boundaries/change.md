@@ -1,9 +1,9 @@
 ---
 change_id: testing-auth-and-ownership-boundaries
 title: Auth and ownership boundaries
-status: implementing
+status: implemented
 created: 2026-06-09
-updated: 2026-06-09
+updated: 2026-06-10
 archived_at: null
 ---
 
