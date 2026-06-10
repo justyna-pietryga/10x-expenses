@@ -6,7 +6,7 @@
 >
 > Refresh: re-run `/10x-test-plan --refresh` when stale (see Section 8).
 >
-> Last updated: 2026-06-07
+> Last updated: 2026-06-10
 
 ## 1. Strategy
 
@@ -50,7 +50,7 @@ Each row is a discrete rollout phase that will open its own change folder via `/
 |---|---|---|---|---|---|---|
 | 1 | Critical import and summary integrity | Defend the core data-integrity path for import replacement, summary gating, and summary correctness. | #1, #2, #6 | integration | implemented | testing-critical-import-and-summary-integrity |
 | 2 | Review persistence and rule application | Catch review-flow regressions where UI state drifts from persisted state or mutates the wrong rows. | #3, #4 | integration | implemented | testing-review-persistence-and-rule-application |
-| 3 | Auth and ownership boundaries | Prove finance flows enforce ownership, not just authentication. | #5 | integration | not started | - |
+| 3 | Auth and ownership boundaries | Prove finance flows enforce ownership, not just authentication. | #5 | integration | implemented | testing-auth-and-ownership-boundaries |
 | 4 | Quality gates and cookbook wiring | Lock the floor with stable suite commands, rollout patterns, and required gates. | cross-cutting | gates | not started | - |
 
 ## 4. Stack
@@ -105,7 +105,11 @@ How to add new tests in this project. Each sub-section is filled in once the rel
 
 ### 6.3 Adding an integration test for auth or ownership checks
 
-- TBD - see Section 3 Phase 3 for finance-flow ownership boundary patterns.
+- Extend `tests/auth-and-ownership-boundaries.test.ts` for finance ownership work instead of spreading cross-user cases into older budget, import, or summary suites. That dedicated suite owns the multi-user fixture builders and the ownership seam.
+- Stay at the current cheapest useful layer: direct domain-helper assertions for read and mutation isolation, plus direct Astro route invocation when the risk is the user-visible HTTP contract.
+- Model three distinct outcomes in the harness even though the runtime cannot surface all three separately today: owned record, foreign-owned record, and genuinely missing record. This keeps the fixture intent explicit while the app still exposes the truthful hidden-denial contract.
+- Under the current anon-key plus RLS architecture, foreign-owned finance rows are invisible to the server client. Assert `401` for unauthenticated requests, and assert existing `404` or row-failure behavior for foreign-owned or missing records unless the architecture changes to make a true authorization distinction observable.
+- Keep assertions on business outcomes, not query choreography. For budget and rules, prove only owned rows can be listed or mutated. For imports, prove both batch-level and row-level boundaries. For summary, prove visible outputs like available months, totals, category rows, and warning batches are derived only from the authenticated user's data.
 
 ### 6.4 Adding a test for a new API endpoint
 
@@ -122,6 +126,9 @@ How to add new tests in this project. Each sub-section is filled in once the rel
 - Phase 2 shipped in a dedicated suite, `tests/review-persistence-and-rule-application.test.ts`, because the review and rule risks needed their own fixture builders and would have made the Phase 1 suites harder to reason about.
 - The oracle for Phase 2 is "persisted rows plus truthful payload": mixed bulk saves are acceptable only when successful rows really persist, failed rows remain untouched, and the UI reconciliation keeps those two states visible to the user.
 - Rule coverage in Phase 2 is lifecycle-aware: dashboard rule create, update, and delete behavior must be proven through to future import categorization outcomes, including untouched non-matching rows.
+- Phase 3 shipped in `tests/auth-and-ownership-boundaries.test.ts` as a dedicated ownership suite so cross-user risks stay auditable instead of leaking into older finance-domain regressions.
+- The oracle for Phase 3 is ownership isolation, not theoretical status-code purity: with the current server client and RLS shape, foreign-owned rows stay hidden and therefore share the same not-found or row-failure contract as genuinely missing rows.
+- Phase 3 coverage spans the full finance surface: budget reads and writes, import batch and transaction boundaries, rule list and mutation boundaries, and dashboard summary outputs that must ignore another user's records entirely.
 
 ## 7. What We Deliberately Don't Test
 
@@ -133,7 +140,7 @@ Exclusions agreed during the rollout. Future contributors should respect these u
 
 ## 8. Freshness Ledger
 
-- Strategy (Section 1-Section 5) last reviewed: 2026-06-07
+- Strategy (Section 1-Section 5) last reviewed: 2026-06-10
 - Stack versions last verified: 2026-06-02
 - AI-native tool references last verified: 2026-06-02
 

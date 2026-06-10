@@ -402,30 +402,30 @@ No schema migration is expected. This rollout should stay test- and documentatio
 
 #### Automated
 
-- [x] 4.1 The Phase 3 suite proves rules cannot be created against foreign categories or mutated across users.
-- [x] 4.2 The Phase 3 suite proves summary outputs ignore another user's finance records entirely.
-- [x] 4.3 Existing rule and summary suites still pass after any targeted contract-alignment updates.
-- [x] 4.4 `npm test -- tests/auth-and-ownership-boundaries.test.ts tests/monthly-summary-and-rules.test.ts tests/review-persistence-and-rule-application.test.ts` passes.
-- [x] 4.5 `npx astro check` passes.
+- [x] 4.1 The Phase 3 suite proves rules cannot be created against foreign categories or mutated across users. — 06fc5ba
+- [x] 4.2 The Phase 3 suite proves summary outputs ignore another user's finance records entirely. — 06fc5ba
+- [x] 4.3 Existing rule and summary suites still pass after any targeted contract-alignment updates. — 06fc5ba
+- [x] 4.4 `npm test -- tests/auth-and-ownership-boundaries.test.ts tests/monthly-summary-and-rules.test.ts tests/review-persistence-and-rule-application.test.ts` passes. — 06fc5ba
+- [x] 4.5 `npx astro check` passes. — 06fc5ba
 
 #### Manual
 
-- [x] 4.6 Read the rule ownership tests and confirm they separate foreign rule-id denial from foreign target-category denial.
-- [x] 4.7 Confirm the summary tests prove data isolation, not just route authentication.
-- [x] 4.8 Confirm the assertions describe user-visible outcomes like months, totals, and rule lists rather than internal query choreography.
+- [x] 4.6 Read the rule ownership tests and confirm they separate foreign rule-id denial from foreign target-category denial. — 06fc5ba
+- [x] 4.7 Confirm the summary tests prove data isolation, not just route authentication. — 06fc5ba
+- [x] 4.8 Confirm the assertions describe user-visible outcomes like months, totals, and rule lists rather than internal query choreography. — 06fc5ba
 
 ### Phase 5: Cookbook and Rollout Alignment
 
 #### Automated
 
-- [ ] 5.1 `context/foundation/test-plan.md` contains concrete Phase 3 cookbook guidance for auth and ownership integration checks.
-- [ ] 5.2 The rollout table reflects Phase 3 as implemented with the new change folder.
-- [ ] 5.3 `npm run lint` passes.
-- [ ] 5.4 `npx astro check` passes.
-- [ ] 5.5 `npm run build` passes.
+- [x] 5.1 `context/foundation/test-plan.md` contains concrete Phase 3 cookbook guidance for auth and ownership integration checks.
+- [x] 5.2 The rollout table reflects Phase 3 as implemented with the new change folder.
+- [x] 5.3 `npm run lint` passes.
+- [x] 5.4 `npx astro check` passes.
+- [x] 5.5 `npm run build` passes.
 
 #### Manual
 
-- [ ] 5.6 Read the updated Phase 3 cookbook entry and confirm a contributor could add a new ownership-boundary test without rediscovering the seam or status-code rules.
-- [ ] 5.7 Confirm the cookbook language stays pattern-oriented and does not degrade into a changelog of individual assertions.
-- [ ] 5.8 Confirm the rollout remains bounded to finance ownership checks and does not absorb unrelated auth UX or middleware work.
+- [x] 5.6 Read the updated Phase 3 cookbook entry and confirm a contributor could add a new ownership-boundary test without rediscovering the seam or status-code rules.
+- [x] 5.7 Confirm the cookbook language stays pattern-oriented and does not degrade into a changelog of individual assertions.
+- [x] 5.8 Confirm the rollout remains bounded to finance ownership checks and does not absorb unrelated auth UX or middleware work.
