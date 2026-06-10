@@ -266,51 +266,51 @@ No data migration is expected. The only compatibility concern is command-name dr
 
 #### Automated
 
-- [x] 1.1 `package.json` exposes canonical scripts for lint, typecheck, Astro diagnostics, tests, and build.
-- [x] 1.2 `npm run typecheck` passes.
-- [x] 1.3 `npm run check` passes.
+- [x] 1.1 `package.json` exposes canonical scripts for lint, typecheck, Astro diagnostics, tests, and build. — cfd7979
+- [x] 1.2 `npm run typecheck` passes. — cfd7979
+- [x] 1.3 `npm run check` passes. — cfd7979
 
 #### Manual
 
-- [x] 1.4 Read the script block in `package.json` and confirm each required gate has one obvious repo-owned command.
-- [x] 1.5 Confirm the repo-owned contributor guidance does not contradict the new script names.
+- [x] 1.4 Read the script block in `package.json` and confirm each required gate has one obvious repo-owned command. — cfd7979
+- [x] 1.5 Confirm the repo-owned contributor guidance does not contradict the new script names. — cfd7979
 
 ### Phase 2: Required CI Gate Enforcement
 
 #### Automated
 
-- [x] 2.1 `.github/workflows/ci.yml` runs lint, repo-wide tests, Astro diagnostics, and build in fail-fast order.
-- [x] 2.2 `npm test` passes locally as the same repo-wide test command CI will enforce.
-- [x] 2.3 `npx astro check` passes locally after the workflow alignment.
+- [x] 2.1 `.github/workflows/ci.yml` runs lint, repo-wide tests, Astro diagnostics, and build in fail-fast order. — cfd7979
+- [x] 2.2 `npm test` passes locally as the same repo-wide test command CI will enforce. — cfd7979
+- [x] 2.3 `npx astro check` passes locally after the workflow alignment. — cfd7979
 
 #### Manual
 
-- [x] 2.4 Read the CI workflow and confirm it now enforces the same required gates listed in Section 5 of `context/foundation/test-plan.md`.
-- [x] 2.5 Confirm the build step still uses the existing `SUPABASE_*` secret injection rather than silently weakening the build contract.
+- [x] 2.4 Read the CI workflow and confirm it now enforces the same required gates listed in Section 5 of `context/foundation/test-plan.md`. — cfd7979
+- [x] 2.5 Confirm the build step still uses the existing `SUPABASE_*` secret injection rather than silently weakening the build contract. — cfd7979
 
 ### Phase 3: Cookbook and Local Workflow Wiring
 
 #### Automated
 
-- [x] 3.1 `context/foundation/test-plan.md` documents canonical gate commands, CI ownership, narrow pre-commit scope, hybrid test-command guidance, and the optional local hook pattern.
-- [x] 3.2 The rollout table reflects Phase 4 as implemented with the new change folder.
-- [x] 3.3 `npm run lint` passes.
-- [x] 3.4 `npm run build` passes.
+- [x] 3.1 `context/foundation/test-plan.md` documents canonical gate commands, CI ownership, narrow pre-commit scope, hybrid test-command guidance, and the optional local hook pattern. — cfd7979
+- [x] 3.2 The rollout table reflects Phase 4 as implemented with the new change folder. — cfd7979
+- [x] 3.3 `npm run lint` passes. — cfd7979
+- [x] 3.4 `npm run build` passes. — cfd7979
 
 #### Manual
 
-- [x] 3.5 Read the updated cookbook guidance and confirm a contributor could tell which gates are repo-owned, which are CI-enforced, and which are optional local accelerators.
-- [x] 3.6 Confirm the cookbook stays pattern-oriented and concise instead of expanding into a long operations manual.
-- [x] 3.7 Confirm the guidance keeps pre-commit intentionally narrow and does not quietly escalate local enforcement beyond the chosen scope.
+- [x] 3.5 Read the updated cookbook guidance and confirm a contributor could tell which gates are repo-owned, which are CI-enforced, and which are optional local accelerators. — cfd7979
+- [x] 3.6 Confirm the cookbook stays pattern-oriented and concise instead of expanding into a long operations manual. — cfd7979
+- [x] 3.7 Confirm the guidance keeps pre-commit intentionally narrow and does not quietly escalate local enforcement beyond the chosen scope. — cfd7979
 
 ### Phase 4: Change Closeout
 
 #### Automated
 
-- [x] 4.1 `context/changes/testing-quality-gates-and-cookbook-wiring/plan.md` and `plan-brief.md` both exist.
-- [x] 4.2 `change.md` is updated to `planned` with the current date.
+- [x] 4.1 `context/changes/testing-quality-gates-and-cookbook-wiring/plan.md` and `plan-brief.md` both exist. — cfd7979
+- [x] 4.2 `change.md` is updated to `planned` with the current date. — cfd7979
 
 #### Manual
 
-- [x] 4.3 Read the plan and confirm the phase structure separates command normalization, CI wiring, and cookbook wiring instead of blurring them together.
-- [x] 4.4 Confirm the progress section gives a future implementer a clear phase-by-phase checklist with both automated and manual gates.
+- [x] 4.3 Read the plan and confirm the phase structure separates command normalization, CI wiring, and cookbook wiring instead of blurring them together. — cfd7979
+- [x] 4.4 Confirm the progress section gives a future implementer a clear phase-by-phase checklist with both automated and manual gates. — cfd7979
