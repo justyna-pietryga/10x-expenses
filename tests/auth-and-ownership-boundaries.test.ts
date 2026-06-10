@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { createClient } from "@/lib/supabase";
 import { updateCategory, type BudgetCategory, type MonthlyIncome } from "@/lib/budget/data";
-import { deleteRule, type CategorizationRule } from "@/lib/rules/data";
+import { createRule, deleteRule, listRules, updateRule, type CategorizationRule } from "@/lib/rules/data";
 import { loadDashboardSummary } from "@/lib/summary/data";
 import {
   loadImportBatchReview,
@@ -138,8 +138,8 @@ function makeSummary(id: string, userId = USER_A.id, overrides: Partial<SummaryR
 
 type OwnershipStatus = 200 | 403 | 404;
 
-function classifyOwnership<T extends { id: string; user_id: string }>(
-  rows: T[],
+function classifyOwnership(
+  rows: { id: string; user_id: string }[],
   currentUserId: string,
   recordId: string,
 ): OwnershipStatus {
@@ -224,7 +224,12 @@ function notFoundResult() {
   };
 }
 
-function createOwnershipSupabaseStub(state = createOwnershipState()) {
+function createOwnershipSupabaseStub(overrides: Partial<OwnershipState> = {}) {
+  const state = {
+    ...createOwnershipState(),
+    ...overrides,
+  } satisfies OwnershipState;
+
   return {
     __state: state,
     from(table: string) {
@@ -242,8 +247,8 @@ function createOwnershipSupabaseStub(state = createOwnershipState()) {
               select() {
                 return this;
               },
-              async single() {
-                return createSelectResult(created);
+              single() {
+                return Promise.resolve(createSelectResult(created));
               },
             };
           }),
@@ -263,12 +268,14 @@ function createOwnershipSupabaseStub(state = createOwnershipState()) {
                 }
                 return chain;
               },
-              order: vi.fn(async () =>
-                createSelectResult(
-                  state.categories.filter(
-                    (category) =>
-                      (!userFilter || category.user_id === userFilter) &&
-                      (archivedAtFilter === undefined || category.archived_at === archivedAtFilter),
+              order: vi.fn(() =>
+                Promise.resolve(
+                  createSelectResult(
+                    state.categories.filter(
+                      (category) =>
+                        (!userFilter || category.user_id === userFilter) &&
+                        (archivedAtFilter === undefined || category.archived_at === archivedAtFilter),
+                    ),
                   ),
                 ),
               ),
@@ -298,7 +305,7 @@ function createOwnershipSupabaseStub(state = createOwnershipState()) {
               select() {
                 return chain;
               },
-              async single() {
+              single() {
                 const category = state.categories.find(
                   (item) =>
                     item.id === categoryId &&
@@ -307,11 +314,11 @@ function createOwnershipSupabaseStub(state = createOwnershipState()) {
                 );
 
                 if (!category) {
-                  return notFoundResult();
+                  return Promise.resolve(notFoundResult());
                 }
 
                 Object.assign(category, payload, { updated_at: CREATED_AT });
-                return createSelectResult({ ...category });
+                return Promise.resolve(createSelectResult({ ...category }));
               },
             };
             return chain;
@@ -334,19 +341,21 @@ function createOwnershipSupabaseStub(state = createOwnershipState()) {
                 }
                 return chain;
               },
-              async maybeSingle() {
+              maybeSingle() {
                 const income =
                   state.monthlyIncomes.find(
                     (item) =>
                       (!userFilter || item.user_id === userFilter) && (!monthFilter || item.month === monthFilter),
                   ) ?? null;
-                return createSelectResult(income);
+                return Promise.resolve(createSelectResult(income));
               },
-              order: vi.fn(async () =>
-                createSelectResult(
-                  state.monthlyIncomes
-                    .filter((item) => !userFilter || item.user_id === userFilter)
-                    .map((item) => ({ month: item.month })),
+              order: vi.fn(() =>
+                Promise.resolve(
+                  createSelectResult(
+                    state.monthlyIncomes
+                      .filter((item) => !userFilter || item.user_id === userFilter)
+                      .map((item) => ({ month: item.month })),
+                  ),
                 ),
               ),
             };
@@ -376,8 +385,8 @@ function createOwnershipSupabaseStub(state = createOwnershipState()) {
               select() {
                 return this;
               },
-              async single() {
-                return createSelectResult(saved);
+              single() {
+                return Promise.resolve(createSelectResult(saved));
               },
             };
           }),
@@ -401,8 +410,8 @@ function createOwnershipSupabaseStub(state = createOwnershipState()) {
               select() {
                 return this;
               },
-              async single() {
-                return createSelectResult(created);
+              single() {
+                return Promise.resolve(createSelectResult(created));
               },
             };
           }),
@@ -429,7 +438,7 @@ function createOwnershipSupabaseStub(state = createOwnershipState()) {
               limit() {
                 return chain;
               },
-              async maybeSingle() {
+              maybeSingle() {
                 const batch =
                   state.batches.find(
                     (item) =>
@@ -437,19 +446,21 @@ function createOwnershipSupabaseStub(state = createOwnershipState()) {
                       (!userFilter || item.user_id === userFilter) &&
                       (!monthFilter || item.statement_month === monthFilter),
                   ) ?? null;
-                return createSelectResult(batch);
+                return Promise.resolve(createSelectResult(batch));
               },
-              order: vi.fn(async () =>
-                createSelectResult(
-                  state.batches.filter(
-                    (item) =>
-                      (!idFilter || item.id === idFilter) &&
-                      (!userFilter || item.user_id === userFilter) &&
-                      (!monthFilter || item.statement_month === monthFilter),
+              order: vi.fn(() =>
+                Promise.resolve(
+                  createSelectResult(
+                    state.batches.filter(
+                      (item) =>
+                        (!idFilter || item.id === idFilter) &&
+                        (!userFilter || item.user_id === userFilter) &&
+                        (!monthFilter || item.statement_month === monthFilter),
+                    ),
                   ),
                 ),
               ),
-              async single() {
+              single() {
                 const batch = state.batches.find(
                   (item) =>
                     (!idFilter || item.id === idFilter) &&
@@ -458,10 +469,10 @@ function createOwnershipSupabaseStub(state = createOwnershipState()) {
                 );
 
                 if (!batch) {
-                  return notFoundResult();
+                  return Promise.resolve(notFoundResult());
                 }
 
-                return createSelectResult(batch);
+                return Promise.resolve(createSelectResult(batch));
               },
             };
             return chain;
@@ -482,15 +493,15 @@ function createOwnershipSupabaseStub(state = createOwnershipState()) {
               select() {
                 return chain;
               },
-              async single() {
+              single() {
                 const batch = state.batches.find((item) => item.id === batchId && item.user_id === ownerId);
 
                 if (!batch) {
-                  return notFoundResult();
+                  return Promise.resolve(notFoundResult());
                 }
 
                 Object.assign(batch, payload, { updated_at: CREATED_AT });
-                return createSelectResult({ ...batch });
+                return Promise.resolve(createSelectResult({ ...batch }));
               },
             };
             return chain;
@@ -514,8 +525,8 @@ function createOwnershipSupabaseStub(state = createOwnershipState()) {
             state.transactions.push(...created);
 
             return {
-              async select() {
-                return createSelectResult(created);
+              select() {
+                return Promise.resolve(createSelectResult(created));
               },
             };
           }),
@@ -539,13 +550,15 @@ function createOwnershipSupabaseStub(state = createOwnershipState()) {
                 }
                 return chain;
               },
-              order: vi.fn(async () =>
-                createSelectResult(
-                  state.transactions.filter(
-                    (item) =>
-                      (!batchFilter || item.import_batch_id === batchFilter) &&
-                      (!userFilter || item.user_id === userFilter) &&
-                      (!batchIds || batchIds.includes(item.import_batch_id)),
+              order: vi.fn(() =>
+                Promise.resolve(
+                  createSelectResult(
+                    state.transactions.filter(
+                      (item) =>
+                        (!batchFilter || item.import_batch_id === batchFilter) &&
+                        (!userFilter || item.user_id === userFilter) &&
+                        (!batchIds || batchIds.includes(item.import_batch_id)),
+                    ),
                   ),
                 ),
               ),
@@ -568,17 +581,17 @@ function createOwnershipSupabaseStub(state = createOwnershipState()) {
               select() {
                 return chain;
               },
-              async single() {
+              single() {
                 const transaction = state.transactions.find(
                   (item) => item.id === transactionId && item.user_id === ownerId,
                 );
 
                 if (!transaction) {
-                  return notFoundResult();
+                  return Promise.resolve(notFoundResult());
                 }
 
                 Object.assign(transaction, payload, { updated_at: CREATED_AT });
-                return createSelectResult({ ...transaction });
+                return Promise.resolve(createSelectResult({ ...transaction }));
               },
             };
             return chain;
@@ -588,6 +601,23 @@ function createOwnershipSupabaseStub(state = createOwnershipState()) {
 
       if (table === "categorization_rules") {
         return {
+          insert: vi.fn((payload: Omit<CategorizationRule, "created_at" | "id" | "updated_at">) => {
+            const created = makeRule(`rule-created-${state.rules.length + 1}`, payload.user_id, {
+              match_field: payload.match_field,
+              match_text: payload.match_text,
+              target_category_id: payload.target_category_id,
+            });
+            state.rules.push(created);
+
+            return {
+              select() {
+                return this;
+              },
+              single() {
+                return Promise.resolve(createSelectResult(created));
+              },
+            };
+          }),
           delete: vi.fn(() => {
             let ruleId: string | null = null;
             let ownerId: string | null = null;
@@ -604,14 +634,14 @@ function createOwnershipSupabaseStub(state = createOwnershipState()) {
               select() {
                 return chain;
               },
-              async single() {
+              single() {
                 const index = state.rules.findIndex((item) => item.id === ruleId && item.user_id === ownerId);
                 if (index === -1) {
-                  return notFoundResult();
+                  return Promise.resolve(notFoundResult());
                 }
 
                 const [removed] = state.rules.splice(index, 1);
-                return createSelectResult(removed);
+                return Promise.resolve(createSelectResult(removed));
               },
             };
             return chain;
@@ -625,8 +655,10 @@ function createOwnershipSupabaseStub(state = createOwnershipState()) {
                 }
                 return chain;
               },
-              order: vi.fn(async () =>
-                createSelectResult(state.rules.filter((item) => !userFilter || item.user_id === userFilter)),
+              order: vi.fn(() =>
+                Promise.resolve(
+                  createSelectResult(state.rules.filter((item) => !userFilter || item.user_id === userFilter)),
+                ),
               ),
             };
             return chain;
@@ -647,14 +679,14 @@ function createOwnershipSupabaseStub(state = createOwnershipState()) {
               select() {
                 return chain;
               },
-              async single() {
+              single() {
                 const rule = state.rules.find((item) => item.id === ruleId && item.user_id === ownerId);
                 if (!rule) {
-                  return notFoundResult();
+                  return Promise.resolve(notFoundResult());
                 }
 
                 Object.assign(rule, payload, { updated_at: CREATED_AT });
-                return createSelectResult({ ...rule });
+                return Promise.resolve(createSelectResult({ ...rule }));
               },
             };
             return chain;
@@ -677,13 +709,13 @@ function createOwnershipSupabaseStub(state = createOwnershipState()) {
                 }
                 return chain;
               },
-              async maybeSingle() {
+              maybeSingle() {
                 const summary =
                   state.monthlySummaries.find(
                     (item) =>
                       (!userFilter || item.user_id === userFilter) && (!monthFilter || item.month === monthFilter),
                   ) ?? null;
-                return createSelectResult(summary);
+                return Promise.resolve(createSelectResult(summary));
               },
             };
             return chain;
@@ -692,8 +724,8 @@ function createOwnershipSupabaseStub(state = createOwnershipState()) {
             select() {
               return this;
             },
-            async single() {
-              return createSelectResult(state.monthlySummaries[0] ?? null);
+            single() {
+              return Promise.resolve(createSelectResult(state.monthlySummaries[0] ?? null));
             },
           })),
         };
@@ -985,12 +1017,10 @@ describe("budget ownership coverage", () => {
     } as never);
 
     expect(response.status).toBe(200);
-    await expect(readJson<{ income: MonthlyIncome }>(response)).resolves.toEqual({
-      income: expect.objectContaining({
-        month: "2026-07-01",
-        user_id: USER_A.id,
-      }),
-    });
+    const payload = await readJson<{ income: MonthlyIncome }>(response);
+
+    expect(payload.income.month).toBe("2026-07-01");
+    expect(payload.income.user_id).toBe(USER_A.id);
     expect(
       supabase.__state.monthlyIncomes.some((income) => income.user_id === USER_B.id && income.month === "2026-07-01"),
     ).toBe(false);
@@ -1013,9 +1043,10 @@ describe("budget ownership coverage", () => {
     } as never);
 
     expect(response.status).toBe(201);
-    await expect(readJson<{ category: BudgetCategory }>(response)).resolves.toEqual({
-      category: expect.objectContaining({ name: "Health", user_id: USER_A.id }),
-    });
+    const payload = await readJson<{ category: BudgetCategory }>(response);
+
+    expect(payload.category.name).toBe("Health");
+    expect(payload.category.user_id).toBe(USER_A.id);
     expect(
       supabase.__state.categories.some((category) => category.name === "Health" && category.user_id === USER_B.id),
     ).toBe(false);
@@ -1065,5 +1096,270 @@ describe("import ownership coverage", () => {
       source_filename: "owner.csv",
       statement_month: "2026-05-01",
     });
+  });
+});
+
+describe("rule ownership coverage", () => {
+  it("keeps rule lists scoped to the authenticated user and resolves only owned categories", async () => {
+    const supabase = createOwnershipSupabaseStub({
+      categories: [
+        makeCategory("cat-owned", USER_A.id, { name: "Food" }),
+        makeCategory("cat-foreign", USER_B.id, { name: "Travel" }),
+      ],
+      rules: [
+        makeRule("rule-owned", USER_A.id, { match_text: "groceries", target_category_id: "cat-owned" }),
+        makeRule("rule-foreign", USER_B.id, { match_text: "flight", target_category_id: "cat-foreign" }),
+      ],
+    });
+
+    const rules = await listRules(supabase as never, USER_A.id);
+
+    expect(rules).toHaveLength(1);
+    expect(rules[0]?.id).toBe("rule-owned");
+    expect(rules[0]?.match_text).toBe("groceries");
+    expect(rules[0]?.user_id).toBe(USER_A.id);
+    expect(rules[0]?.target_category?.id).toBe("cat-owned");
+    expect(rules[0]?.target_category?.user_id).toBe(USER_A.id);
+  });
+
+  it("keeps foreign rule-id mutations hidden behind the existing not-found contract", async () => {
+    const ruleItemRoute: typeof import("@/pages/api/rules/[id]") = await import("@/pages/api/rules/[id]");
+    const supabase = createOwnershipSupabaseStub();
+    vi.mocked(createClient).mockReturnValue(supabase as never);
+
+    await expect(
+      updateRule(supabase as never, USER_A.id, "rule-2", {
+        match_field: "both",
+        match_text: "merchant",
+      }),
+    ).rejects.toThrow(/not found/i);
+
+    const response = await ruleItemRoute.PATCH({
+      ...authenticatedContext(USER_A),
+      params: { id: "rule-2" },
+      request: new Request("http://localhost/api/rules/rule-2", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          match_field: "both",
+          match_text: "merchant",
+        }),
+      }),
+    } as never);
+
+    expect(response.status).toBe(404);
+    await expect(readJson<{ error: string; field: string | null }>(response)).resolves.toEqual({
+      error: "Categorization rule was not found",
+      field: null,
+    });
+  });
+
+  it("keeps foreign target-category denial separate from owned rule updates and owned rule creation", async () => {
+    const ruleCollectionRoute: typeof import("@/pages/api/rules/index") = await import("@/pages/api/rules/index");
+    const ruleItemRoute: typeof import("@/pages/api/rules/[id]") = await import("@/pages/api/rules/[id]");
+    const supabase = createOwnershipSupabaseStub();
+    vi.mocked(createClient).mockReturnValue(supabase as never);
+
+    await expect(
+      createRule(supabase as never, USER_A.id, {
+        match_field: "recipient",
+        match_text: "groceries",
+        target_category_id: "cat-1",
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        match_text: "groceries",
+        target_category_id: "cat-1",
+        user_id: USER_A.id,
+      }),
+    );
+
+    const updateResponse = await ruleItemRoute.PATCH({
+      ...authenticatedContext(USER_A),
+      params: { id: "rule-1" },
+      request: new Request("http://localhost/api/rules/rule-1", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          target_category_id: "cat-2",
+        }),
+      }),
+    } as never);
+
+    expect(updateResponse.status).toBe(404);
+    await expect(readJson<{ error: string; field: string | null }>(updateResponse)).resolves.toEqual({
+      error: "Selected category was not found",
+      field: "target_category_id",
+    });
+
+    const createResponse = await ruleCollectionRoute.POST({
+      ...authenticatedContext(USER_A),
+      request: new Request("http://localhost/api/rules", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          match_field: "recipient",
+          match_text: "merchant",
+          target_category_id: "cat-2",
+        }),
+      }),
+      params: {},
+    } as never);
+
+    expect(createResponse.status).toBe(404);
+    await expect(readJson<{ error: string; field: string | null }>(createResponse)).resolves.toEqual({
+      error: "Selected category was not found",
+      field: "target_category_id",
+    });
+  });
+});
+
+describe("summary ownership coverage", () => {
+  it("keeps summary outputs isolated to the authenticated user's finance records", async () => {
+    const supabase = createOwnershipSupabaseStub({
+      categories: [
+        makeCategory("cat-owned", USER_A.id, { carryover_enabled: false, name: "Food", percentage_limit: 20 }),
+        makeCategory("cat-foreign", USER_B.id, { carryover_enabled: false, name: "Travel", percentage_limit: 40 }),
+      ],
+      monthlyIncomes: [
+        makeIncome("income-owned", USER_A.id, { amount: 3000, month: "2026-06-01" }),
+        makeIncome("income-foreign", USER_B.id, { amount: 9200, month: "2026-06-01" }),
+      ],
+      batches: [
+        makeBatch("batch-owned-reviewed", USER_A.id, {
+          review_completed_at: "2026-06-10T08:00:00.000Z",
+          source_filename: "owned-reviewed.csv",
+        }),
+        makeBatch("batch-owned-pending", USER_A.id, {
+          review_completed_at: null,
+          source_filename: "owned-pending.csv",
+        }),
+        makeBatch("batch-foreign-reviewed", USER_B.id, {
+          review_completed_at: "2026-06-11T08:00:00.000Z",
+          source_filename: "foreign-reviewed.csv",
+        }),
+      ],
+      transactions: [
+        makeTransaction("tx-owned-reviewed", USER_A.id, {
+          amount: -120,
+          category_id: "cat-owned",
+          import_batch_id: "batch-owned-reviewed",
+        }),
+        makeTransaction("tx-owned-pending", USER_A.id, {
+          amount: -45,
+          category_id: "cat-owned",
+          import_batch_id: "batch-owned-pending",
+        }),
+        makeTransaction("tx-foreign-reviewed", USER_B.id, {
+          amount: -500,
+          category_id: "cat-foreign",
+          import_batch_id: "batch-foreign-reviewed",
+        }),
+      ],
+      monthlySummaries: [makeSummary("summary-owned", USER_A.id), makeSummary("summary-foreign", USER_B.id)],
+    });
+
+    const summary = await loadDashboardSummary(supabase as never, USER_A.id, "2026-06-01");
+
+    expect(summary.available_months).toEqual([
+      {
+        has_completed_review: true,
+        has_income: true,
+        has_pending_review: true,
+        month: "2026-06-01",
+      },
+    ]);
+    expect(summary.total_income).toBe(3000);
+    expect(summary.total_imported_spend).toBe(165);
+    expect(summary.reviewed_categorized_spend).toBe(120);
+    expect(summary.incomplete_review_spend).toBe(45);
+    expect(summary.category_rows).toEqual([
+      expect.objectContaining({
+        category_id: "cat-owned",
+        category_name: "Food",
+        reviewed_spend: 120,
+      }),
+    ]);
+    expect(summary.warning_batches).toEqual([
+      expect.objectContaining({
+        id: "batch-owned-pending",
+        source_filename: "owned-pending.csv",
+      }),
+    ]);
+  });
+
+  it("keeps the summary route focused on the authenticated user's visible months and totals", async () => {
+    const summaryRoute: typeof import("@/pages/api/dashboard/summary") = await import("@/pages/api/dashboard/summary");
+    const supabase = createOwnershipSupabaseStub({
+      categories: [
+        makeCategory("cat-owned", USER_A.id, { name: "Food" }),
+        makeCategory("cat-foreign", USER_B.id, { name: "Travel" }),
+      ],
+      monthlyIncomes: [
+        makeIncome("income-owned", USER_A.id, { amount: 2500, month: "2026-05-01" }),
+        makeIncome("income-foreign", USER_B.id, { amount: 9999, month: "2026-04-01" }),
+      ],
+      batches: [
+        makeBatch("batch-owned", USER_A.id, {
+          source_filename: "owned.csv",
+          statement_month: "2026-05-01",
+          review_completed_at: "2026-05-20T10:00:00.000Z",
+        }),
+        makeBatch("batch-foreign", USER_B.id, {
+          source_filename: "foreign.csv",
+          statement_month: "2026-04-01",
+          review_completed_at: "2026-04-20T10:00:00.000Z",
+        }),
+      ],
+      transactions: [
+        makeTransaction("tx-owned", USER_A.id, {
+          amount: -80,
+          category_id: "cat-owned",
+          import_batch_id: "batch-owned",
+          transaction_date: "2026-05-11",
+        }),
+        makeTransaction("tx-foreign", USER_B.id, {
+          amount: -600,
+          category_id: "cat-foreign",
+          import_batch_id: "batch-foreign",
+          transaction_date: "2026-04-12",
+        }),
+      ],
+      monthlySummaries: [makeSummary("summary-owned", USER_A.id, { month: "2026-05-01" })],
+    });
+    vi.mocked(createClient).mockReturnValue(supabase as never);
+
+    const response = await summaryRoute.GET({
+      ...authenticatedContext(USER_A),
+      request: new Request("http://localhost/api/dashboard/summary?month=2026-05-01"),
+    } as never);
+
+    expect(response.status).toBe(200);
+    await expect(
+      readJson<{
+        available_months: { month: string }[];
+        category_rows: { category_id: string; reviewed_spend: number }[];
+        selected_month: string;
+        total_imported_spend: number;
+        total_income: number;
+        warning_batches: { id: string }[];
+      }>(response),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        available_months: [
+          {
+            has_completed_review: true,
+            has_income: true,
+            has_pending_review: false,
+            month: "2026-05-01",
+          },
+        ],
+        category_rows: [expect.objectContaining({ category_id: "cat-owned", reviewed_spend: 80 })],
+        selected_month: "2026-05-01",
+        total_imported_spend: 80,
+        total_income: 2500,
+        warning_batches: [],
+      }),
+    );
   });
 });
