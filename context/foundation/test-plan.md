@@ -51,7 +51,7 @@ Each row is a discrete rollout phase that will open its own change folder via `/
 | 1 | Critical import and summary integrity | Defend the core data-integrity path for import replacement, summary gating, and summary correctness. | #1, #2, #6 | integration | implemented | testing-critical-import-and-summary-integrity |
 | 2 | Review persistence and rule application | Catch review-flow regressions where UI state drifts from persisted state or mutates the wrong rows. | #3, #4 | integration | implemented | testing-review-persistence-and-rule-application |
 | 3 | Auth and ownership boundaries | Prove finance flows enforce ownership, not just authentication. | #5 | integration | implemented | testing-auth-and-ownership-boundaries |
-| 4 | Quality gates and cookbook wiring | Lock the floor with stable suite commands, rollout patterns, and required gates. | cross-cutting | gates | not started | - |
+| 4 | Quality gates and cookbook wiring | Lock the floor with stable suite commands, rollout patterns, and required gates. | cross-cutting | gates | implemented | testing-quality-gates-and-cookbook-wiring |
 
 ## 4. Stack
 
@@ -81,8 +81,16 @@ The full set of gates that must pass before a change reaches production. "Requir
 | unit + integration | local + CI | required | import, summary, and API logic regressions |
 | auth or ownership integration checks | local + CI | required after Section 3 Phase 3 | cross-user access or mutation regressions |
 | e2e on critical flows | CI on PR | optional | broken browser-level paths that integration cannot expose cheaply |
-| post-edit hook | local (agent loop) | planned after Section 3 Phase 4 | regressions at edit time |
+| post-edit hook | local (agent loop) | optional convenience | regressions at edit time before the next explicit gate |
 | pre-prod smoke | between merge + prod | optional | environment-specific failures |
+
+### 5.1 Canonical command ownership
+
+- Repo-owned gate commands are `npm run lint`, `npm run typecheck`, `npm run check`, `npm test`, and `npm run build`.
+- CI enforces the required pull-request floor in fail-fast order: `npm run lint`, `npm test`, `npm run check`, then `npm run build`.
+- Local phase work may still run targeted suite commands such as `npm test -- tests/import-review.test.ts`, but the merge gate is the repo-wide `npm test`.
+- Husky pre-commit stays intentionally narrow at `npx lint-staged`; it is a fast staged-file guard, not a substitute for the full repo gates.
+- User-local Codex `PostToolUse` hooks remain optional accelerators. The current pattern is `npx eslint --fix . --quiet` plus `npx tsc --noEmit`, but the repo does not require or enforce a home-directory hook setup.
 
 ## 6. Cookbook Patterns
 
@@ -129,6 +137,8 @@ How to add new tests in this project. Each sub-section is filled in once the rel
 - Phase 3 shipped in `tests/auth-and-ownership-boundaries.test.ts` as a dedicated ownership suite so cross-user risks stay auditable instead of leaking into older finance-domain regressions.
 - The oracle for Phase 3 is ownership isolation, not theoretical status-code purity: with the current server client and RLS shape, foreign-owned rows stay hidden and therefore share the same not-found or row-failure contract as genuinely missing rows.
 - Phase 3 coverage spans the full finance surface: budget reads and writes, import batch and transaction boundaries, rule list and mutation boundaries, and dashboard summary outputs that must ignore another user's records entirely.
+- Phase 4 shipped as repo wiring rather than a new test harness: `package.json` owns the canonical gate commands, CI enforces the required floor with repo-wide `npm test`, and the cookbook now documents pre-commit and optional local hook boundaries explicitly.
+- The oracle for Phase 4 is contract alignment across three places: repo scripts, CI workflow order, and this cookbook. If those three drift, the quality gate is incomplete even if individual commands still pass.
 
 ## 7. What We Deliberately Don't Test
 
