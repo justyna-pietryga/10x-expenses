@@ -387,32 +387,32 @@ No schema migration is expected. This rollout should stay test- and documentatio
 
 #### Automated
 
-- [x] 3.1 The Phase 3 suite proves budget reads and writes remain scoped to the authenticated user.
-- [x] 3.2 The Phase 3 suite proves the full import lifecycle denies cross-user access on both read and write paths.
+- [x] 3.1 The Phase 3 suite proves budget reads and writes remain scoped to the authenticated user. — 715aa97
+- [x] 3.2 The Phase 3 suite proves the full import lifecycle denies cross-user access on both read and write paths. — 715aa97
 - [x] 3.3 Existing budget and import suites still pass after any minimal contract-alignment updates.
 - [x] 3.4 `npm test -- tests/auth-and-ownership-boundaries.test.ts tests/budget-setup.test.ts tests/import-review.test.ts` passes.
 
 #### Manual
 
-- [x] 3.5 Read the budget ownership test names and confirm they cover both read and write boundaries rather than only auth checks.
-- [x] 3.6 Read the import ownership test names and confirm they cover batch-level and row-level denial paths separately.
-- [x] 3.7 Confirm the older Phase 1 and Phase 2 suites remain focused on their original risks instead of absorbing broad ownership work.
+- [x] 3.5 Read the budget ownership test names and confirm they cover both read and write boundaries rather than only auth checks. — 715aa97
+- [x] 3.6 Read the import ownership test names and confirm they cover batch-level and row-level denial paths separately. — 715aa97
+- [x] 3.7 Confirm the older Phase 1 and Phase 2 suites remain focused on their original risks instead of absorbing broad ownership work. — 715aa97
 
 ### Phase 4: Rules and Summary Read-Isolation Coverage
 
 #### Automated
 
-- [ ] 4.1 The Phase 3 suite proves rules cannot be created against foreign categories or mutated across users.
-- [ ] 4.2 The Phase 3 suite proves summary outputs ignore another user's finance records entirely.
-- [ ] 4.3 Existing rule and summary suites still pass after any targeted contract-alignment updates.
-- [ ] 4.4 `npm test -- tests/auth-and-ownership-boundaries.test.ts tests/monthly-summary-and-rules.test.ts tests/review-persistence-and-rule-application.test.ts` passes.
-- [ ] 4.5 `npx astro check` passes.
+- [x] 4.1 The Phase 3 suite proves rules cannot be created against foreign categories or mutated across users.
+- [x] 4.2 The Phase 3 suite proves summary outputs ignore another user's finance records entirely.
+- [x] 4.3 Existing rule and summary suites still pass after any targeted contract-alignment updates.
+- [x] 4.4 `npm test -- tests/auth-and-ownership-boundaries.test.ts tests/monthly-summary-and-rules.test.ts tests/review-persistence-and-rule-application.test.ts` passes.
+- [x] 4.5 `npx astro check` passes.
 
 #### Manual
 
-- [ ] 4.6 Read the rule ownership tests and confirm they separate foreign rule-id denial from foreign target-category denial.
-- [ ] 4.7 Confirm the summary tests prove data isolation, not just route authentication.
-- [ ] 4.8 Confirm the assertions describe user-visible outcomes like months, totals, and rule lists rather than internal query choreography.
+- [x] 4.6 Read the rule ownership tests and confirm they separate foreign rule-id denial from foreign target-category denial.
+- [x] 4.7 Confirm the summary tests prove data isolation, not just route authentication.
+- [x] 4.8 Confirm the assertions describe user-visible outcomes like months, totals, and rule lists rather than internal query choreography.
 
 ### Phase 5: Cookbook and Rollout Alignment
 
