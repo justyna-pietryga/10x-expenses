@@ -1,27 +1,33 @@
 import { startTransition, useState } from "react";
 import type { BudgetCategory } from "@/lib/budget/data";
-import type { ImportBatch, ImportedTransaction } from "@/lib/imports/data";
+import type { ImportBatch, ImportedTransactionReviewRow } from "@/lib/imports/data";
 import { ImportUploadForm, type ImportPreviewPayload } from "@/components/imports/ImportUploadForm";
 import { ReviewCompletionBar } from "@/components/imports/ReviewCompletionBar";
 import {
   TransactionReviewTable,
   type ImportCategoryDraftUpdate,
   type ImportCategorySaveResult,
+  type ImportReviewRuleActionPayload,
+  type ImportReviewRuleActionResult,
 } from "@/components/imports/TransactionReviewTable";
 
 interface Props {
   categories: BudgetCategory[];
   initialBatch: ImportBatch | null;
-  initialTransactions: ImportedTransaction[];
+  initialTransactions: ImportedTransactionReviewRow[];
 }
 
 interface CommitPayload {
   batch: ImportBatch;
   replaced: boolean;
-  transactions: ImportedTransaction[];
+  transactions: ImportedTransactionReviewRow[];
 }
 
 interface BulkCategorySaveResponse extends ImportCategorySaveResult {
+  error?: string;
+}
+
+interface CreateReviewRuleResponse extends ImportReviewRuleActionResult {
   error?: string;
 }
 
@@ -42,21 +48,54 @@ export async function saveImportCategoryChanges(
     throw new Error(payload.error ?? "Could not save these category changes");
   }
 
-  if (payload.updated.length === 0 && payload.failed.length > 0) {
-    return {
-      failed: payload.failed,
-      updated: payload.updated,
-    };
-  }
-
   return {
     failed: payload.failed,
     updated: payload.updated,
   };
 }
 
+export async function createImportReviewRule(
+  payload: ImportReviewRuleActionPayload,
+  fetchFn: typeof fetch = fetch,
+): Promise<ImportReviewRuleActionResult> {
+  const response = await fetchFn("/api/imports/transactions/rule", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  const body = (await response.json()) as CreateReviewRuleResponse;
+
+  if (!response.ok) {
+    throw new Error(body.error ?? "Could not save this review rule");
+  }
+
+  return body;
+}
+
+export function mergeImportedTransactions(
+  transactions: ImportedTransactionReviewRow[],
+  updates: ImportedTransactionReviewRow[],
+) {
+  const updateById = new Map(updates.map((update) => [update.id, update]));
+
+  return transactions.map((transaction) => {
+    const nextTransaction = updateById.get(transaction.id);
+
+    if (!nextTransaction) {
+      return transaction;
+    }
+
+    return {
+      ...transaction,
+      ...nextTransaction,
+    };
+  });
+}
+
 export function mergeImportedTransactionCategoryUpdates(
-  transactions: ImportedTransaction[],
+  transactions: ImportedTransactionReviewRow[],
   updates: ImportCategorySaveResult["updated"],
 ) {
   const categoryById = new Map(updates.map((update) => [update.id, update.category_id]));
@@ -71,6 +110,8 @@ export function mergeImportedTransactionCategoryUpdates(
     return {
       ...transaction,
       category_id: nextCategoryId,
+      category_rule: null,
+      categorized_by_rule_id: null,
     };
   });
 }
@@ -115,12 +156,9 @@ export function ImportWorkspace({ categories, initialBatch, initialTransactions 
         throw new Error(payload.error ?? "Could not save this import batch");
       }
 
-      const nextBatch = payload.batch;
-      const nextTransactions = payload.transactions;
-
       startTransition(() => {
-        setBatch(nextBatch);
-        setTransactions(nextTransactions);
+        setBatch(payload.batch);
+        setTransactions(payload.transactions);
         setPreview(null);
         setNotice(
           payload.replaced
@@ -133,33 +171,6 @@ export function ImportWorkspace({ categories, initialBatch, initialTransactions 
     } finally {
       setIsCommitting(false);
     }
-  }
-
-  async function handleSaveCategory(transactionId: string, categoryId: string | null, saveRule: boolean) {
-    const response = await fetch(`/api/imports/transactions/${transactionId}`, {
-      method: "PATCH",
-      headers: {
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        category_id: categoryId,
-        save_rule: saveRule,
-      }),
-    });
-    const payload = (await response.json()) as { error?: string; transaction?: ImportedTransaction };
-
-    if (!response.ok || !payload.transaction) {
-      throw new Error(payload.error ?? "Could not update this category");
-    }
-
-    const nextTransaction = payload.transaction;
-
-    startTransition(() => {
-      setTransactions((current) =>
-        current.map((transaction) => (transaction.id === nextTransaction.id ? nextTransaction : transaction)),
-      );
-      setNotice(saveRule ? "Category updated and rule saved." : "Category updated.");
-    });
   }
 
   async function handleSaveCategoryChanges(updates: ImportCategoryDraftUpdate[]): Promise<ImportCategorySaveResult> {
@@ -179,8 +190,24 @@ export function ImportWorkspace({ categories, initialBatch, initialTransactions 
     return result;
   }
 
-  async function handleSaveRuleShortcut(transactionId: string, categoryId: string | null) {
-    await handleSaveCategory(transactionId, categoryId, true);
+  async function handleCreateRuleFromReview(
+    payload: ImportReviewRuleActionPayload,
+  ): Promise<ImportReviewRuleActionResult> {
+    const result = await createImportReviewRule(payload);
+    const updates = [result.anchor_transaction, ...result.applied_transactions];
+
+    startTransition(() => {
+      setTransactions((current) => mergeImportedTransactions(current, updates));
+      setNotice(
+        payload.apply_now
+          ? result.applied_transactions.length > 0
+            ? `Rule saved and applied to ${result.applied_transactions.length} current-batch row${result.applied_transactions.length === 1 ? "" : "s"}.`
+            : "Rule saved. No additional persisted rows needed updates."
+          : `Rule saved. ${result.match_count} additional matching row${result.match_count === 1 ? "" : "s"} available in this batch.`,
+      );
+    });
+
+    return result;
   }
 
   async function handleCompleteReview() {
@@ -197,10 +224,8 @@ export function ImportWorkspace({ categories, initialBatch, initialTransactions 
       throw new Error(payload.error ?? "Could not mark this review complete");
     }
 
-    const nextBatch = payload.batch;
-
     startTransition(() => {
-      setBatch(nextBatch);
+      setBatch(payload.batch ?? null);
       setNotice("Review marked complete.");
     });
   }
@@ -248,9 +273,9 @@ export function ImportWorkspace({ categories, initialBatch, initialTransactions 
           />
           <TransactionReviewTable
             categories={categories}
+            onCreateRuleFromReview={handleCreateRuleFromReview}
             onDirtyStateChange={setHasDirtyCategoryChanges}
             onSaveCategoryChanges={handleSaveCategoryChanges}
-            onSaveRuleShortcut={handleSaveRuleShortcut}
             transactions={transactions}
           />
         </div>

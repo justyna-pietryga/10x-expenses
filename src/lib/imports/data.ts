@@ -2,14 +2,25 @@ import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 import { listActiveCategories } from "@/lib/budget/data";
 import type { Database, Tables } from "@/lib/database.types";
 import { ImportError } from "@/lib/imports/errors";
-import type { ImportCategoryUpdatePayload, ImportCommitPayload } from "@/lib/imports/validation";
-import { findMatchingRule, listRules } from "@/lib/rules/data";
+import type {
+  ImportCategoryUpdatePayload,
+  ImportCommitPayload,
+  ImportReviewRulePayload,
+} from "@/lib/imports/validation";
+import { findMatchingRule, listRules, ruleMatchesTransaction } from "@/lib/rules/data";
 
 type ImportClient = SupabaseClient<Database>;
 
 export type CategorizationRule = Tables<"categorization_rules">;
 export type ImportBatch = Tables<"statement_import_batches">;
 export type ImportedTransaction = Tables<"transactions">;
+export type ImportTransactionRuleSummary = Pick<
+  CategorizationRule,
+  "id" | "match_field" | "match_text" | "target_category_id"
+>;
+export type ImportedTransactionReviewRow = ImportedTransaction & {
+  category_rule?: ImportTransactionRuleSummary | null;
+};
 
 export type ExistingImportBatchSummary = Pick<
   ImportBatch,
@@ -28,6 +39,19 @@ export interface ImportCategoryUpdateFailure {
   transaction_id: string;
 }
 
+export interface ImportReviewRuleSkippedRow {
+  reason: "dirty_draft";
+  transaction_id: string;
+}
+
+export interface ImportReviewRuleResult {
+  anchor_transaction: ImportedTransactionReviewRow;
+  applied_transactions: ImportedTransactionReviewRow[];
+  match_count: number;
+  rule: CategorizationRule;
+  skipped_rows: ImportReviewRuleSkippedRow[];
+}
+
 function mapPostgrestError(error: PostgrestError | null, fallbackMessage: string) {
   if (!error) {
     return;
@@ -44,8 +68,49 @@ function mapPostgrestError(error: PostgrestError | null, fallbackMessage: string
   throw new ImportError(error.message, { status: 500 });
 }
 
-function assignCategoryId(transaction: ImportCommitPayload["transactions"][number], rules: CategorizationRule[]) {
-  return findMatchingRule(rules, transaction)?.target_category_id ?? null;
+function findTransactionRule(
+  transaction: Pick<ImportedTransaction, "recipient" | "title">,
+  rules: CategorizationRule[],
+) {
+  return findMatchingRule(rules, transaction);
+}
+
+function assignRuleDrivenCategory(
+  transaction: ImportCommitPayload["transactions"][number],
+  rules: CategorizationRule[],
+) {
+  const rule = findTransactionRule(transaction, rules);
+
+  return {
+    category_id: rule?.target_category_id ?? null,
+    categorized_by_rule_id: rule?.id ?? null,
+  };
+}
+
+function toImportRuleSummary(rule: CategorizationRule): ImportTransactionRuleSummary {
+  return {
+    id: rule.id,
+    match_field: rule.match_field,
+    match_text: rule.match_text,
+    target_category_id: rule.target_category_id,
+  };
+}
+
+function attachRuleMetadata(
+  transactions: ImportedTransaction[],
+  rules: CategorizationRule[],
+): ImportedTransactionReviewRow[] {
+  const ruleById = new Map(rules.map((rule) => [rule.id, rule]));
+
+  return transactions.map((transaction) => ({
+    ...transaction,
+    category_rule: transaction.categorized_by_rule_id
+      ? (() => {
+          const rule = ruleById.get(transaction.categorized_by_rule_id);
+          return rule ? toImportRuleSummary(rule) : null;
+        })()
+      : null,
+  }));
 }
 
 export async function findExistingImportBatch(
@@ -102,15 +167,20 @@ function buildImportedTransactionRows(
   transactions: ImportCommitPayload["transactions"],
   rules: CategorizationRule[],
 ) {
-  return transactions.map((transaction) => ({
-    amount: transaction.amount,
-    category_id: assignCategoryId(transaction, rules),
-    import_batch_id: batchId,
-    recipient: transaction.recipient,
-    title: transaction.title,
-    transaction_date: transaction.transaction_date,
-    user_id: userId,
-  }));
+  return transactions.map((transaction) => {
+    const ruleDrivenCategory = assignRuleDrivenCategory(transaction, rules);
+
+    return {
+      amount: transaction.amount,
+      category_id: ruleDrivenCategory.category_id,
+      categorized_by_rule_id: ruleDrivenCategory.categorized_by_rule_id,
+      import_batch_id: batchId,
+      recipient: transaction.recipient,
+      title: transaction.title,
+      transaction_date: transaction.transaction_date,
+      user_id: userId,
+    };
+  });
 }
 
 async function restoreImportTransactions(
@@ -125,6 +195,7 @@ async function restoreImportTransactions(
   const restoreRows: Database["public"]["Tables"]["transactions"]["Insert"][] = transactions.map((transaction) => ({
     amount: transaction.amount,
     category_id: transaction.category_id,
+    categorized_by_rule_id: transaction.categorized_by_rule_id,
     created_at: transaction.created_at,
     id: transaction.id,
     import_batch_id: transaction.import_batch_id,
@@ -276,10 +347,11 @@ export async function loadImportBatchReview(supabase: ImportClient, userId: stri
     .order("transaction_date", { ascending: true });
 
   mapPostgrestError(transactionError, "Import transactions could not be loaded");
+  const rules = await listCategorizationRules(supabase, userId);
 
   return {
     batch,
-    transactions: transactions ?? [],
+    transactions: attachRuleMetadata(transactions ?? [], rules),
   };
 }
 
@@ -316,6 +388,7 @@ export async function updateTransactionCategoryAndMaybeRule(
     .from("transactions")
     .update({
       category_id: categoryId,
+      categorized_by_rule_id: null,
     })
     .eq("id", transactionId)
     .eq("user_id", userId)
@@ -355,7 +428,28 @@ export async function updateTransactionCategoryAndMaybeRule(
       .single();
 
     mapPostgrestError(ruleError, "Categorization rule could not be saved");
+
+    if (!data) {
+      throw new ImportError("Categorization rule could not be saved", { status: 500 });
+    }
+
     rule = data;
+
+    const { data: ruleBackedTransaction, error: transactionRuleError } = await supabase
+      .from("transactions")
+      .update({
+        categorized_by_rule_id: rule.id,
+      })
+      .eq("id", transactionId)
+      .eq("user_id", userId)
+      .select()
+      .single();
+
+    mapPostgrestError(transactionRuleError, "Imported transaction was not found");
+
+    if (ruleBackedTransaction) {
+      transaction.categorized_by_rule_id = ruleBackedTransaction.categorized_by_rule_id;
+    }
   }
 
   return {
@@ -387,6 +481,7 @@ export async function updateImportTransactionCategories(
       .from("transactions")
       .update({
         category_id: update.category_id,
+        categorized_by_rule_id: null,
       })
       .eq("id", update.transaction_id)
       .eq("user_id", userId)
@@ -407,6 +502,151 @@ export async function updateImportTransactionCategories(
   return {
     failed,
     updated,
+  };
+}
+
+async function loadOwnedTransaction(supabase: ImportClient, userId: string, transactionId: string) {
+  const { data, error } = await supabase
+    .from("transactions")
+    .select("*")
+    .eq("id", transactionId)
+    .eq("user_id", userId)
+    .single();
+
+  mapPostgrestError(error, "Imported transaction was not found");
+
+  if (!data) {
+    throw new ImportError("Imported transaction was not found", { status: 404, field: "transaction_id" });
+  }
+
+  return data;
+}
+
+async function updateRuleBackedTransaction(
+  supabase: ImportClient,
+  userId: string,
+  transactionId: string,
+  categoryId: string,
+  ruleId: string,
+) {
+  const { data, error } = await supabase
+    .from("transactions")
+    .update({
+      category_id: categoryId,
+      categorized_by_rule_id: ruleId,
+    })
+    .eq("id", transactionId)
+    .eq("user_id", userId)
+    .select()
+    .single();
+
+  mapPostgrestError(error, "Imported transaction was not found");
+
+  if (!data) {
+    throw new ImportError("Imported transaction was not found", { status: 404, field: "transaction_id" });
+  }
+
+  return data;
+}
+
+export async function createImportReviewRule(
+  supabase: ImportClient,
+  userId: string,
+  payload: ImportReviewRulePayload,
+): Promise<ImportReviewRuleResult> {
+  if (!payload.category_id) {
+    throw new ImportError("A category is required before saving a rule", {
+      status: 400,
+      field: "category_id",
+    });
+  }
+
+  await ensureOwnedImportCategory(supabase, userId, payload.category_id);
+
+  const anchorTransaction = await loadOwnedTransaction(supabase, userId, payload.transaction_id);
+
+  const { data: rule, error: ruleError } = await supabase
+    .from("categorization_rules")
+    .upsert(
+      {
+        match_field: payload.match_field,
+        match_text: payload.match_text,
+        target_category_id: payload.category_id,
+        user_id: userId,
+      },
+      {
+        onConflict: "user_id,match_field,match_text",
+      },
+    )
+    .select()
+    .single();
+
+  mapPostgrestError(ruleError, "Categorization rule could not be saved");
+
+  if (!rule) {
+    throw new ImportError("Categorization rule could not be saved", { status: 500 });
+  }
+
+  const savedAnchor = await updateRuleBackedTransaction(
+    supabase,
+    userId,
+    anchorTransaction.id,
+    payload.category_id,
+    rule.id,
+  );
+
+  const { data: batchTransactions, error: batchTransactionsError } = await supabase
+    .from("transactions")
+    .select("*")
+    .eq("import_batch_id", anchorTransaction.import_batch_id)
+    .eq("user_id", userId)
+    .order("transaction_date", { ascending: true });
+
+  mapPostgrestError(batchTransactionsError, "Import transactions could not be loaded");
+
+  const dirtyIds = new Set(payload.dirty_transaction_ids.filter((transactionId) => transactionId !== savedAnchor.id));
+  const matchingTransactions = (batchTransactions ?? []).filter(
+    (transaction) => transaction.id !== savedAnchor.id && ruleMatchesTransaction(rule, transaction),
+  );
+  const appliedTransactions: ImportedTransaction[] = [];
+  const skippedRows: ImportReviewRuleSkippedRow[] = [];
+
+  if (payload.apply_now) {
+    for (const transaction of matchingTransactions) {
+      if (dirtyIds.has(transaction.id)) {
+        skippedRows.push({
+          reason: "dirty_draft",
+          transaction_id: transaction.id,
+        });
+        continue;
+      }
+
+      const updatedTransaction = await updateRuleBackedTransaction(
+        supabase,
+        userId,
+        transaction.id,
+        payload.category_id,
+        rule.id,
+      );
+      appliedTransactions.push(updatedTransaction);
+    }
+  } else {
+    matchingTransactions.forEach((transaction) => {
+      if (dirtyIds.has(transaction.id)) {
+        skippedRows.push({
+          reason: "dirty_draft",
+          transaction_id: transaction.id,
+        });
+      }
+    });
+  }
+
+  return {
+    anchor_transaction: attachRuleMetadata([savedAnchor], [rule])[0],
+    applied_transactions: attachRuleMetadata(appliedTransactions, [rule]),
+    match_count: matchingTransactions.length,
+    rule,
+    skipped_rows: skippedRows,
   };
 }
 

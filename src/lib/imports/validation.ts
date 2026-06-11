@@ -1,5 +1,6 @@
 import { ImportError } from "@/lib/imports/errors";
 import type { ImportedTransactionDraft, SupportedBank } from "@/lib/imports/types";
+import type { RuleMatchField } from "@/lib/rules/validation";
 
 export interface ImportCommitPayload {
   bank: SupportedBank;
@@ -16,6 +17,15 @@ export interface ImportCategoryUpdatePayload {
     category_id: string | null;
     transaction_id: string;
   }[];
+}
+
+export interface ImportReviewRulePayload {
+  apply_now: boolean;
+  category_id: string | null;
+  dirty_transaction_ids: string[];
+  match_field: RuleMatchField;
+  match_text: string;
+  transaction_id: string;
 }
 
 function validateDate(value: unknown, field: string) {
@@ -150,6 +160,53 @@ export function validateImportCategoryUpdatesPayload(payload: unknown): ImportCa
 
   return {
     updates: record.updates.map((update, index) => validateImportCategoryUpdate(update, index)),
+  };
+}
+
+function validateBoolean(value: unknown, field: string) {
+  if (typeof value !== "boolean") {
+    throw new ImportError(`${field} must be a boolean`, { field });
+  }
+
+  return value;
+}
+
+function validateMatchField(value: unknown): RuleMatchField {
+  if (typeof value !== "string") {
+    throw new ImportError("match_field is required", { field: "match_field" });
+  }
+
+  const matchField = value.trim().toLowerCase();
+
+  if (matchField === "recipient" || matchField === "title" || matchField === "both") {
+    return matchField;
+  }
+
+  throw new ImportError("match_field must be recipient, title, or both", { field: "match_field" });
+}
+
+function validateTransactionIds(value: unknown, field: string) {
+  if (!Array.isArray(value)) {
+    throw new ImportError(`${field} must be an array`, { field });
+  }
+
+  return Array.from(new Set(value.map((entry, index) => validateText(entry, `${field}[${index}]`))));
+}
+
+export function validateImportReviewRulePayload(payload: unknown): ImportReviewRulePayload {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new ImportError("Review rule payload must be an object", { field: "payload" });
+  }
+
+  const record = payload as Record<string, unknown>;
+
+  return {
+    apply_now: validateBoolean(record.apply_now, "apply_now"),
+    category_id: validateImportCategoryId(record.category_id),
+    dirty_transaction_ids: validateTransactionIds(record.dirty_transaction_ids ?? [], "dirty_transaction_ids"),
+    match_field: validateMatchField(record.match_field),
+    match_text: validateText(record.match_text, "match_text"),
+    transaction_id: validateText(record.transaction_id, "transaction_id"),
   };
 }
 

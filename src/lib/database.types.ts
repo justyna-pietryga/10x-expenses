@@ -205,6 +205,7 @@ export interface Database {
         Row: {
           amount: number;
           category_id: string | null;
+          categorized_by_rule_id: string | null;
           created_at: string;
           id: string;
           import_batch_id: string;
@@ -217,6 +218,7 @@ export interface Database {
         Insert: {
           amount: number;
           category_id?: string | null;
+          categorized_by_rule_id?: string | null;
           created_at?: string;
           id?: string;
           import_batch_id: string;
@@ -229,6 +231,7 @@ export interface Database {
         Update: {
           amount?: number;
           category_id?: string | null;
+          categorized_by_rule_id?: string | null;
           created_at?: string;
           id?: string;
           import_batch_id?: string;
@@ -252,6 +255,13 @@ export interface Database {
             isOneToOne: false;
             referencedRelation: "statement_import_batches";
             referencedColumns: ["id", "user_id"];
+          },
+          {
+            foreignKeyName: "transactions_categorized_by_rule_fk";
+            columns: ["categorized_by_rule_id"];
+            isOneToOne: false;
+            referencedRelation: "categorization_rules";
+            referencedColumns: ["id"];
           },
         ];
       };
