@@ -3,7 +3,7 @@ project: "Expenses"
 version: 1
 status: draft
 created: 2026-05-25
-updated: 2026-06-01
+updated: 2026-06-11
 prd_version: 1
 main_goal: market-feedback
 top_blocker: time
@@ -38,6 +38,8 @@ The main planning constraint is `time`: the PRD sets a 3-week after-hours MVP, s
 | UX-02 | import-review-rule-application    | user can create field-aware rules from import review, see rule-backed rows, and apply a new rule to matching rows in the current batch        | UX-01, S-03   | FR-010, FR-011                                              | proposed |
 | UX-03 | management-surface-density        | user can scan and manage categories and rules in denser operational layouts without excessive scrolling                                       | UX-01, UX-02  | FR-007, FR-011                                              | proposed |
 | UX-04 | uncategorized-review-prioritization | user can prioritize uncategorized transactions during import review by surfacing them first and/or filtering the list to only those rows     | UX-01         | FR-006, FR-010                                              | proposed |
+| UX-05 | transaction-inclusion-control     | user can exclude specific imported rows from budget calculations without deleting the source statement record                                  | UX-01, S-03   | FR-006, FR-010, FR-012                                      | proposed |
+| S-05  | cashflow-type-separation          | user can separate expenses, income, reimbursements, and transfers so summaries do not force all rows into expense categorization              | UX-05, S-03   | FR-006, FR-010, FR-012                                      | proposed |
 
 ## Baseline
 
@@ -166,6 +168,30 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Risk:** If uncategorized rows remain buried in the full transaction list, users spend review time scanning already-resolved items instead of clearing the rows that still need decisions.
 - **Status:** proposed
 
+### UX-05: Transaction inclusion control
+
+- **Outcome:** user can exclude specific imported rows from budget calculations without deleting the source statement record.
+- **Change ID:** transaction-inclusion-control
+- **PRD refs:** FR-006, FR-010, FR-012
+- **Prerequisites:** UX-01, S-03
+- **Parallel with:** -
+- **Blockers:** UX-01 should settle row editing and save behavior first so inclusion state fits the same review workflow.
+- **Unknowns:** whether the MVP needs a single `Exclude from calculations` flag or a small set of reasons such as transfer, reimbursement, duplicate, and ignore.
+- **Risk:** If the only escape hatch is row deletion or forced categorization, users lose trust in the audit trail and the summary can stay artificially inflated by rows they never wanted counted.
+- **Status:** proposed
+
+### S-05: Cashflow type separation
+
+- **Outcome:** user can separate expenses, income, reimbursements, and transfers so summaries do not force all rows into expense categorization.
+- **Change ID:** cashflow-type-separation
+- **PRD refs:** FR-006, FR-010, FR-012
+- **Prerequisites:** UX-05, S-03
+- **Parallel with:** -
+- **Blockers:** UX-05 should land first so the team does not conflate "exclude this row" with "this row is valid but belongs to a different cashflow type".
+- **Unknowns:** whether reimbursements should appear as a separate inflow bucket or offset the original spending category; whether salary and ad hoc inflows share one income model; and whether the import review should auto-suggest type from transaction sign plus user rules.
+- **Risk:** If every positive inflow is forced into the expense model, spending totals become misleading, salary gets mixed into category review, and the summary UI cannot explain what actually happened in the month.
+- **Status:** proposed
+
 ## Backlog Handoff
 
 | Roadmap ID | Change ID                         | Suggested issue title                                                          | Ready for `/10x-plan` | Notes                                     |
@@ -179,6 +205,8 @@ Foundations below assume these are present and do NOT re-scaffold them.
 | UX-02      | import-review-rule-application    | Add field-aware import rules and current-batch rule application                | no                    | Depends on UX-01 and S-03                 |
 | UX-03      | management-surface-density        | Compact category and rule management surfaces                                  | no                    | Depends on UX-01 and UX-02                |
 | UX-04      | uncategorized-review-prioritization | Prioritize uncategorized rows in import review with sort and/or filter modes | no                    | Depends on UX-01                          |
+| UX-05      | transaction-inclusion-control     | Let users exclude imported rows from budget calculations without deleting them | no                    | Depends on UX-01 and S-03                 |
+| S-05       | cashflow-type-separation          | Separate expenses, income, reimbursements, and transfers in review and summary | no                    | Depends on UX-05 and S-03                 |
 
 This table is the clean handoff to Jira/Linear or any MCP-backed backlog. Include one row for every `F-NN` and `S-NN`. It should be compact enough to copy into issues, but it must not duplicate the detailed roadmap body.
 
