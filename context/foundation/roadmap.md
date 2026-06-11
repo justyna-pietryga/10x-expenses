@@ -17,7 +17,7 @@ top_blocker: time
 
 ## Vision recap
 
-The first release needs to replace a fragile monthly spreadsheet ritual with one trustworthy web flow: import a supported bank statement, map spending into personal budget categories, and see how spending compares against income-based limits. The sequencing bias is `market-feedback`, so the roadmap favors the earliest end-to-end budgeting loop that proves a user will trust imported data enough to review it, correct it, and come back for the summary.
+The first release needs to replace a fragile monthly spreadsheet ritual with one trustworthy web flow: import supported bank statements, map spending into personal budget categories, and see how spending compares against income-based limits. The sequencing bias is `market-feedback`, so the roadmap favors the earliest end-to-end budgeting loop that proves a user will trust imported data enough to review it, correct it, return to older months, and keep multiple bank-month imports moving without losing track of review state.
 
 The main planning constraint is `time`: the PRD sets a 3-week after-hours MVP, so the order below keeps breadth narrow until one complete budget-review loop is working.
 
@@ -39,6 +39,7 @@ The main planning constraint is `time`: the PRD sets a 3-week after-hours MVP, s
 | UX-03 | management-surface-density        | user can scan and manage categories and rules in denser operational layouts without excessive scrolling                                       | UX-01, UX-02  | FR-007, FR-011                                              | proposed |
 | UX-04 | uncategorized-review-prioritization | user can prioritize uncategorized transactions during import review by surfacing them first and/or filtering the list to only those rows     | UX-01         | FR-006, FR-010                                              | proposed |
 | UX-05 | transaction-inclusion-control     | user can exclude specific imported rows from budget calculations without deleting the source statement record                                  | UX-01, S-03   | FR-006, FR-010, FR-012                                      | proposed |
+| UX-06 | import-history-and-parallel-review | user can see older imports, reopen or edit past batches, and review multiple bank-month imports in parallel without being forced to finish one first | S-02, S-04, UX-01 | FR-002, FR-005, FR-006, FR-010                          | proposed |
 | S-05  | cashflow-type-separation          | user can separate expenses, income, reimbursements, and transfers so summaries do not force all rows into expense categorization              | UX-05, S-03   | FR-006, FR-010, FR-012                                      | proposed |
 
 ## Baseline
@@ -180,6 +181,18 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Risk:** If the only escape hatch is row deletion or forced categorization, users lose trust in the audit trail and the summary can stay artificially inflated by rows they never wanted counted.
 - **Status:** proposed
 
+### UX-06: Import history and parallel review
+
+- **Outcome:** user can see older imports, reopen or edit past batches, and review multiple bank-month imports in parallel without being forced to finish one first.
+- **Change ID:** import-history-and-parallel-review
+- **PRD refs:** FR-002, FR-005, FR-006, FR-010
+- **Prerequisites:** S-02, S-04, UX-01
+- **Parallel with:** UX-02, UX-04, UX-05
+- **Blockers:** S-02 and S-04 must already prove canonical bank-month import identity, and UX-01 should settle dirty-state save behavior before the app exposes several reviewable batches at once.
+- **Unknowns:** whether the first cut should use a simple import-history list or a fuller workspace dashboard; how completed versus incomplete batches should be surfaced; whether old reviewed batches reopen inline or on a dedicated detail route; and whether the default ordering should favor most recent month, incomplete review, or bank grouping.
+- **Risk:** If imports disappear once reviewed, or if starting a second bank/month import blocks work on the first, users cannot backfill the last few months, compare multiple accounts in the same period, or recover from interrupted review sessions with confidence.
+- **Status:** proposed
+
 ### S-05: Cashflow type separation
 
 - **Outcome:** user can separate expenses, income, reimbursements, and transfers so summaries do not force all rows into expense categorization.
@@ -206,6 +219,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 | UX-03      | management-surface-density        | Compact category and rule management surfaces                                  | no                    | Depends on UX-01 and UX-02                |
 | UX-04      | uncategorized-review-prioritization | Prioritize uncategorized rows in import review with sort and/or filter modes | no                    | Depends on UX-01                          |
 | UX-05      | transaction-inclusion-control     | Let users exclude imported rows from budget calculations without deleting them | no                    | Depends on UX-01 and S-03                 |
+| UX-06      | import-history-and-parallel-review | Add import history, reopening, and parallel review across bank-month batches | no                    | Depends on S-02, S-04, and UX-01         |
 | S-05       | cashflow-type-separation          | Separate expenses, income, reimbursements, and transfers in review and summary | no                    | Depends on UX-05 and S-03                 |
 
 This table is the clean handoff to Jira/Linear or any MCP-backed backlog. Include one row for every `F-NN` and `S-NN`. It should be compact enough to copy into issues, but it must not duplicate the detailed roadmap body.
