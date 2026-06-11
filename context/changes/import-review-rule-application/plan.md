@@ -416,10 +416,10 @@ No schema migration is expected if rule-backed provenance can be derived from ex
 
 #### Manual
 
-- [ ] 1.4 Confirm creating a rule from review saves the current row category and persists the rule in one action.
-- [ ] 1.5 Confirm the preview reports only a match count plus any skipped-draft count, not a row list.
-- [ ] 1.6 Confirm apply-now affects only matching rows in the current batch and does not touch other batches.
-- [ ] 1.7 Confirm rows with unsaved drafts are skipped rather than overwritten.
+- [x] 1.4 Confirm creating a rule from review saves the current row category and persists the rule in one action.
+- [x] 1.5 Confirm the preview reports only a match count plus any skipped-draft count, not a row list.
+- [x] 1.6 Confirm apply-now affects only matching rows in the current batch and does not touch other batches.
+- [x] 1.7 Confirm rows with unsaved drafts are skipped rather than overwritten.
 
 ### Phase 2: Review Workflow UI
 
@@ -431,10 +431,10 @@ No schema migration is expected if rule-backed provenance can be derived from ex
 
 #### Manual
 
-- [ ] 2.4 Confirm the review table defaults new rules to `recipient` using the anchor row recipient text.
-- [ ] 2.5 Confirm a user can choose between saving the rule only and saving plus applying it now.
-- [ ] 2.6 Confirm the preview shows counts, not a list of matching rows.
-- [ ] 2.7 Confirm the rule workflow remains visually separate from `Save all changes`.
+- [x] 2.4 Confirm the review table defaults new rules to `recipient` using the anchor row recipient text.
+- [x] 2.5 Confirm a user can choose between saving the rule only and saving plus applying it now.
+- [x] 2.6 Confirm the preview shows counts, not a list of matching rows.
+- [x] 2.7 Confirm the rule workflow remains visually separate from `Save all changes`.
 
 ### Phase 3: Provenance and Workspace State
 
@@ -447,10 +447,10 @@ No schema migration is expected if rule-backed provenance can be derived from ex
 
 #### Manual
 
-- [ ] 3.5 Confirm apply-now updates matching persisted rows in place without wiping unrelated local state.
-- [ ] 3.6 Confirm rows with unsaved drafts remain unchanged and are reported as skipped.
-- [ ] 3.7 Confirm rule-backed rows show a visible provenance badge after reload, not only immediately after creation.
-- [ ] 3.8 Confirm review completion still respects `UX-01` dirty-state blocking after rule application.
+- [x] 3.5 Confirm apply-now updates matching persisted rows in place without wiping unrelated local state.
+- [x] 3.6 Confirm rows with unsaved drafts remain unchanged and are reported as skipped.
+- [x] 3.7 Confirm rule-backed rows show a visible provenance badge after reload, not only immediately after creation.
+- [x] 3.8 Confirm review completion still respects `UX-01` dirty-state blocking after rule application.
 
 ### Phase 4: Regression and Handoff
 
@@ -463,6 +463,6 @@ No schema migration is expected if rule-backed provenance can be derived from ex
 
 #### Manual
 
-- [ ] 4.5 Review the plan brief and confirm `UX-02` is scoped to review-side rule creation, visible provenance, and explicit current-batch application only.
-- [ ] 4.6 Confirm `UX-03` remains the future home for denser rule-management layouts rather than this slice.
-- [ ] 4.7 Confirm the manual verification items are concrete enough to follow step by step during implementation.
+- [x] 4.5 Review the plan brief and confirm `UX-02` is scoped to review-side rule creation, visible provenance, and explicit current-batch application only.
+- [x] 4.6 Confirm `UX-03` remains the future home for denser rule-management layouts rather than this slice.
+- [x] 4.7 Confirm the manual verification items are concrete enough to follow step by step during implementation.
