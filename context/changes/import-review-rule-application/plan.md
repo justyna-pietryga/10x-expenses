@@ -410,9 +410,9 @@ No schema migration is expected if rule-backed provenance can be derived from ex
 
 #### Automated
 
-- [ ] 1.1 `npm test -- tests/import-review.test.ts tests/review-persistence-and-rule-application.test.ts` passes with review-rule contract coverage.
-- [ ] 1.2 `npx astro check` passes.
-- [ ] 1.3 Targeted `npx eslint src/lib/imports/validation.ts src/lib/imports/data.ts src/lib/rules/data.ts src/pages/api/imports/transactions/rule.ts tests/import-review.test.ts tests/review-persistence-and-rule-application.test.ts` passes.
+- [x] 1.1 `npm test -- tests/import-review.test.ts tests/review-persistence-and-rule-application.test.ts` passes with review-rule contract coverage.
+- [x] 1.2 `npx astro check` passes.
+- [x] 1.3 Targeted `npx eslint src/lib/imports/validation.ts src/lib/imports/data.ts src/lib/rules/data.ts src/pages/api/imports/transactions/rule.ts tests/import-review.test.ts tests/review-persistence-and-rule-application.test.ts` passes.
 
 #### Manual
 
@@ -425,9 +425,9 @@ No schema migration is expected if rule-backed provenance can be derived from ex
 
 #### Automated
 
-- [ ] 2.1 `npm test -- tests/import-review.test.ts` passes with review-rule UI coverage.
-- [ ] 2.2 `npx astro check` passes.
-- [ ] 2.3 Targeted `npx eslint src/components/imports/TransactionReviewTable.tsx tests/import-review.test.ts` passes.
+- [x] 2.1 `npm test -- tests/import-review.test.ts` passes with review-rule UI coverage.
+- [x] 2.2 `npx astro check` passes.
+- [x] 2.3 Targeted `npx eslint src/components/imports/TransactionReviewTable.tsx tests/import-review.test.ts` passes.
 
 #### Manual
 
@@ -440,10 +440,10 @@ No schema migration is expected if rule-backed provenance can be derived from ex
 
 #### Automated
 
-- [ ] 3.1 `npm test -- tests/import-review.test.ts tests/review-persistence-and-rule-application.test.ts` passes with workspace/provenance coverage.
-- [ ] 3.2 `npx astro check` passes.
-- [ ] 3.3 `npm run build` passes.
-- [ ] 3.4 Targeted `npx eslint src/components/imports/ImportWorkspace.tsx src/components/imports/TransactionReviewTable.tsx src/lib/imports/data.ts src/pages/imports.astro tests/import-review.test.ts tests/review-persistence-and-rule-application.test.ts` passes.
+- [x] 3.1 `npm test -- tests/import-review.test.ts tests/review-persistence-and-rule-application.test.ts` passes with workspace/provenance coverage.
+- [x] 3.2 `npx astro check` passes.
+- [x] 3.3 `npm run build` passes.
+- [x] 3.4 Targeted `npx eslint src/components/imports/ImportWorkspace.tsx src/components/imports/TransactionReviewTable.tsx src/lib/imports/data.ts src/pages/imports.astro tests/import-review.test.ts tests/review-persistence-and-rule-application.test.ts` passes.
 
 #### Manual
 
@@ -456,10 +456,10 @@ No schema migration is expected if rule-backed provenance can be derived from ex
 
 #### Automated
 
-- [ ] 4.1 `npm test -- tests/import-review.test.ts tests/review-persistence-and-rule-application.test.ts` passes.
-- [ ] 4.2 `npx astro check` passes.
-- [ ] 4.3 `npm run build` passes.
-- [ ] 4.4 Targeted lint passes for the touched import-review, rule, and test files.
+- [x] 4.1 `npm test -- tests/import-review.test.ts tests/review-persistence-and-rule-application.test.ts` passes.
+- [x] 4.2 `npx astro check` passes.
+- [x] 4.3 `npm run build` passes.
+- [x] 4.4 Targeted lint passes for the touched import-review, rule, and test files.
 
 #### Manual
 

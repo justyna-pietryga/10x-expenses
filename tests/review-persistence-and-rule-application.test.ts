@@ -7,6 +7,7 @@ import { buildBulkSaveFeedback, buildDirtyCategoryUpdates } from "@/components/i
 import type { BudgetCategory } from "@/lib/budget/data";
 import {
   commitImportBatch,
+  createImportReviewRule,
   markBatchReviewComplete,
   type CategorizationRule,
   type ImportBatch,
@@ -75,9 +76,12 @@ function makeBatch(overrides: Partial<ImportBatch> = {}): ImportBatch {
 }
 
 function makeTransaction(id: string, overrides: Partial<ImportedTransaction> = {}): ImportedTransaction {
+  const { categorized_by_rule_id = null, ...rest } = overrides;
+
   return {
     amount: -10,
     category_id: null,
+    categorized_by_rule_id,
     created_at: createdAt,
     id,
     import_batch_id: "batch-1",
@@ -86,7 +90,7 @@ function makeTransaction(id: string, overrides: Partial<ImportedTransaction> = {
     transaction_date: "2026-06-03",
     updated_at: createdAt,
     user_id: userId,
-    ...overrides,
+    ...rest,
   };
 }
 
@@ -472,6 +476,7 @@ function buildPhase2SupabaseStub(options?: {
             let userFilter: string | null = null;
             let batchFilter: string | null = null;
             let batchIds: string[] | null = null;
+            let transactionIdFilter: string | null = null;
             const chain = {
               eq: vi.fn((field: string, value: string) => {
                 if (field === "user_id") {
@@ -480,6 +485,10 @@ function buildPhase2SupabaseStub(options?: {
 
                 if (field === "import_batch_id") {
                   batchFilter = value;
+                }
+
+                if (field === "id") {
+                  transactionIdFilter = value;
                 }
 
                 return chain;
@@ -491,9 +500,24 @@ function buildPhase2SupabaseStub(options?: {
 
                 return chain;
               }),
+              single: vi.fn(() => {
+                const data = listTransactions().find(
+                  (transaction) =>
+                    (!transactionIdFilter || transaction.id === transactionIdFilter) &&
+                    (!userFilter || transaction.user_id === userFilter) &&
+                    (!batchFilter || transaction.import_batch_id === batchFilter) &&
+                    (!batchIds || batchIds.includes(transaction.import_batch_id)),
+                );
+
+                return Promise.resolve({
+                  data: data ?? null,
+                  error: data ? null : { code: "PGRST116", message: "not found" },
+                });
+              }),
               order: vi.fn(() => {
                 const data = listTransactions().filter(
                   (transaction) =>
+                    (!transactionIdFilter || transaction.id === transactionIdFilter) &&
                     (!userFilter || transaction.user_id === userFilter) &&
                     (!batchFilter || transaction.import_batch_id === batchFilter) &&
                     (!batchIds || batchIds.includes(transaction.import_batch_id)),
@@ -505,7 +529,7 @@ function buildPhase2SupabaseStub(options?: {
 
             return chain;
           }),
-          update: vi.fn((payload: { category_id: string | null }) => {
+          update: vi.fn((payload: Partial<ImportedTransaction>) => {
             let transactionId: string | null = null;
             let ownerId: string | null = null;
             const chain = {
@@ -533,7 +557,7 @@ function buildPhase2SupabaseStub(options?: {
 
                 const updated = {
                   ...transaction,
-                  category_id: payload.category_id,
+                  ...payload,
                   updated_at: createdAt,
                 };
                 transactions.set(updated.id, updated);
@@ -671,6 +695,53 @@ describe("review persistence truthfulness", () => {
     );
   });
 
+  it("saves the anchor row, applies the new rule in-batch only, and skips drafted matches", async () => {
+    const supabase = buildPhase2SupabaseStub({
+      transactions: [
+        makeTransaction("tx-1", { category_id: null, recipient: "PKP Intercity", title: "Rail ticket" }),
+        makeTransaction("tx-2", { category_id: null, recipient: "PKP Intercity", title: "Rail ticket" }),
+        makeTransaction("tx-3", { category_id: null, recipient: "PKP Intercity", title: "Rail ticket" }),
+        makeTransaction("tx-4", { category_id: null, import_batch_id: "batch-2", recipient: "PKP Intercity" }),
+      ],
+    });
+
+    const result = await createImportReviewRule(supabase as never, userId, {
+      apply_now: true,
+      category_id: "cat-travel",
+      dirty_transaction_ids: ["tx-3"],
+      match_field: "recipient",
+      match_text: "PKP",
+      transaction_id: "tx-1",
+    });
+
+    expect(result.anchor_transaction).toMatchObject({
+      category_id: "cat-travel",
+      categorized_by_rule_id: result.rule.id,
+    });
+    expect(result.applied_transactions).toEqual([
+      expect.objectContaining({
+        category_id: "cat-travel",
+        categorized_by_rule_id: result.rule.id,
+        id: "tx-2",
+      }),
+    ]);
+    expect(result.match_count).toBe(2);
+    expect(result.skipped_rows).toEqual([
+      {
+        reason: "dirty_draft",
+        transaction_id: "tx-3",
+      },
+    ]);
+    expect(supabase.__state.transactions()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ category_id: "cat-travel", id: "tx-1" }),
+        expect.objectContaining({ category_id: "cat-travel", id: "tx-2" }),
+        expect.objectContaining({ category_id: null, id: "tx-3" }),
+        expect.objectContaining({ category_id: null, id: "tx-4" }),
+      ]),
+    );
+  });
+
   it("clears only successful drafts and merges only updated rows after a mixed save", () => {
     const drafts = {
       "tx-1": "cat-travel",
@@ -730,6 +801,50 @@ describe("review persistence truthfulness", () => {
         transaction_id: "tx-2",
       },
     ]);
+  });
+
+  it("returns review-rule payloads from the dedicated import-review route", async () => {
+    const ruleRoute: typeof import("@/pages/api/imports/transactions/rule") =
+      await import("@/pages/api/imports/transactions/rule");
+    const supabase = buildPhase2SupabaseStub({
+      transactions: [
+        makeTransaction("tx-1", { category_id: null, recipient: "PKP Intercity", title: "Rail ticket" }),
+        makeTransaction("tx-2", { category_id: null, recipient: "PKP Intercity", title: "Rail ticket" }),
+      ],
+    });
+
+    vi.mocked(createClient).mockReturnValue(supabase as never);
+
+    const response = await ruleRoute.POST(
+      routeContext(
+        new Request("http://localhost/api/imports/transactions/rule", {
+          body: JSON.stringify({
+            apply_now: false,
+            category_id: "cat-travel",
+            dirty_transaction_ids: [],
+            match_field: "recipient",
+            match_text: "PKP",
+            transaction_id: "tx-1",
+          }),
+          headers: {
+            "content-type": "application/json",
+          },
+          method: "POST",
+        }),
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    const payload = await readJson<{
+      anchor_transaction: { category_id: string | null; categorized_by_rule_id: string | null };
+      applied_transactions: { id: string }[];
+      match_count: number;
+    }>(response);
+
+    expect(payload.anchor_transaction.category_id).toBe("cat-travel");
+    expect(payload.anchor_transaction.categorized_by_rule_id).toEqual(expect.any(String));
+    expect(payload.applied_transactions).toEqual([]);
+    expect(payload.match_count).toBe(1);
   });
 });
 

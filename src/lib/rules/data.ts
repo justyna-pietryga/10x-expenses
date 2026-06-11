@@ -12,6 +12,7 @@ export type RuleWithCategory = CategorizationRule & {
 };
 
 type RuleTransaction = Pick<Tables<"transactions">, "recipient" | "title">;
+export type RuleMatchCandidate = Pick<CategorizationRule, "match_field" | "match_text">;
 
 function mapPostgrestError(error: PostgrestError | null, fallbackMessage: string) {
   if (!error) {
@@ -51,10 +52,7 @@ export function getMatchCandidate(transaction: RuleTransaction, matchField: Rule
   return `${recipient} ${title}`;
 }
 
-export function ruleMatchesTransaction(
-  rule: Pick<CategorizationRule, "match_field" | "match_text">,
-  transaction: RuleTransaction,
-) {
+export function ruleMatchesTransaction(rule: RuleMatchCandidate, transaction: RuleTransaction) {
   return getMatchCandidate(transaction, rule.match_field as RuleMatchField).includes(
     normalizeRuleValue(rule.match_text),
   );

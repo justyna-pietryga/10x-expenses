@@ -7,7 +7,7 @@ import {
   loadImportBatchReview,
   loadLatestImportBatchReview,
   type ImportBatch,
-  type ImportedTransaction,
+  type ImportedTransactionReviewRow,
 } from "@/lib/imports/data";
 import { createClient } from "@/lib/supabase";
 
@@ -17,7 +17,7 @@ const supabase = createClient(Astro.request.headers, Astro.cookies);
 
 let categories: BudgetCategory[] = [];
 let batch: ImportBatch | null = null;
-let transactions: ImportedTransaction[] = [];
+let transactions: ImportedTransactionReviewRow[] = [];
 let loadError: string | null = null;
 
 if (supabase && user) {

@@ -5,19 +5,24 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { ImportUploadForm } from "@/components/imports/ImportUploadForm";
 import {
+  createImportReviewRule,
+  mergeImportedTransactions,
   mergeImportedTransactionCategoryUpdates,
   saveImportCategoryChanges,
 } from "@/components/imports/ImportWorkspace";
 import { ReviewCompletionBar } from "@/components/imports/ReviewCompletionBar";
 import {
+  buildInitialReviewRuleDraft,
   buildBulkSaveFeedback,
   buildDirtyCategoryUpdates,
+  buildReviewRulePreview,
   TransactionReviewTable,
 } from "@/components/imports/TransactionReviewTable";
 import type { BudgetCategory } from "@/lib/budget/data";
 import {
   validateImportCategoryUpdatesPayload,
   validateImportCommitPayload,
+  validateImportReviewRulePayload,
   validateSupportedBank,
 } from "@/lib/imports/validation";
 import { createClient } from "@/lib/supabase";
@@ -63,6 +68,7 @@ const reviewTransactions: ImportedTransaction[] = [
   {
     amount: -12.34,
     category_id: "cat-food",
+    categorized_by_rule_id: null,
     created_at: "2026-05-30T08:00:00.000Z",
     id: "tx-1",
     import_batch_id: "batch-1",
@@ -75,6 +81,7 @@ const reviewTransactions: ImportedTransaction[] = [
   {
     amount: -64.2,
     category_id: null,
+    categorized_by_rule_id: null,
     created_at: "2026-05-30T08:00:00.000Z",
     id: "tx-2",
     import_batch_id: "batch-1",
@@ -166,6 +173,7 @@ function buildImportSupabaseStub(options?: {
       id: "tx-1",
       amount: -12.34,
       category_id: "cat-food",
+      categorized_by_rule_id: "rule-food",
       created_at: "2026-05-30T08:00:00.000Z",
       import_batch_id: options?.existingBatch ? "batch-existing" : "batch-1",
       recipient: "Lidl Warszawa",
@@ -181,6 +189,7 @@ function buildImportSupabaseStub(options?: {
           id: "tx-existing-1",
           amount: -88.12,
           category_id: "cat-food",
+          categorized_by_rule_id: null,
           created_at: "2026-05-01T08:00:00.000Z",
           import_batch_id: "batch-existing",
           recipient: "Old Merchant",
@@ -194,6 +203,7 @@ function buildImportSupabaseStub(options?: {
   const updatedTransaction = {
     ...insertedTransactions[0],
     category_id: "cat-travel",
+    categorized_by_rule_id: null,
   };
   const createdRule = {
     id: "rule-1",
@@ -282,6 +292,7 @@ function buildImportSupabaseStub(options?: {
               ...row,
               amount: row.amount,
               category_id: row.category_id ?? null,
+              categorized_by_rule_id: row.categorized_by_rule_id ?? null,
               created_at: row.created_at ?? "2026-05-30T08:00:00.000Z",
               id: row.id ?? `tx-restored-${index + 1}`,
               import_batch_id: row.import_batch_id,
@@ -606,6 +617,26 @@ describe("import validation", () => {
       }),
     ).toThrow(/cannot create rules/);
   });
+
+  it("accepts review rule payloads with explicit field choice and dirty-row protection", () => {
+    expect(
+      validateImportReviewRulePayload({
+        apply_now: true,
+        category_id: "cat-food",
+        dirty_transaction_ids: ["tx-2", "tx-3"],
+        match_field: "title",
+        match_text: "rail ticket",
+        transaction_id: "tx-1",
+      }),
+    ).toEqual({
+      apply_now: true,
+      category_id: "cat-food",
+      dirty_transaction_ids: ["tx-2", "tx-3"],
+      match_field: "title",
+      match_text: "rail ticket",
+      transaction_id: "tx-1",
+    });
+  });
 });
 
 describe("ing csv parser", () => {
@@ -838,7 +869,10 @@ describe("import data helpers", () => {
         },
       ],
     });
-    expect(transactionUpdates).toEqual([{ category_id: "cat-travel" }, { category_id: "cat-food" }]);
+    expect(transactionUpdates).toEqual([
+      { categorized_by_rule_id: null, category_id: "cat-travel" },
+      { categorized_by_rule_id: null, category_id: "cat-food" },
+    ]);
   });
 
   it("allows bulk updates to clear a category", async () => {
@@ -1481,7 +1515,20 @@ describe("transaction review table", () => {
             updated: [],
           }),
         ),
-        onSaveRuleShortcut: vi.fn(() => Promise.resolve()),
+        onCreateRuleFromReview: vi.fn(() =>
+          Promise.resolve({
+            anchor_transaction: reviewTransactions[0],
+            applied_transactions: [],
+            match_count: 0,
+            rule: {
+              id: "rule-1",
+              match_field: "recipient",
+              match_text: "Lidl Warszawa",
+              target_category_id: "cat-food",
+            },
+            skipped_rows: [],
+          }),
+        ),
         transactions: reviewTransactions,
       }),
     );
@@ -1505,7 +1552,20 @@ describe("transaction review table", () => {
             updated: [],
           }),
         ),
-        onSaveRuleShortcut: vi.fn(() => Promise.resolve()),
+        onCreateRuleFromReview: vi.fn(() =>
+          Promise.resolve({
+            anchor_transaction: reviewTransactions[0],
+            applied_transactions: [],
+            match_count: 0,
+            rule: {
+              id: "rule-1",
+              match_field: "recipient",
+              match_text: "Lidl Warszawa",
+              target_category_id: "cat-food",
+            },
+            skipped_rows: [],
+          }),
+        ),
         transactions: reviewTransactions,
       }),
     );
@@ -1531,13 +1591,106 @@ describe("transaction review table", () => {
             updated: [],
           }),
         ),
-        onSaveRuleShortcut: vi.fn(() => Promise.resolve()),
+        onCreateRuleFromReview: vi.fn(() =>
+          Promise.resolve({
+            anchor_transaction: reviewTransactions[0],
+            applied_transactions: [],
+            match_count: 0,
+            rule: {
+              id: "rule-1",
+              match_field: "recipient",
+              match_text: "Lidl Warszawa",
+              target_category_id: "cat-food",
+            },
+            skipped_rows: [],
+          }),
+        ),
         transactions: reviewTransactions,
       }),
     );
 
     expect(markup).toContain("Unsaved category change.");
     expect(markup).toContain("Selected category was not found");
+  });
+
+  it("builds review rule drafts with recipient as the default field and anchor text", () => {
+    expect(buildInitialReviewRuleDraft(reviewTransactions[1])).toEqual({
+      category_id: null,
+      match_field: "recipient",
+      match_text: "PKP Intercity",
+      transaction_id: "tx-2",
+    });
+  });
+
+  it("counts matching rows and drafted skips for the rule preview without listing rows", () => {
+    expect(
+      buildReviewRulePreview(
+        [
+          reviewTransactions[0],
+          reviewTransactions[1],
+          {
+            ...reviewTransactions[1],
+            id: "tx-3",
+            recipient: "PKP Intercity",
+            title: "Rail ticket",
+          },
+        ],
+        "tx-2",
+        {
+          category_id: "cat-travel",
+          match_field: "recipient",
+          match_text: "PKP",
+          transaction_id: "tx-2",
+        },
+        [{ category_id: "cat-food", transaction_id: "tx-3" }],
+      ),
+    ).toEqual({
+      matchingRowCount: 1,
+      skippedDirtyCount: 1,
+    });
+  });
+
+  it("renders persisted rule provenance badges on rule-backed rows", () => {
+    const markup = renderToStaticMarkup(
+      createElement(TransactionReviewTable, {
+        categories: reviewCategories,
+        onCreateRuleFromReview: vi.fn(() =>
+          Promise.resolve({
+            anchor_transaction: reviewTransactions[0],
+            applied_transactions: [],
+            match_count: 0,
+            rule: {
+              id: "rule-1",
+              match_field: "recipient",
+              match_text: "Lidl",
+              target_category_id: "cat-food",
+            },
+            skipped_rows: [],
+          }),
+        ),
+        onSaveCategoryChanges: vi.fn(() =>
+          Promise.resolve({
+            failed: [],
+            updated: [],
+          }),
+        ),
+        transactions: [
+          {
+            ...reviewTransactions[0],
+            categorized_by_rule_id: "rule-1",
+            category_rule: {
+              id: "rule-1",
+              match_field: "recipient",
+              match_text: "Lidl",
+              target_category_id: "cat-food",
+            },
+          },
+        ],
+      }),
+    );
+
+    expect(markup).toContain("Rule: recipient contains");
+    expect(markup).toContain("&quot;Lidl&quot;");
   });
 });
 
@@ -1613,6 +1766,61 @@ describe("import workspace helpers", () => {
     });
   });
 
+  it("sends review-rule payloads to the dedicated review-rule endpoint", async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve({
+        json: () =>
+          Promise.resolve({
+            anchor_transaction: reviewTransactions[0],
+            applied_transactions: [],
+            match_count: 1,
+            rule: {
+              id: "rule-1",
+              match_field: "recipient",
+              match_text: "Lidl",
+              target_category_id: "cat-food",
+            },
+            skipped_rows: [],
+          }),
+        ok: true,
+      } satisfies Pick<Response, "json" | "ok">),
+    ) as unknown as typeof fetch;
+
+    await expect(
+      createImportReviewRule(
+        {
+          apply_now: true,
+          category_id: "cat-food",
+          dirty_transaction_ids: ["tx-2"],
+          match_field: "recipient",
+          match_text: "Lidl",
+          transaction_id: "tx-1",
+        },
+        fetchMock,
+      ),
+    ).resolves.toMatchObject({
+      match_count: 1,
+      rule: {
+        id: "rule-1",
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/imports/transactions/rule", {
+      body: JSON.stringify({
+        apply_now: true,
+        category_id: "cat-food",
+        dirty_transaction_ids: ["tx-2"],
+        match_field: "recipient",
+        match_text: "Lidl",
+        transaction_id: "tx-1",
+      }),
+      headers: {
+        "content-type": "application/json",
+      },
+      method: "POST",
+    });
+  });
+
   it("merges successful bulk category saves into local transactions only for updated rows", () => {
     expect(
       mergeImportedTransactionCategoryUpdates(reviewTransactions, [
@@ -1625,8 +1833,48 @@ describe("import workspace helpers", () => {
       {
         ...reviewTransactions[0],
         category_id: "cat-travel",
+        categorized_by_rule_id: null,
+        category_rule: null,
       },
       reviewTransactions[1],
+    ]);
+  });
+
+  it("merges anchor and applied review-rule updates without wiping untouched rows", () => {
+    expect(
+      mergeImportedTransactions(reviewTransactions, [
+        {
+          ...reviewTransactions[0],
+          categorized_by_rule_id: "rule-1",
+          category_id: "cat-food",
+          category_rule: {
+            id: "rule-1",
+            match_field: "recipient",
+            match_text: "Lidl",
+            target_category_id: "cat-food",
+          },
+        },
+        {
+          ...reviewTransactions[1],
+          categorized_by_rule_id: "rule-1",
+          category_id: "cat-food",
+          category_rule: {
+            id: "rule-1",
+            match_field: "recipient",
+            match_text: "Lidl",
+            target_category_id: "cat-food",
+          },
+        },
+      ]),
+    ).toEqual([
+      expect.objectContaining({
+        categorized_by_rule_id: "rule-1",
+        id: "tx-1",
+      }),
+      expect.objectContaining({
+        categorized_by_rule_id: "rule-1",
+        id: "tx-2",
+      }),
     ]);
   });
 });

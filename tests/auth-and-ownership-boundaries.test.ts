@@ -81,9 +81,12 @@ function makeTransaction(
   userId = USER_A.id,
   overrides: Partial<ImportedTransaction> = {},
 ): ImportedTransaction {
+  const { categorized_by_rule_id = null, ...rest } = overrides;
+
   return {
     amount: -12.34,
     category_id: null,
+    categorized_by_rule_id,
     created_at: CREATED_AT,
     id,
     import_batch_id: "batch-1",
@@ -92,7 +95,7 @@ function makeTransaction(
     transaction_date: "2026-06-03",
     updated_at: CREATED_AT,
     user_id: userId,
-    ...overrides,
+    ...rest,
   };
 }
 
