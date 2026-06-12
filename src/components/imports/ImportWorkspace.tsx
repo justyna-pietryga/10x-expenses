@@ -98,18 +98,19 @@ export function mergeImportedTransactionCategoryUpdates(
   transactions: ImportedTransactionReviewRow[],
   updates: ImportCategorySaveResult["updated"],
 ) {
-  const categoryById = new Map(updates.map((update) => [update.id, update.category_id]));
+  const updateById = new Map(updates.map((update) => [update.id, update]));
 
   return transactions.map((transaction) => {
-    const nextCategoryId = categoryById.get(transaction.id);
+    const nextUpdate = updateById.get(transaction.id);
 
-    if (nextCategoryId === undefined) {
+    if (!nextUpdate) {
       return transaction;
     }
 
     return {
       ...transaction,
-      category_id: nextCategoryId,
+      category_id: nextUpdate.category_id,
+      inclusion_status: nextUpdate.inclusion_status,
       category_rule: null,
       categorized_by_rule_id: null,
     };
@@ -121,7 +122,7 @@ export function ImportWorkspace({ categories, initialBatch, initialTransactions 
   const [batch, setBatch] = useState(initialBatch);
   const [transactions, setTransactions] = useState(initialTransactions);
   const [error, setError] = useState<string | null>(null);
-  const [hasDirtyCategoryChanges, setHasDirtyCategoryChanges] = useState(false);
+  const [hasDirtyReviewChanges, setHasDirtyReviewChanges] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [isCommitting, setIsCommitting] = useState(false);
 
@@ -181,8 +182,8 @@ export function ImportWorkspace({ categories, initialBatch, initialTransactions 
         setTransactions((current) => mergeImportedTransactionCategoryUpdates(current, result.updated));
         setNotice(
           result.failed.length > 0
-            ? "Some category changes were saved, and some still need attention."
-            : "Category changes saved.",
+            ? "Some review changes were saved, and some still need attention."
+            : "Review changes saved.",
         );
       });
     }
@@ -211,7 +212,7 @@ export function ImportWorkspace({ categories, initialBatch, initialTransactions 
   }
 
   async function handleCompleteReview() {
-    if (!batch || hasDirtyCategoryChanges) {
+    if (!batch || hasDirtyReviewChanges) {
       return;
     }
 
@@ -265,16 +266,16 @@ export function ImportWorkspace({ categories, initialBatch, initialTransactions 
           <ReviewCompletionBar
             batch={batch}
             completionBlockedReason={
-              hasDirtyCategoryChanges ? "Save or discard category changes before marking this review complete." : null
+              hasDirtyReviewChanges ? "Save or discard review changes before marking this review complete." : null
             }
-            isCompletionBlocked={hasDirtyCategoryChanges}
+            isCompletionBlocked={hasDirtyReviewChanges}
             transactionCount={transactions.length}
             onComplete={handleCompleteReview}
           />
           <TransactionReviewTable
             categories={categories}
             onCreateRuleFromReview={handleCreateRuleFromReview}
-            onDirtyStateChange={setHasDirtyCategoryChanges}
+            onDirtyStateChange={setHasDirtyReviewChanges}
             onSaveCategoryChanges={handleSaveCategoryChanges}
             transactions={transactions}
           />

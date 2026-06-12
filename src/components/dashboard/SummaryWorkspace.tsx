@@ -174,6 +174,7 @@ export function SummaryWorkspace({ categories, initialRules, initialSummary }: P
       {notice && <p className="text-sm text-emerald-200">{notice}</p>}
 
       <SummaryCards
+        excludedSpend={summary.excluded_spend}
         incompleteReviewSpend={summary.incomplete_review_spend}
         reviewedCategorizedSpend={summary.reviewed_categorized_spend}
         totalImportedSpend={summary.total_imported_spend}

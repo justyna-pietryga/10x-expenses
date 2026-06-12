@@ -2,6 +2,7 @@ import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 import { listActiveCategories } from "@/lib/budget/data";
 import type { Database, Tables } from "@/lib/database.types";
 import { ImportError } from "@/lib/imports/errors";
+import type { TransactionInclusion } from "@/lib/imports/inclusion";
 import type {
   ImportCategoryUpdatePayload,
   ImportCommitPayload,
@@ -174,6 +175,7 @@ function buildImportedTransactionRows(
       amount: transaction.amount,
       category_id: ruleDrivenCategory.category_id,
       categorized_by_rule_id: ruleDrivenCategory.categorized_by_rule_id,
+      inclusion_status: "included",
       import_batch_id: batchId,
       recipient: transaction.recipient,
       title: transaction.title,
@@ -198,6 +200,7 @@ async function restoreImportTransactions(
     categorized_by_rule_id: transaction.categorized_by_rule_id,
     created_at: transaction.created_at,
     id: transaction.id,
+    inclusion_status: transaction.inclusion_status,
     import_batch_id: transaction.import_batch_id,
     recipient: transaction.recipient,
     title: transaction.title,
@@ -378,6 +381,7 @@ export async function updateTransactionCategoryAndMaybeRule(
   userId: string,
   transactionId: string,
   categoryId: string | null,
+  inclusionStatus: TransactionInclusion,
   options?: { saveRule?: boolean },
 ) {
   if (categoryId) {
@@ -389,6 +393,7 @@ export async function updateTransactionCategoryAndMaybeRule(
     .update({
       category_id: categoryId,
       categorized_by_rule_id: null,
+      inclusion_status: inclusionStatus,
     })
     .eq("id", transactionId)
     .eq("user_id", userId)
@@ -482,6 +487,7 @@ export async function updateImportTransactionCategories(
       .update({
         category_id: update.category_id,
         categorized_by_rule_id: null,
+        inclusion_status: update.inclusion_status,
       })
       .eq("id", update.transaction_id)
       .eq("user_id", userId)

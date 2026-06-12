@@ -20,6 +20,7 @@ import {
 } from "@/components/imports/TransactionReviewTable";
 import type { BudgetCategory } from "@/lib/budget/data";
 import {
+  validateImportTransactionUpdatePayload,
   validateImportCategoryUpdatesPayload,
   validateImportCommitPayload,
   validateImportReviewRulePayload,
@@ -71,6 +72,7 @@ const reviewTransactions: ImportedTransaction[] = [
     categorized_by_rule_id: null,
     created_at: "2026-05-30T08:00:00.000Z",
     id: "tx-1",
+    inclusion_status: "included",
     import_batch_id: "batch-1",
     recipient: "Lidl Warszawa",
     title: "Lidl Warszawa",
@@ -84,6 +86,7 @@ const reviewTransactions: ImportedTransaction[] = [
     categorized_by_rule_id: null,
     created_at: "2026-05-30T08:00:00.000Z",
     id: "tx-2",
+    inclusion_status: "included",
     import_batch_id: "batch-1",
     recipient: "PKP Intercity",
     title: "PKP Intercity",
@@ -176,6 +179,7 @@ function buildImportSupabaseStub(options?: {
       categorized_by_rule_id: "rule-food",
       created_at: "2026-05-30T08:00:00.000Z",
       import_batch_id: options?.existingBatch ? "batch-existing" : "batch-1",
+      inclusion_status: "included",
       recipient: "Lidl Warszawa",
       title: "Lidl Warszawa",
       transaction_date: "2026-05-03",
@@ -192,6 +196,7 @@ function buildImportSupabaseStub(options?: {
           categorized_by_rule_id: null,
           created_at: "2026-05-01T08:00:00.000Z",
           import_batch_id: "batch-existing",
+          inclusion_status: "included",
           recipient: "Old Merchant",
           title: "Old Merchant",
           transaction_date: "2026-05-04",
@@ -204,6 +209,7 @@ function buildImportSupabaseStub(options?: {
     ...insertedTransactions[0],
     category_id: "cat-travel",
     categorized_by_rule_id: null,
+    inclusion_status: "included",
   };
   const createdRule = {
     id: "rule-1",
@@ -295,6 +301,7 @@ function buildImportSupabaseStub(options?: {
               categorized_by_rule_id: row.categorized_by_rule_id ?? null,
               created_at: row.created_at ?? "2026-05-30T08:00:00.000Z",
               id: row.id ?? `tx-restored-${index + 1}`,
+              inclusion_status: row.inclusion_status ?? "included",
               import_batch_id: row.import_batch_id,
               recipient: row.recipient,
               title: row.title,
@@ -371,7 +378,7 @@ function buildImportSupabaseStub(options?: {
 
 function buildBulkImportSupabaseStub(options?: {
   categories?: { archived_at: string | null; id: string; name: string; user_id: string }[];
-  transactions?: Record<string, { category_id: string | null; id: string; user_id: string }>;
+  transactions?: Record<string, { category_id: string | null; id: string; inclusion_status: string; user_id: string }>;
 }) {
   const categories = options?.categories ?? [
     {
@@ -391,11 +398,13 @@ function buildBulkImportSupabaseStub(options?: {
     "tx-empty": {
       category_id: null,
       id: "tx-empty",
+      inclusion_status: "included",
       user_id: "user-1",
     },
     "tx-food": {
       category_id: "cat-food",
       id: "tx-food",
+      inclusion_status: "included",
       user_id: "user-1",
     },
   };
@@ -411,7 +420,7 @@ function buildBulkImportSupabaseStub(options?: {
 
       if (table === "transactions") {
         return {
-          update: vi.fn((values: { category_id: string | null }) => {
+          update: vi.fn((values: { category_id: string | null; inclusion_status: string }) => {
             transactionUpdates.push(values);
             const filters = new Map<string, string>();
             const chain = {
@@ -439,6 +448,7 @@ function buildBulkImportSupabaseStub(options?: {
                   data: {
                     ...transaction,
                     category_id: values.category_id,
+                    inclusion_status: values.inclusion_status,
                   },
                   error: null,
                 };
@@ -562,10 +572,12 @@ describe("import validation", () => {
         updates: [
           {
             category_id: "cat-food",
+            inclusion_status: "included",
             transaction_id: "tx-1",
           },
           {
             category_id: null,
+            inclusion_status: "excluded",
             transaction_id: "tx-2",
           },
         ],
@@ -574,13 +586,29 @@ describe("import validation", () => {
       updates: [
         {
           category_id: "cat-food",
+          inclusion_status: "included",
           transaction_id: "tx-1",
         },
         {
           category_id: null,
+          inclusion_status: "excluded",
           transaction_id: "tx-2",
         },
       ],
+    });
+  });
+
+  it("accepts single-row transaction updates with category, inclusion, and optional rule save", () => {
+    expect(
+      validateImportTransactionUpdatePayload({
+        category_id: "cat-food",
+        inclusion_status: "excluded",
+        save_rule: true,
+      }),
+    ).toEqual({
+      category_id: "cat-food",
+      inclusion_status: "excluded",
+      save_rule: true,
     });
   });
 
@@ -827,7 +855,7 @@ describe("import data helpers", () => {
     const supabase = buildImportSupabaseStub();
 
     await expect(
-      updateTransactionCategoryAndMaybeRule(supabase as never, "user-1", "tx-1", "cat-travel", {
+      updateTransactionCategoryAndMaybeRule(supabase as never, "user-1", "tx-1", "cat-travel", "included", {
         saveRule: true,
       }),
     ).resolves.toMatchObject({
@@ -849,10 +877,12 @@ describe("import data helpers", () => {
       updateImportTransactionCategories(supabase as never, "user-1", [
         {
           category_id: "cat-travel",
+          inclusion_status: "included",
           transaction_id: "tx-food",
         },
         {
           category_id: "cat-food",
+          inclusion_status: "included",
           transaction_id: "tx-empty",
         },
       ]),
@@ -870,8 +900,8 @@ describe("import data helpers", () => {
       ],
     });
     expect(transactionUpdates).toEqual([
-      { categorized_by_rule_id: null, category_id: "cat-travel" },
-      { categorized_by_rule_id: null, category_id: "cat-food" },
+      { categorized_by_rule_id: null, category_id: "cat-travel", inclusion_status: "included" },
+      { categorized_by_rule_id: null, category_id: "cat-food", inclusion_status: "included" },
     ]);
   });
 
@@ -882,6 +912,7 @@ describe("import data helpers", () => {
       updateImportTransactionCategories(supabase as never, "user-1", [
         {
           category_id: null,
+          inclusion_status: "included",
           transaction_id: "tx-food",
         },
       ]),
@@ -903,14 +934,17 @@ describe("import data helpers", () => {
       updateImportTransactionCategories(supabase as never, "user-1", [
         {
           category_id: "cat-travel",
+          inclusion_status: "included",
           transaction_id: "tx-food",
         },
         {
           category_id: "cat-travel",
+          inclusion_status: "included",
           transaction_id: "tx-missing",
         },
         {
           category_id: "cat-unknown",
+          inclusion_status: "included",
           transaction_id: "tx-empty",
         },
       ]),
@@ -940,6 +974,7 @@ describe("import data helpers", () => {
         "tx-other-user": {
           category_id: "cat-food",
           id: "tx-other-user",
+          inclusion_status: "included",
           user_id: "user-2",
         },
       },
@@ -949,6 +984,7 @@ describe("import data helpers", () => {
       updateImportTransactionCategories(supabase as never, "user-1", [
         {
           category_id: "cat-travel",
+          inclusion_status: "included",
           transaction_id: "tx-other-user",
         },
       ]),
@@ -1330,6 +1366,7 @@ describe("import API routes", () => {
         },
         body: JSON.stringify({
           category_id: "cat-travel",
+          inclusion_status: "included",
           save_rule: true,
         }),
       }),
@@ -1371,10 +1408,12 @@ describe("import API routes", () => {
           updates: [
             {
               category_id: "cat-travel",
+              inclusion_status: "included",
               transaction_id: "tx-food",
             },
             {
               category_id: "cat-travel",
+              inclusion_status: "included",
               transaction_id: "tx-missing",
             },
           ],
@@ -1430,6 +1469,7 @@ describe("import API routes", () => {
           updates: [
             {
               category_id: "cat-travel",
+              inclusion_status: "included",
               transaction_id: "tx-missing",
             },
           ],
@@ -1459,12 +1499,19 @@ describe("transaction review table", () => {
   it("derives only changed category drafts as bulk updates", () => {
     expect(
       buildDirtyCategoryUpdates(reviewTransactions, {
-        "tx-1": "cat-food",
-        "tx-2": "cat-travel",
+        "tx-1": {
+          category_id: "cat-food",
+          inclusion_status: "included",
+        },
+        "tx-2": {
+          category_id: "cat-travel",
+          inclusion_status: "included",
+        },
       }),
     ).toEqual([
       {
         category_id: "cat-travel",
+        inclusion_status: "included",
         transaction_id: "tx-2",
       },
     ]);
@@ -1474,8 +1521,14 @@ describe("transaction review table", () => {
     expect(
       buildBulkSaveFeedback(
         {
-          "tx-1": "cat-travel",
-          "tx-2": "cat-food",
+          "tx-1": {
+            category_id: "cat-travel",
+            inclusion_status: "included",
+          },
+          "tx-2": {
+            category_id: "cat-food",
+            inclusion_status: "included",
+          },
         },
         {
           failed: [
@@ -1488,19 +1541,24 @@ describe("transaction review table", () => {
             {
               category_id: "cat-travel",
               id: "tx-1",
+              inclusion_status: "included",
             },
           ],
         },
       ),
     ).toEqual({
       drafts: {
-        "tx-2": "cat-food",
+        "tx-1": undefined,
+        "tx-2": {
+          category_id: "cat-food",
+          inclusion_status: "included",
+        },
       },
       errorById: {
         "tx-2": "Selected category was not found",
       },
       successById: {
-        "tx-1": "Category saved.",
+        "tx-1": "Review change saved.",
       },
     });
   });
@@ -1543,8 +1601,14 @@ describe("transaction review table", () => {
       createElement(TransactionReviewTable, {
         categories: reviewCategories,
         initialDrafts: {
-          "tx-1": "cat-travel",
-          "tx-2": "cat-food",
+          "tx-1": {
+            category_id: "cat-travel",
+            inclusion_status: "included",
+          },
+          "tx-2": {
+            category_id: "cat-food",
+            inclusion_status: "included",
+          },
         },
         onSaveCategoryChanges: vi.fn(() =>
           Promise.resolve({
@@ -1570,7 +1634,7 @@ describe("transaction review table", () => {
       }),
     );
 
-    expect(markup).toContain("2 unsaved changes");
+    expect(markup).toContain("2 unsaved review changes");
     expect(markup).toContain("Save all changes");
     expect(markup).toContain("Discard changes");
   });
@@ -1580,7 +1644,10 @@ describe("transaction review table", () => {
       createElement(TransactionReviewTable, {
         categories: reviewCategories,
         initialDrafts: {
-          "tx-2": "cat-food",
+          "tx-2": {
+            category_id: "cat-food",
+            inclusion_status: "included",
+          },
         },
         initialRowErrors: {
           "tx-2": "Selected category was not found",
@@ -1609,8 +1676,87 @@ describe("transaction review table", () => {
       }),
     );
 
-    expect(markup).toContain("Unsaved category change.");
+    expect(markup).toContain("Unsaved review change.");
     expect(markup).toContain("Selected category was not found");
+  });
+
+  it("hides excluded rows from the default table until the reveal surface is opened", () => {
+    const markup = renderToStaticMarkup(
+      createElement(TransactionReviewTable, {
+        categories: reviewCategories,
+        onCreateRuleFromReview: vi.fn(() =>
+          Promise.resolve({
+            anchor_transaction: reviewTransactions[0],
+            applied_transactions: [],
+            match_count: 0,
+            rule: {
+              id: "rule-1",
+              match_field: "recipient",
+              match_text: "Lidl Warszawa",
+              target_category_id: "cat-food",
+            },
+            skipped_rows: [],
+          }),
+        ),
+        onSaveCategoryChanges: vi.fn(() =>
+          Promise.resolve({
+            failed: [],
+            updated: [],
+          }),
+        ),
+        transactions: [
+          {
+            ...reviewTransactions[0],
+            id: "tx-excluded",
+            inclusion_status: "excluded",
+            title: "Hidden transfer",
+          },
+        ],
+      }),
+    );
+
+    expect(markup).toContain("Reveal excluded rows");
+    expect(markup).not.toContain("Hidden transfer");
+  });
+
+  it("shows a restore action when excluded rows are intentionally revealed", () => {
+    const markup = renderToStaticMarkup(
+      createElement(TransactionReviewTable, {
+        categories: reviewCategories,
+        initialShowExcluded: true,
+        onCreateRuleFromReview: vi.fn(() =>
+          Promise.resolve({
+            anchor_transaction: reviewTransactions[0],
+            applied_transactions: [],
+            match_count: 0,
+            rule: {
+              id: "rule-1",
+              match_field: "recipient",
+              match_text: "Lidl Warszawa",
+              target_category_id: "cat-food",
+            },
+            skipped_rows: [],
+          }),
+        ),
+        onSaveCategoryChanges: vi.fn(() =>
+          Promise.resolve({
+            failed: [],
+            updated: [],
+          }),
+        ),
+        transactions: [
+          {
+            ...reviewTransactions[0],
+            id: "tx-excluded",
+            inclusion_status: "excluded",
+            title: "Restorable transfer",
+          },
+        ],
+      }),
+    );
+
+    expect(markup).toContain("Restorable transfer");
+    expect(markup).toContain("Restore to budget");
   });
 
   it("builds review rule drafts with recipient as the default field and anchor text", () => {
@@ -1642,7 +1788,7 @@ describe("transaction review table", () => {
           match_text: "PKP",
           transaction_id: "tx-2",
         },
-        [{ category_id: "cat-food", transaction_id: "tx-3" }],
+        [{ category_id: "cat-food", inclusion_status: "included", transaction_id: "tx-3" }],
       ),
     ).toEqual({
       matchingRowCount: 1,
@@ -1710,6 +1856,7 @@ describe("import workspace helpers", () => {
               {
                 category_id: "cat-travel",
                 id: "tx-1",
+                inclusion_status: "included",
               },
             ],
           }),
@@ -1722,10 +1869,12 @@ describe("import workspace helpers", () => {
         [
           {
             category_id: "cat-travel",
+            inclusion_status: "included",
             transaction_id: "tx-1",
           },
           {
             category_id: "cat-food",
+            inclusion_status: "included",
             transaction_id: "tx-2",
           },
         ],
@@ -1741,6 +1890,7 @@ describe("import workspace helpers", () => {
       updated: [
         {
           category_id: "cat-travel",
+          inclusion_status: "included",
           id: "tx-1",
         },
       ],
@@ -1751,10 +1901,12 @@ describe("import workspace helpers", () => {
         updates: [
           {
             category_id: "cat-travel",
+            inclusion_status: "included",
             transaction_id: "tx-1",
           },
           {
             category_id: "cat-food",
+            inclusion_status: "included",
             transaction_id: "tx-2",
           },
         ],
@@ -1826,6 +1978,7 @@ describe("import workspace helpers", () => {
       mergeImportedTransactionCategoryUpdates(reviewTransactions, [
         {
           category_id: "cat-travel",
+          inclusion_status: "excluded",
           id: "tx-1",
         },
       ]),
@@ -1835,6 +1988,7 @@ describe("import workspace helpers", () => {
         category_id: "cat-travel",
         categorized_by_rule_id: null,
         category_rule: null,
+        inclusion_status: "excluded",
       },
       reviewTransactions[1],
     ]);

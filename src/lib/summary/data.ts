@@ -32,6 +32,7 @@ export interface CategorySummaryRow {
 
 export interface MonthlySummaryResult {
   available_months: SummaryMonthOption[];
+  excluded_spend: number;
   generated_at: string;
   incomplete_review_spend: number;
   reviewed_categorized_spend: number;
@@ -243,6 +244,7 @@ export async function loadDashboardSummary(supabase: SummaryClient, userId: stri
   let reviewedCategorizedSpend = 0;
   let reviewedUncategorizedSpend = 0;
   let incompleteReviewSpend = 0;
+  let excludedSpend = 0;
   const reviewedSpendByCategory = new Map<string, number>();
 
   for (const transaction of selectedTransactions) {
@@ -250,6 +252,11 @@ export async function loadDashboardSummary(supabase: SummaryClient, userId: stri
     const spendAmount = toSpendAmount(transaction.amount);
 
     if (!batch || spendAmount === 0) {
+      continue;
+    }
+
+    if (transaction.inclusion_status === "excluded") {
+      excludedSpend += spendAmount;
       continue;
     }
 
@@ -276,7 +283,12 @@ export async function loadDashboardSummary(supabase: SummaryClient, userId: stri
     const batch = historicalBatchById.get(transaction.import_batch_id);
     const spendAmount = toSpendAmount(transaction.amount);
 
-    if (!batch?.review_completed_at || !transaction.category_id || spendAmount === 0) {
+    if (
+      !batch?.review_completed_at ||
+      transaction.inclusion_status === "excluded" ||
+      !transaction.category_id ||
+      spendAmount === 0
+    ) {
       continue;
     }
 
@@ -331,6 +343,7 @@ export async function loadDashboardSummary(supabase: SummaryClient, userId: stri
   const generatedAt = new Date().toISOString();
   const snapshot = {
     category_rows: categoryRows,
+    excluded_spend: toCurrency(excludedSpend),
     incomplete_review_spend: toCurrency(incompleteReviewSpend),
     reviewed_categorized_spend: toCurrency(reviewedCategorizedSpend),
     reviewed_uncategorized_spend: toCurrency(reviewedUncategorizedSpend),
@@ -373,6 +386,7 @@ export async function loadDashboardSummary(supabase: SummaryClient, userId: stri
   return {
     available_months: availableMonths,
     category_rows: categoryRows,
+    excluded_spend: toCurrency(excludedSpend),
     generated_at: generatedAt,
     incomplete_review_spend: toCurrency(incompleteReviewSpend),
     reviewed_categorized_spend: toCurrency(reviewedCategorizedSpend),

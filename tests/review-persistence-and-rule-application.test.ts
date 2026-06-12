@@ -76,7 +76,7 @@ function makeBatch(overrides: Partial<ImportBatch> = {}): ImportBatch {
 }
 
 function makeTransaction(id: string, overrides: Partial<ImportedTransaction> = {}): ImportedTransaction {
-  const { categorized_by_rule_id = null, ...rest } = overrides;
+  const { categorized_by_rule_id = null, inclusion_status = "included", ...rest } = overrides;
 
   return {
     amount: -10,
@@ -84,6 +84,7 @@ function makeTransaction(id: string, overrides: Partial<ImportedTransaction> = {
     categorized_by_rule_id,
     created_at: createdAt,
     id,
+    inclusion_status,
     import_batch_id: "batch-1",
     recipient: `Recipient ${id}`,
     title: `Title ${id}`,
@@ -592,8 +593,8 @@ describe("review persistence truthfulness", () => {
     });
 
     const result = await updateImportTransactionCategories(supabase as never, userId, [
-      { category_id: "cat-travel", transaction_id: "tx-1" },
-      { category_id: "cat-housing", transaction_id: "tx-2" },
+      { category_id: "cat-travel", inclusion_status: "included", transaction_id: "tx-1" },
+      { category_id: "cat-housing", inclusion_status: "included", transaction_id: "tx-2" },
     ]);
 
     expect(result).toEqual({
@@ -628,8 +629,8 @@ describe("review persistence truthfulness", () => {
     });
 
     const result = await updateImportTransactionCategories(supabase as never, userId, [
-      { category_id: "cat-travel", transaction_id: "tx-1" },
-      { category_id: "cat-housing", transaction_id: "tx-2" },
+      { category_id: "cat-travel", inclusion_status: "included", transaction_id: "tx-1" },
+      { category_id: "cat-housing", inclusion_status: "included", transaction_id: "tx-2" },
     ]);
 
     expect(result.updated).toEqual([]);
@@ -744,8 +745,14 @@ describe("review persistence truthfulness", () => {
 
   it("clears only successful drafts and merges only updated rows after a mixed save", () => {
     const drafts = {
-      "tx-1": "cat-travel",
-      "tx-2": "cat-housing",
+      "tx-1": {
+        category_id: "cat-travel",
+        inclusion_status: "included" as const,
+      },
+      "tx-2": {
+        category_id: "cat-housing",
+        inclusion_status: "included" as const,
+      },
     };
 
     const feedback = buildBulkSaveFeedback(drafts, {
@@ -759,19 +766,24 @@ describe("review persistence truthfulness", () => {
         {
           category_id: "cat-travel",
           id: "tx-1",
+          inclusion_status: "included",
         },
       ],
     });
 
     expect(feedback).toEqual({
       drafts: {
-        "tx-2": "cat-housing",
+        "tx-1": undefined,
+        "tx-2": {
+          category_id: "cat-housing",
+          inclusion_status: "included",
+        },
       },
       errorById: {
         "tx-2": "Imported transaction was not found",
       },
       successById: {
-        "tx-1": "Category saved.",
+        "tx-1": "Review change saved.",
       },
     });
 
@@ -782,6 +794,7 @@ describe("review persistence truthfulness", () => {
           {
             category_id: "cat-travel",
             id: "tx-1",
+            inclusion_status: "included",
           },
         ],
       ),
@@ -798,6 +811,7 @@ describe("review persistence truthfulness", () => {
     ).toEqual([
       {
         category_id: "cat-housing",
+        inclusion_status: "included",
         transaction_id: "tx-2",
       },
     ]);
@@ -853,7 +867,7 @@ describe("review completion boundary truthfulness", () => {
     const blockedMarkup = renderToStaticMarkup(
       createElement(ReviewCompletionBar, {
         batch: makeBatch(),
-        completionBlockedReason: "Save or discard category changes before marking this review complete.",
+        completionBlockedReason: "Save or discard review changes before marking this review complete.",
         isCompletionBlocked: true,
         onComplete: vi.fn(() => Promise.resolve()),
         transactionCount: 2,
@@ -870,10 +884,10 @@ describe("review completion boundary truthfulness", () => {
       }),
     );
 
-    expect(blockedMarkup).toContain("Save or discard category changes before marking this review complete.");
+    expect(blockedMarkup).toContain("Save or discard review changes before marking this review complete.");
     expect(blockedMarkup).toContain("disabled");
     expect(readyMarkup).toContain("Mark review complete");
-    expect(readyMarkup).not.toContain("Save or discard category changes before marking this review complete.");
+    expect(readyMarkup).not.toContain("Save or discard review changes before marking this review complete.");
   });
 
   it("marks a batch review complete through the helper and route contract", async () => {

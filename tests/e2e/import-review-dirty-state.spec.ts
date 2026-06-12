@@ -100,16 +100,16 @@ test("import review does not allow completion while category drafts are unsaved 
     await page.getByRole("combobox").first().selectOption({ value: categoryId });
     await expect(page.getByRole("combobox").first()).toHaveValue(categoryId);
 
-    await expect(page.getByText("1 unsaved change")).toBeVisible();
-    await expect(page.getByText("Save or discard category changes before marking this review complete.")).toBeVisible();
+    await expect(page.getByText("1 unsaved review change")).toBeVisible();
+    await expect(page.getByText("Save or discard review changes before marking this review complete.")).toBeVisible();
     await expect(completeReviewButton).toBeDisabled();
 
     await page.getByRole("button", { name: "Save all changes" }).click();
 
     await expect(page.getByText("Category changes saved.")).toBeVisible();
-    await expect(page.getByText("1 unsaved change")).not.toBeVisible();
+    await expect(page.getByText("1 unsaved review change")).not.toBeVisible();
     await expect(
-      page.getByText("Save or discard category changes before marking this review complete."),
+      page.getByText("Save or discard review changes before marking this review complete."),
     ).not.toBeVisible();
     await expect(completeReviewButton).toBeEnabled();
   } finally {

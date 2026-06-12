@@ -388,56 +388,56 @@ Because the dashboard meaning of "Imported spend" changes to budget-relevant imp
 
 #### Automated
 
-- [ ] 1.1 `npm test -- tests/monthly-summary-and-rules.test.ts` passes with excluded-bucket coverage.
-- [ ] 1.2 `npx astro check` passes after the type refresh and summary contract changes.
-- [ ] 1.3 Targeted `npx eslint src/lib/summary/data.ts tests/monthly-summary-and-rules.test.ts` passes.
+- [x] 1.1 `npm test -- tests/monthly-summary-and-rules.test.ts` passes with excluded-bucket coverage.
+- [x] 1.2 `npx astro check` passes after the type refresh and summary contract changes.
+- [x] 1.3 Targeted `npx eslint src/lib/summary/data.ts tests/monthly-summary-and-rules.test.ts` passes.
 
 #### Manual
 
-- [ ] 1.4 Review the migration and confirm all existing transactions default to included behavior after rollout.
-- [ ] 1.5 Confirm an excluded transaction no longer contributes to trusted spend, uncategorized spend, incomplete-review spend, or carry-over math.
-- [ ] 1.6 Confirm the summary contract now exposes excluded spend as its own top-level bucket instead of silently dropping excluded rows.
+- [x] 1.4 Review the migration and confirm all existing transactions default to included behavior after rollout.
+- [x] 1.5 Confirm an excluded transaction no longer contributes to trusted spend, uncategorized spend, incomplete-review spend, or carry-over math.
+- [x] 1.6 Confirm the summary contract now exposes excluded spend as its own top-level bucket instead of silently dropping excluded rows.
 
 ### Phase 2: Import Review Save Contracts
 
 #### Automated
 
-- [ ] 2.1 `npm test -- tests/import-review.test.ts` passes with inclusion-contract coverage.
-- [ ] 2.2 `npx astro check` passes.
-- [ ] 2.3 Targeted `npx eslint src/lib/imports/validation.ts src/lib/imports/data.ts src/pages/api/imports/transactions/[id].ts src/pages/api/imports/transactions/bulk.ts tests/import-review.test.ts` passes.
+- [x] 2.1 `npm test -- tests/import-review.test.ts` passes with inclusion-contract coverage.
+- [x] 2.2 `npx astro check` passes.
+- [x] 2.3 Targeted `npx eslint src/lib/imports/validation.ts src/lib/imports/data.ts src/pages/api/imports/transactions/[id].ts src/pages/api/imports/transactions/bulk.ts tests/import-review.test.ts` passes.
 
 #### Manual
 
-- [ ] 2.4 Confirm both single-row and bulk routes can persist inclusion changes for owned transactions.
-- [ ] 2.5 Confirm excluded rows are allowed to stay uncategorized.
-- [ ] 2.6 Confirm bulk inclusion changes do not create or mutate categorization rules.
+- [x] 2.4 Confirm both single-row and bulk routes can persist inclusion changes for owned transactions.
+- [x] 2.5 Confirm excluded rows are allowed to stay uncategorized.
+- [x] 2.6 Confirm bulk inclusion changes do not create or mutate categorization rules.
 
 ### Phase 3: Import Review Inclusion UI
 
 #### Automated
 
-- [ ] 3.1 `npm test -- tests/import-review.test.ts` passes with inclusion UI coverage.
-- [ ] 3.2 `npx astro check` passes.
-- [ ] 3.3 Targeted `npx eslint src/components/imports/TransactionReviewTable.tsx src/components/imports/ImportWorkspace.tsx src/components/imports/ReviewCompletionBar.tsx tests/import-review.test.ts` passes.
+- [x] 3.1 `npm test -- tests/import-review.test.ts` passes with inclusion UI coverage.
+- [x] 3.2 `npx astro check` passes.
+- [x] 3.3 Targeted `npx eslint src/components/imports/TransactionReviewTable.tsx src/components/imports/ImportWorkspace.tsx src/components/imports/ReviewCompletionBar.tsx tests/import-review.test.ts` passes.
 
 #### Manual
 
-- [ ] 3.4 A user can exclude multiple included rows and save those changes through the existing bulk-save workflow.
-- [ ] 3.5 Excluded rows disappear from the default review list after persistence.
-- [ ] 3.6 A user can reveal excluded rows and restore one intentionally through a dedicated restore action.
-- [ ] 3.7 `Mark review complete` remains blocked while any category or inclusion changes are unsaved.
+- [x] 3.4 A user can exclude multiple included rows and save those changes through the existing bulk-save workflow.
+- [x] 3.5 Excluded rows disappear from the default review list after persistence.
+- [x] 3.6 A user can reveal excluded rows and restore one intentionally through a dedicated restore action.
+- [x] 3.7 `Mark review complete` remains blocked while any category or inclusion changes are unsaved.
 
 ### Phase 4: Dashboard Presentation and Regression Handoff
 
 #### Automated
 
-- [ ] 4.1 `npm test -- tests/import-review.test.ts tests/monthly-summary-and-rules.test.ts` passes.
-- [ ] 4.2 `npx astro check` passes.
-- [ ] 4.3 `npm run build` passes.
-- [ ] 4.4 Targeted lint passes for the touched dashboard, import-review, and summary files.
+- [x] 4.1 `npm test -- tests/import-review.test.ts tests/monthly-summary-and-rules.test.ts` passes.
+- [x] 4.2 `npx astro check` passes.
+- [x] 4.3 `npm run build` passes.
+- [x] 4.4 Targeted lint passes for the touched dashboard, import-review, and summary files.
 
 #### Manual
 
-- [ ] 4.5 The dashboard shows excluded spend separately from trusted categorized spend and incomplete-review spend.
-- [ ] 4.6 The top-level imported-spend total now reflects only budget-relevant imported rows.
-- [ ] 4.7 The dashboard copy still makes it clear that excluded rows remain in the imported record history even though they no longer affect budget calculations.
+- [x] 4.5 The dashboard shows excluded spend separately from trusted categorized spend and incomplete-review spend.
+- [x] 4.6 The top-level imported-spend total now reflects only budget-relevant imported rows.
+- [x] 4.7 The dashboard copy still makes it clear that excluded rows remain in the imported record history even though they no longer affect budget calculations.

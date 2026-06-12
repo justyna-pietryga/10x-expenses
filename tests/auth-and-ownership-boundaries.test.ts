@@ -81,7 +81,7 @@ function makeTransaction(
   userId = USER_A.id,
   overrides: Partial<ImportedTransaction> = {},
 ): ImportedTransaction {
-  const { categorized_by_rule_id = null, ...rest } = overrides;
+  const { categorized_by_rule_id = null, inclusion_status = "included", ...rest } = overrides;
 
   return {
     amount: -12.34,
@@ -89,6 +89,7 @@ function makeTransaction(
     categorized_by_rule_id,
     created_at: CREATED_AT,
     id,
+    inclusion_status,
     import_batch_id: "batch-1",
     recipient: `Recipient ${id}`,
     title: `Title ${id}`,

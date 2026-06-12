@@ -1,4 +1,5 @@
 import { ImportError } from "@/lib/imports/errors";
+import { TRANSACTION_INCLUSION_VALUES, type TransactionInclusion } from "@/lib/imports/inclusion";
 import type { ImportedTransactionDraft, SupportedBank } from "@/lib/imports/types";
 import type { RuleMatchField } from "@/lib/rules/validation";
 
@@ -15,6 +16,7 @@ export interface ImportCommitPayload {
 export interface ImportCategoryUpdatePayload {
   updates: {
     category_id: string | null;
+    inclusion_status: TransactionInclusion;
     transaction_id: string;
   }[];
 }
@@ -26,6 +28,12 @@ export interface ImportReviewRulePayload {
   match_field: RuleMatchField;
   match_text: string;
   transaction_id: string;
+}
+
+export interface ImportTransactionUpdatePayload {
+  category_id: string | null;
+  inclusion_status: TransactionInclusion;
+  save_rule: boolean;
 }
 
 function validateDate(value: unknown, field: string) {
@@ -143,6 +151,20 @@ export function validateImportCategoryId(value: unknown) {
   return validateText(value, "category_id");
 }
 
+export function validateTransactionInclusionStatus(value: unknown, field = "inclusion_status"): TransactionInclusion {
+  if (typeof value !== "string") {
+    throw new ImportError(`${field} is required`, { field });
+  }
+
+  const normalized = value.trim().toLowerCase();
+
+  if (TRANSACTION_INCLUSION_VALUES.includes(normalized as TransactionInclusion)) {
+    return normalized as TransactionInclusion;
+  }
+
+  throw new ImportError(`${field} must be included or excluded`, { field });
+}
+
 export function validateImportCategoryUpdatesPayload(payload: unknown): ImportCategoryUpdatePayload {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     throw new ImportError("Bulk category update payload must be an object", { field: "payload" });
@@ -160,6 +182,20 @@ export function validateImportCategoryUpdatesPayload(payload: unknown): ImportCa
 
   return {
     updates: record.updates.map((update, index) => validateImportCategoryUpdate(update, index)),
+  };
+}
+
+export function validateImportTransactionUpdatePayload(payload: unknown): ImportTransactionUpdatePayload {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new ImportError("Transaction update payload must be an object", { field: "payload" });
+  }
+
+  const record = payload as Record<string, unknown>;
+
+  return {
+    category_id: validateImportCategoryId(record.category_id),
+    inclusion_status: validateTransactionInclusionStatus(record.inclusion_status),
+    save_rule: validateRuleOptIn(record.save_rule),
   };
 }
 
@@ -226,6 +262,7 @@ function validateImportCategoryUpdate(update: unknown, index: number) {
       record.category_id == null || record.category_id === ""
         ? null
         : validateText(record.category_id, `updates[${index}].category_id`),
+    inclusion_status: validateTransactionInclusionStatus(record.inclusion_status, `updates[${index}].inclusion_status`),
     transaction_id: validateText(record.transaction_id, `updates[${index}].transaction_id`),
   };
 }

@@ -20,7 +20,7 @@ export function IncompleteReviewNotice({ incompleteReviewSpend, warningBatches }
       <h2 className="mt-2 text-2xl font-semibold">Incomplete imported spend stays separate.</h2>
       <p className="mt-3 text-sm leading-6 text-amber-50/85">
         {formatAmount(incompleteReviewSpend)} is still waiting for import review, so it is excluded from trusted
-        category totals. Return to{" "}
+        category totals but still separate from intentionally excluded rows. Return to{" "}
         <a href="/imports" className="underline underline-offset-4">
           /imports
         </a>{" "}

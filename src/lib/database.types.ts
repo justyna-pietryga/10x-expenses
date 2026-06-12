@@ -208,6 +208,7 @@ export interface Database {
           categorized_by_rule_id: string | null;
           created_at: string;
           id: string;
+          inclusion_status: string;
           import_batch_id: string;
           recipient: string;
           title: string;
@@ -221,6 +222,7 @@ export interface Database {
           categorized_by_rule_id?: string | null;
           created_at?: string;
           id?: string;
+          inclusion_status?: string;
           import_batch_id: string;
           recipient: string;
           title: string;
@@ -234,6 +236,7 @@ export interface Database {
           categorized_by_rule_id?: string | null;
           created_at?: string;
           id?: string;
+          inclusion_status?: string;
           import_batch_id?: string;
           recipient?: string;
           title?: string;

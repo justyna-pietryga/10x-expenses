@@ -1,4 +1,5 @@
 interface Props {
+  excludedSpend: number;
   incompleteReviewSpend: number;
   reviewedCategorizedSpend: number;
   totalImportedSpend: number;
@@ -10,6 +11,7 @@ function formatAmount(amount: number) {
 }
 
 export function SummaryCards({
+  excludedSpend,
   incompleteReviewSpend,
   reviewedCategorizedSpend,
   totalImportedSpend,
@@ -17,13 +19,14 @@ export function SummaryCards({
 }: Props) {
   const cards = [
     { label: "Income", value: formatAmount(totalIncome) },
-    { label: "Imported spend", value: formatAmount(totalImportedSpend) },
+    { label: "Budget-relevant imported spend", value: formatAmount(totalImportedSpend) },
     { label: "Trusted categorized spend", value: formatAmount(reviewedCategorizedSpend) },
     { label: "Incomplete review spend", value: formatAmount(incompleteReviewSpend) },
+    { label: "Excluded spend", value: formatAmount(excludedSpend) },
   ];
 
   return (
-    <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
       {cards.map((card) => (
         <article
           key={card.label}
