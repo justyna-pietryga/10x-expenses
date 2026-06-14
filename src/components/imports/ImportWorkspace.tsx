@@ -1,6 +1,7 @@
-import { startTransition, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 import type { BudgetCategory } from "@/lib/budget/data";
 import type { ImportBatch, ImportBatchHistorySummary, ImportedTransactionReviewRow } from "@/lib/imports/data";
+import { ImportHistory, ImportHistoryCollapseButton } from "@/components/imports/ImportHistory";
 import { ImportUploadForm, type ImportPreviewPayload } from "@/components/imports/ImportUploadForm";
 import { ReviewCompletionBar } from "@/components/imports/ReviewCompletionBar";
 import {
@@ -10,6 +11,9 @@ import {
   type ImportReviewRuleActionPayload,
   type ImportReviewRuleActionResult,
 } from "@/components/imports/TransactionReviewTable";
+import { cn } from "@/lib/utils";
+
+const IMPORT_HISTORY_COLLAPSED_STORAGE_KEY = "imports:history-panel-collapsed:v1";
 
 interface Props {
   categories: BudgetCategory[];
@@ -118,14 +122,40 @@ export function mergeImportedTransactionCategoryUpdates(
   });
 }
 
-export function ImportWorkspace({ categories, initialBatch, initialTransactions }: Props) {
+export function ImportWorkspace({
+  categories,
+  initialBatch,
+  initialHistory,
+  initialSelectedBatchId,
+  initialTransactions,
+}: Props) {
   const [preview, setPreview] = useState<ImportPreviewPayload | null>(null);
   const [batch, setBatch] = useState(initialBatch);
+  const history = initialHistory ?? [];
   const [transactions, setTransactions] = useState(initialTransactions);
   const [error, setError] = useState<string | null>(null);
   const [hasDirtyCategoryChanges, setHasDirtyCategoryChanges] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [isCommitting, setIsCommitting] = useState(false);
+  const [isDesktopHistoryCollapsed, setIsDesktopHistoryCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const storedValue = window.localStorage.getItem(IMPORT_HISTORY_COLLAPSED_STORAGE_KEY);
+
+    if (storedValue === "true") {
+      const frameId = window.requestAnimationFrame(() => {
+        setIsDesktopHistoryCollapsed(true);
+      });
+
+      return () => {
+        window.cancelAnimationFrame(frameId);
+      };
+    }
+  }, []);
 
   async function handleCommit(confirmReplace: boolean) {
     if (!preview) {
@@ -262,30 +292,88 @@ export function ImportWorkspace({ categories, initialBatch, initialTransactions 
         </div>
       )}
 
-      {batch ? (
-        <div className="space-y-6">
-          <ReviewCompletionBar
-            batch={batch}
-            completionBlockedReason={
-              hasDirtyCategoryChanges ? "Save or discard category changes before marking this review complete." : null
-            }
-            isCompletionBlocked={hasDirtyCategoryChanges}
-            transactionCount={transactions.length}
-            onComplete={handleCompleteReview}
-          />
-          <TransactionReviewTable
-            categories={categories}
-            onCreateRuleFromReview={handleCreateRuleFromReview}
-            onDirtyStateChange={setHasDirtyCategoryChanges}
-            onSaveCategoryChanges={handleSaveCategoryChanges}
-            transactions={transactions}
-          />
+      <div className="lg:hidden">
+        <ImportHistory activeBatchId={batch?.id ?? initialSelectedBatchId ?? null} history={history} />
+      </div>
+
+      <div className="space-y-6">
+        {history.length > 0 && (
+          <div className="hidden justify-end lg:flex">
+            <ImportHistoryCollapseButton
+              collapsed={isDesktopHistoryCollapsed}
+              onToggle={() => {
+                setIsDesktopHistoryCollapsed((current) => {
+                  const nextValue = !current;
+
+                  if (typeof window !== "undefined") {
+                    window.localStorage.setItem(IMPORT_HISTORY_COLLAPSED_STORAGE_KEY, String(nextValue));
+                  }
+
+                  return nextValue;
+                });
+              }}
+            />
+          </div>
+        )}
+
+        <div
+          className={cn(
+            "space-y-6",
+            history.length > 0 &&
+              !isDesktopHistoryCollapsed &&
+              "lg:grid lg:grid-cols-[20rem_minmax(0,1fr)] lg:items-start lg:gap-6 lg:space-y-0",
+          )}
+        >
+          {history.length > 0 && !isDesktopHistoryCollapsed && (
+            <div className="hidden min-w-0 lg:block">
+              <ImportHistory activeBatchId={batch?.id ?? initialSelectedBatchId ?? null} history={history} />
+            </div>
+          )}
+
+          <div className="min-w-0 space-y-6">
+            {batch ? (
+              <>
+                <ReviewCompletionBar
+                  batch={batch}
+                  completionBlockedReason={
+                    hasDirtyCategoryChanges
+                      ? "Save or discard category changes before marking this review complete."
+                      : null
+                  }
+                  isCompletionBlocked={hasDirtyCategoryChanges}
+                  transactionCount={transactions.length}
+                  onComplete={handleCompleteReview}
+                />
+                <TransactionReviewTable
+                  categories={categories}
+                  onCreateRuleFromReview={handleCreateRuleFromReview}
+                  onDirtyStateChange={setHasDirtyCategoryChanges}
+                  onSaveCategoryChanges={handleSaveCategoryChanges}
+                  transactions={transactions}
+                />
+              </>
+            ) : (
+              <section className="rounded-[28px] border border-dashed border-white/15 bg-white/5 px-6 py-10 text-center text-sm text-slate-300">
+                {history.length > 0 ? (
+                  <>
+                    <p className="font-medium text-white">No active review is loaded yet.</p>
+                    <p className="mt-2 text-slate-300/80">
+                      Open a batch from recent history or upload a new supported CSV above to start the next review.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-medium text-white">Choose a supported bank and upload your first statement.</p>
+                    <p className="mt-2 text-slate-300/80">
+                      Your recent import history will appear here after the first batch is saved.
+                    </p>
+                  </>
+                )}
+              </section>
+            )}
+          </div>
         </div>
-      ) : (
-        <section className="rounded-[28px] border border-dashed border-white/15 bg-white/5 px-6 py-10 text-center text-sm text-slate-300">
-          Choose a supported bank and upload its CSV preview above to create the first review batch.
-        </section>
-      )}
+      </div>
     </div>
   );
 }

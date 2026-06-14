@@ -453,29 +453,29 @@ The transaction-inclusion change may land before or during UX-06. Implement the 
 
 #### Automated
 
-- [x] 1.1 `npm test -- tests/import-review.test.ts tests/auth-and-ownership-boundaries.test.ts` passes with history and review-read coverage.
-- [x] 1.2 `npm run check` passes.
-- [x] 1.3 Targeted ESLint passes for the Phase 1 import helper, API route, page, and tests.
+- [x] 1.1 `npm test -- tests/import-review.test.ts tests/auth-and-ownership-boundaries.test.ts` passes with history and review-read coverage. — 49cfb2a
+- [x] 1.2 `npm run check` passes. — 49cfb2a
+- [x] 1.3 Targeted ESLint passes for the Phase 1 import helper, API route, page, and tests. — 49cfb2a
 
 #### Manual
 
-- [x] 1.4 Confirm pending-first and completed-fallback default selection.
-- [x] 1.5 Confirm direct owned batch links work and foreign IDs disclose no metadata.
-- [x] 1.6 Confirm history is capped at 50 rows with accurate transaction counts.
+- [x] 1.4 Confirm pending-first and completed-fallback default selection. — 49cfb2a
+- [x] 1.5 Confirm direct owned batch links work and foreign IDs disclose no metadata. — 49cfb2a
+- [x] 1.6 Confirm history is capped at 50 rows with accurate transaction counts. — 49cfb2a
 
 ### Phase 2: Collapsible and Responsive History Surface
 
 #### Automated
 
-- [ ] 2.1 `npm test -- tests/import-review.test.ts` passes with history presentation coverage.
-- [ ] 2.2 `npm run check` passes.
-- [ ] 2.3 Targeted ESLint passes for the history component, workspace, page, and tests.
+- [x] 2.1 `npm test -- tests/import-review.test.ts` passes with history presentation coverage.
+- [x] 2.2 `npm run check` passes.
+- [x] 2.3 Targeted ESLint passes for the history component, workspace, page, and tests.
 
 #### Manual
 
-- [ ] 2.4 Confirm desktop collapse restores review width and persists across reloads.
-- [ ] 2.5 Confirm the mobile slide-over meets focus, dismissal, and accessible-title requirements.
-- [ ] 2.6 Confirm every history item shows bank, month, status, filename, and row count.
+- [x] 2.4 Confirm desktop collapse restores review width and persists across reloads.
+- [x] 2.5 Confirm the mobile slide-over meets focus, dismissal, and accessible-title requirements.
+- [x] 2.6 Confirm every history item shows bank, month, status, filename, and row count.
 
 ### Phase 3: Guarded Batch Switching and Historical Editing
 

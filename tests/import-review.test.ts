@@ -3,9 +3,11 @@ import { resolve } from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import { ImportHistory } from "@/components/imports/ImportHistory";
 import { ImportUploadForm } from "@/components/imports/ImportUploadForm";
 import {
   createImportReviewRule,
+  ImportWorkspace,
   mergeImportedTransactions,
   mergeImportedTransactionCategoryUpdates,
   saveImportCategoryChanges,
@@ -92,6 +94,27 @@ const reviewTransactions: ImportedTransaction[] = [
     transaction_date: "2026-05-11",
     updated_at: "2026-05-30T08:00:00.000Z",
     user_id: "user-1",
+  },
+];
+
+const reviewBatchHistory = [
+  {
+    bank: "revolut" as const,
+    id: "batch-pending-latest-import",
+    imported_at: "2026-06-12T10:00:00.000Z",
+    review_completed_at: null,
+    source_filename: "pending-latest.csv",
+    statement_month: "2026-05-01",
+    transaction_count: 2,
+  },
+  {
+    bank: "ing" as const,
+    id: "batch-complete-newer-month",
+    imported_at: "2026-06-13T10:00:00.000Z",
+    review_completed_at: "2026-06-13T12:00:00.000Z",
+    source_filename: "completed-newer.csv",
+    statement_month: "2026-06-01",
+    transaction_count: 1,
   },
 ];
 
@@ -2273,6 +2296,70 @@ describe("import workspace helpers", () => {
 });
 
 describe("import UI", () => {
+  it("renders import history metadata with active-state semantics for recent batches", () => {
+    const markup = renderToStaticMarkup(
+      createElement(ImportHistory, {
+        activeBatchId: "batch-pending-latest-import",
+        history: reviewBatchHistory,
+      }),
+    );
+
+    expect(markup).toContain("Import history");
+    expect(markup).toContain("Resume older import reviews");
+    expect(markup).toContain("May 2026");
+    expect(markup).toContain("June 2026");
+    expect(markup).toContain("Pending review");
+    expect(markup).toContain("Completed review");
+    expect(markup).toContain("pending-latest.csv");
+    expect(markup).toContain("completed-newer.csv");
+    expect(markup).toContain("2 transactions");
+    expect(markup).toContain("1 transaction");
+    expect(markup).toContain('aria-current="page"');
+  });
+
+  it("renders an empty import history state when no batches exist", () => {
+    const markup = renderToStaticMarkup(
+      createElement(ImportHistory, {
+        activeBatchId: null,
+        history: [],
+      }),
+    );
+
+    expect(markup).toContain("No import history yet.");
+    expect(markup).toContain("Upload a supported statement");
+  });
+
+  it("renders mobile slide-over dialog semantics for import history", () => {
+    const markup = renderToStaticMarkup(
+      createElement(ImportHistory, {
+        activeBatchId: "batch-pending-latest-import",
+        history: reviewBatchHistory,
+        initialMobileOpen: true,
+      }),
+    );
+
+    expect(markup).toContain('role="dialog"');
+    expect(markup).toContain('aria-modal="true"');
+    expect(markup).toContain("Recent import batches");
+    expect(markup).toContain("Close import history");
+  });
+
+  it("renders workspace history controls alongside a no-active-review empty state", () => {
+    const markup = renderToStaticMarkup(
+      createElement(ImportWorkspace, {
+        categories: reviewCategories,
+        initialBatch: null,
+        initialHistory: reviewBatchHistory,
+        initialSelectedBatchId: null,
+        initialTransactions: [],
+      }),
+    );
+
+    expect(markup).toContain("Hide history");
+    expect(markup).toContain("No active review is loaded yet.");
+    expect(markup).toContain("Open a batch from recent history");
+  });
+
   it("renders a bank selector for Revolut and ING uploads", () => {
     const markup = renderToStaticMarkup(
       createElement(ImportUploadForm, {
