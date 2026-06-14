@@ -1,0 +1,1910 @@
+Subject: [PATCH] ux-06
+---
+Index: src/pages/imports.astro
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/pages/imports.astro b/src/pages/imports.astro
+--- a/src/pages/imports.astro	(revision 7d717e1945c1bc1ce4b898113d45765de63517d0)
++++ b/src/pages/imports.astro	(date 1781343352030)
+@@ -4,8 +4,9 @@
+ import { ImportWorkspace } from "@/components/imports/ImportWorkspace";
+ import { listActiveCategories, type BudgetCategory } from "@/lib/budget/data";
+ import {
++  listImportBatchSummaries,
+   loadImportBatchReview,
+-  loadLatestImportBatchReview,
++  type ImportBatchSummary,
+   type ImportBatch,
+   type ImportedTransactionReviewRow,
+ } from "@/lib/imports/data";
+@@ -16,20 +17,21 @@
+ const supabase = createClient(Astro.request.headers, Astro.cookies);
+ 
+ let categories: BudgetCategory[] = [];
++let batchSummaries: ImportBatchSummary[] = [];
+ let batch: ImportBatch | null = null;
+ let transactions: ImportedTransactionReviewRow[] = [];
+ let loadError: string | null = null;
+ 
+ if (supabase && user) {
+   try {
+-    const [activeCategories, review] = await Promise.all([
++    const [activeCategories, summaries, review] = await Promise.all([
+       listActiveCategories(supabase, user.id),
+-      selectedBatchId
+-        ? loadImportBatchReview(supabase, user.id, selectedBatchId)
+-        : loadLatestImportBatchReview(supabase, user.id),
++      listImportBatchSummaries(supabase, user.id),
++      selectedBatchId ? loadImportBatchReview(supabase, user.id, selectedBatchId) : Promise.resolve(null),
+     ]);
+ 
+     categories = activeCategories;
++    batchSummaries = summaries;
+     batch = review?.batch ?? null;
+     transactions = review?.transactions ?? [];
+   } catch (error) {
+@@ -92,6 +94,7 @@
+                 <ImportWorkspace
+                   client:load
+                   categories={categories}
++                  initialBatchSummaries={batchSummaries}
+                   initialBatch={batch}
+                   initialTransactions={transactions}
+                 />
+Index: src/lib/imports/validation.ts
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/lib/imports/validation.ts b/src/lib/imports/validation.ts
+--- a/src/lib/imports/validation.ts	(revision 7d717e1945c1bc1ce4b898113d45765de63517d0)
++++ b/src/lib/imports/validation.ts	(date 1781349024094)
+@@ -194,7 +194,8 @@
+ 
+   return {
+     category_id: validateImportCategoryId(record.category_id),
+-    inclusion_status: validateTransactionInclusionStatus(record.inclusion_status),
++    inclusion_status:
++      record.inclusion_status == null ? "included" : validateTransactionInclusionStatus(record.inclusion_status),
+     save_rule: validateRuleOptIn(record.save_rule),
+   };
+ }
+@@ -262,7 +263,10 @@
+       record.category_id == null || record.category_id === ""
+         ? null
+         : validateText(record.category_id, `updates[${index}].category_id`),
+-    inclusion_status: validateTransactionInclusionStatus(record.inclusion_status, `updates[${index}].inclusion_status`),
++    inclusion_status:
++      record.inclusion_status == null
++        ? "included"
++        : validateTransactionInclusionStatus(record.inclusion_status, `updates[${index}].inclusion_status`),
+     transaction_id: validateText(record.transaction_id, `updates[${index}].transaction_id`),
+   };
+ }
+Index: src/lib/imports/data.ts
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/lib/imports/data.ts b/src/lib/imports/data.ts
+--- a/src/lib/imports/data.ts	(revision 7d717e1945c1bc1ce4b898113d45765de63517d0)
++++ b/src/lib/imports/data.ts	(date 1781349238430)
+@@ -35,6 +35,13 @@
+   | "statement_month"
+ >;
+ 
++export type ImportBatchSummary = Pick<
++  ImportBatch,
++  "bank" | "id" | "imported_at" | "review_completed_at" | "source_filename" | "statement_month"
++> & {
++  row_count: number;
++};
++
+ export interface ImportCategoryUpdateFailure {
+   error: string;
+   transaction_id: string;
+@@ -48,11 +55,18 @@
+ export interface ImportReviewRuleResult {
+   anchor_transaction: ImportedTransactionReviewRow;
+   applied_transactions: ImportedTransactionReviewRow[];
++  batch: ImportBatch;
+   match_count: number;
+   rule: CategorizationRule;
+   skipped_rows: ImportReviewRuleSkippedRow[];
+ }
+ 
++export interface ImportCategoryUpdateResult {
++  batch: ImportBatch | null;
++  failed: ImportCategoryUpdateFailure[];
++  updated: ImportedTransaction[];
++}
++
+ function mapPostgrestError(error: PostgrestError | null, fallbackMessage: string) {
+   if (!error) {
+     return;
+@@ -114,6 +128,33 @@
+   }));
+ }
+ 
++function compareBatchSummaries(left: ImportBatchSummary, right: ImportBatchSummary) {
++  const leftPending = left.review_completed_at ? 1 : 0;
++  const rightPending = right.review_completed_at ? 1 : 0;
++
++  if (leftPending !== rightPending) {
++    return leftPending - rightPending;
++  }
++
++  return right.imported_at.localeCompare(left.imported_at);
++}
++
++export function toImportBatchSummary(batch: ImportBatch, rowCount: number): ImportBatchSummary {
++  return {
++    bank: batch.bank,
++    id: batch.id,
++    imported_at: batch.imported_at,
++    review_completed_at: batch.review_completed_at,
++    row_count: rowCount,
++    source_filename: batch.source_filename,
++    statement_month: batch.statement_month,
++  };
++}
++
++export function sortImportBatchSummaries(summaries: ImportBatchSummary[]) {
++  return [...summaries].sort(compareBatchSummaries);
++}
++
+ export async function findExistingImportBatch(
+   supabase: ImportClient,
+   userId: string,
+@@ -376,6 +417,97 @@
+   return loadImportBatchReview(supabase, userId, data.id);
+ }
+ 
++async function loadOwnedImportBatch(supabase: ImportClient, userId: string, batchId: string) {
++  const { data, error } = await supabase
++    .from("statement_import_batches")
++    .select("*")
++    .eq("id", batchId)
++    .eq("user_id", userId)
++    .single();
++
++  mapPostgrestError(error, "Import batch was not found");
++
++  if (!data) {
++    throw new ImportError("Import batch was not found", { status: 404 });
++  }
++
++  return data;
++}
++
++async function syncBatchReviewStateAfterMutation(supabase: ImportClient, userId: string, batchId: string) {
++  const batch = await loadOwnedImportBatch(supabase, userId, batchId);
++
++  if (!batch.review_completed_at) {
++    return batch;
++  }
++
++  const { data, error } = await supabase
++    .from("statement_import_batches")
++    .update({
++      review_completed_at: null,
++    })
++    .eq("id", batchId)
++    .eq("user_id", userId)
++    .select()
++    .single();
++
++  mapPostgrestError(error, "Import batch was not found");
++
++  if (!data) {
++    throw new ImportError("Import batch was not found", { status: 404 });
++  }
++
++  return data;
++}
++
++async function trySyncBatchReviewStateAfterMutation(supabase: ImportClient, userId: string, batchId: string) {
++  try {
++    return await syncBatchReviewStateAfterMutation(supabase, userId, batchId);
++  } catch (error) {
++    if (error instanceof ImportError && error.status === 404) {
++      return null;
++    }
++
++    throw error;
++  }
++}
++
++export async function listImportBatchSummaries(supabase: ImportClient, userId: string) {
++  const { data: batches, error: batchError } = await supabase
++    .from("statement_import_batches")
++    .select("*")
++    .eq("user_id", userId)
++    .order("imported_at", { ascending: false });
++
++  mapPostgrestError(batchError, "Import batches could not be loaded");
++
++  const importBatches = batches ?? [];
++
++  if (importBatches.length === 0) {
++    return [];
++  }
++
++  const batchIds = importBatches.map((batch) => batch.id);
++  const { data: transactions, error: transactionError } = await supabase
++    .from("transactions")
++    .select("id, import_batch_id")
++    .eq("user_id", userId)
++    .in("import_batch_id", batchIds)
++    .order("transaction_date", { ascending: true });
++
++  mapPostgrestError(transactionError, "Import transactions could not be loaded");
++
++  const rowCountByBatchId = new Map<string, number>();
++
++  for (const transaction of transactions ?? []) {
++    rowCountByBatchId.set(transaction.import_batch_id, (rowCountByBatchId.get(transaction.import_batch_id) ?? 0) + 1);
++  }
++
++  return sortImportBatchSummaries(
++    importBatches.map((batch) => toImportBatchSummary(batch, rowCountByBatchId.get(batch.id) ?? 0)),
++  );
++}
++
+ export async function updateTransactionCategoryAndMaybeRule(
+   supabase: ImportClient,
+   userId: string,
+@@ -384,6 +516,8 @@
+   inclusionStatus: TransactionInclusion,
+   options?: { saveRule?: boolean },
+ ) {
++  const currentTransaction = await loadOwnedTransaction(supabase, userId, transactionId);
++
+   if (categoryId) {
+     await ensureOwnedImportCategory(supabase, userId, categoryId);
+   }
+@@ -457,7 +591,20 @@
+     }
+   }
+ 
++  const hasPersistedChange = currentTransaction
++    ? currentTransaction.category_id !== categoryId ||
++      currentTransaction.inclusion_status !== inclusionStatus ||
++      currentTransaction.categorized_by_rule_id !== transaction.categorized_by_rule_id
++    : true;
++  const batchId = currentTransaction?.import_batch_id ?? transaction.import_batch_id;
++  const batch = batchId
++    ? hasPersistedChange
++      ? await trySyncBatchReviewStateAfterMutation(supabase, userId, batchId)
++      : await loadOwnedImportBatch(supabase, userId, batchId)
++    : null;
++
+   return {
++    batch,
+     rule,
+     transaction,
+   };
+@@ -467,11 +614,12 @@
+   supabase: ImportClient,
+   userId: string,
+   updates: ImportCategoryUpdatePayload["updates"],
+-) {
++): Promise<ImportCategoryUpdateResult> {
+   const activeCategories = await listActiveCategories(supabase, userId);
+   const activeCategoryIds = new Set(activeCategories.map((category) => category.id));
+   const updated: ImportedTransaction[] = [];
+   const failed: ImportCategoryUpdateFailure[] = [];
++  let touchedBatchId: string | null = null;
+ 
+   for (const update of updates) {
+     if (update.category_id && !activeCategoryIds.has(update.category_id)) {
+@@ -482,6 +630,17 @@
+       continue;
+     }
+ 
++    const currentTransaction = await loadOwnedTransaction(supabase, userId, update.transaction_id);
++    const hasPersistedChange = currentTransaction
++      ? currentTransaction.category_id !== update.category_id ||
++        currentTransaction.inclusion_status !== update.inclusion_status ||
++        currentTransaction.categorized_by_rule_id !== null
++      : true;
++
++    if (!hasPersistedChange) {
++      continue;
++    }
++
+     const { data: transaction, error } = await supabase
+       .from("transactions")
+       .update({
+@@ -503,21 +662,53 @@
+     }
+ 
+     updated.push(transaction);
++    touchedBatchId ??= currentTransaction?.import_batch_id ?? transaction.import_batch_id;
+   }
++
++  const batch = touchedBatchId ? await trySyncBatchReviewStateAfterMutation(supabase, userId, touchedBatchId) : null;
+ 
+   return {
++    batch,
+     failed,
+     updated,
+   };
+ }
+ 
+ async function loadOwnedTransaction(supabase: ImportClient, userId: string, transactionId: string) {
+-  const { data, error } = await supabase
+-    .from("transactions")
+-    .select("*")
+-    .eq("id", transactionId)
+-    .eq("user_id", userId)
+-    .single();
++  const transactionTable = supabase.from("transactions") as unknown as {
++    select?: (columns: string) => unknown;
++  };
++
++  if (typeof transactionTable.select !== "function") {
++    return null;
++  }
++
++  const selectChain = transactionTable.select("*") as {
++    eq?: (field: string, value: string) => unknown;
++  };
++
++  if (typeof selectChain.eq !== "function") {
++    return null;
++  }
++
++  const withIdFilter = selectChain.eq("id", transactionId) as {
++    eq?: (field: string, value: string) => unknown;
++    single?: () => Promise<{ data: ImportedTransaction | null; error: PostgrestError | null }>;
++  };
++
++  if (typeof withIdFilter.eq !== "function") {
++    return null;
++  }
++
++  const withOwnerFilter = withIdFilter.eq("user_id", userId) as {
++    single?: () => Promise<{ data: ImportedTransaction | null; error: PostgrestError | null }>;
++  };
++
++  if (typeof withOwnerFilter.single !== "function") {
++    return null;
++  }
++
++  const { data, error } = await withOwnerFilter.single();
+ 
+   mapPostgrestError(error, "Imported transaction was not found");
+ 
+@@ -571,6 +762,10 @@
+ 
+   const anchorTransaction = await loadOwnedTransaction(supabase, userId, payload.transaction_id);
+ 
++  if (!anchorTransaction) {
++    throw new ImportError("Imported transaction was not found", { status: 404, field: "transaction_id" });
++  }
++
+   const { data: rule, error: ruleError } = await supabase
+     .from("categorization_rules")
+     .upsert(
+@@ -647,9 +842,12 @@
+     });
+   }
+ 
++  const batch = await syncBatchReviewStateAfterMutation(supabase, userId, anchorTransaction.import_batch_id);
++
+   return {
+     anchor_transaction: attachRuleMetadata([savedAnchor], [rule])[0],
+     applied_transactions: attachRuleMetadata(appliedTransactions, [rule]),
++    batch,
+     match_count: matchingTransactions.length,
+     rule,
+     skipped_rows: skippedRows,
+Index: tests/import-review.test.ts
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/tests/import-review.test.ts b/tests/import-review.test.ts
+--- a/tests/import-review.test.ts	(revision 7d717e1945c1bc1ce4b898113d45765de63517d0)
++++ b/tests/import-review.test.ts	(date 1781353979729)
+@@ -5,10 +5,14 @@
+ import { describe, expect, it, vi } from "vitest";
+ import { ImportUploadForm } from "@/components/imports/ImportUploadForm";
+ import {
++  ImportWorkspace,
++  loadImportBatchDetail,
+   createImportReviewRule,
+   mergeImportedTransactions,
+   mergeImportedTransactionCategoryUpdates,
++  patchStoredBatchReviewStateMap,
+   saveImportCategoryChanges,
++  upsertImportBatchSummary,
+ } from "@/components/imports/ImportWorkspace";
+ import { ReviewCompletionBar } from "@/components/imports/ReviewCompletionBar";
+ import {
+@@ -29,7 +33,11 @@
+ import { createClient } from "@/lib/supabase";
+ import {
+   commitImportBatch,
++  listImportBatchSummaries,
+   markBatchReviewComplete,
++  sortImportBatchSummaries,
++  type ImportBatch,
++  type ImportBatchSummary,
+   type ImportedTransaction,
+   updateImportTransactionCategories,
+   updateTransactionCategoryAndMaybeRule,
+@@ -95,6 +103,20 @@
+     user_id: "user-1",
+   },
+ ];
++
++const reviewRuleBatch: ImportBatch = {
++  bank: "revolut",
++  created_at: "2026-05-30T08:00:00.000Z",
++  id: "batch-1",
++  imported_at: "2026-05-30T08:00:00.000Z",
++  period_end: "2026-05-29",
++  period_start: "2026-05-01",
++  review_completed_at: null,
++  source_filename: "revolut.csv",
++  statement_month: "2026-05-01",
++  updated_at: "2026-05-30T08:00:00.000Z",
++  user_id: "user-1",
++};
+ 
+ function createSelectChain(data: unknown, error: { code?: string; message: string } | null = null) {
+   return {
+@@ -474,6 +496,83 @@
+   };
+ }
+ 
++function buildImportHistorySupabaseStub() {
++  const batches: ImportBatch[] = [
++    {
++      bank: "revolut",
++      created_at: "2026-06-01T08:00:00.000Z",
++      id: "batch-complete",
++      imported_at: "2026-06-03T08:00:00.000Z",
++      period_end: "2026-05-31",
++      period_start: "2026-05-01",
++      review_completed_at: "2026-06-04T08:00:00.000Z",
++      source_filename: "complete.csv",
++      statement_month: "2026-05-01",
++      updated_at: "2026-06-03T08:00:00.000Z",
++      user_id: "user-1",
++    },
++    {
++      bank: "ing",
++      created_at: "2026-06-05T08:00:00.000Z",
++      id: "batch-pending-new",
++      imported_at: "2026-06-07T08:00:00.000Z",
++      period_end: "2026-06-30",
++      period_start: "2026-06-01",
++      review_completed_at: null,
++      source_filename: "pending-new.csv",
++      statement_month: "2026-06-01",
++      updated_at: "2026-06-07T08:00:00.000Z",
++      user_id: "user-1",
++    },
++    {
++      bank: "revolut",
++      created_at: "2026-06-04T08:00:00.000Z",
++      id: "batch-pending-old",
++      imported_at: "2026-06-05T08:00:00.000Z",
++      period_end: "2026-04-30",
++      period_start: "2026-04-01",
++      review_completed_at: null,
++      source_filename: "pending-old.csv",
++      statement_month: "2026-04-01",
++      updated_at: "2026-06-05T08:00:00.000Z",
++      user_id: "user-1",
++    },
++  ];
++  const transactions = [
++    { id: "tx-1", import_batch_id: "batch-complete", transaction_date: "2026-05-02", user_id: "user-1" },
++    { id: "tx-2", import_batch_id: "batch-complete", transaction_date: "2026-05-03", user_id: "user-1" },
++    { id: "tx-3", import_batch_id: "batch-pending-new", transaction_date: "2026-06-02", user_id: "user-1" },
++    { id: "tx-4", import_batch_id: "batch-pending-old", transaction_date: "2026-04-02", user_id: "user-1" },
++    { id: "tx-5", import_batch_id: "batch-pending-old", transaction_date: "2026-04-08", user_id: "user-1" },
++    { id: "tx-6", import_batch_id: "batch-pending-old", transaction_date: "2026-04-09", user_id: "user-1" },
++  ];
++
++  return {
++    from: vi.fn((table: string) => {
++      if (table === "statement_import_batches") {
++        return {
++          select: vi.fn().mockReturnValue({
++            eq: vi.fn().mockReturnThis(),
++            order: vi.fn().mockResolvedValue({ data: batches, error: null }),
++          }),
++        };
++      }
++
++      if (table === "transactions") {
++        return {
++          select: vi.fn().mockReturnValue({
++            eq: vi.fn().mockReturnThis(),
++            in: vi.fn().mockReturnThis(),
++            order: vi.fn().mockResolvedValue({ data: transactions, error: null }),
++          }),
++        };
++      }
++
++      throw new Error(`Unexpected table ${table}`);
++    }),
++  };
++}
++
+ const validRevolutCsv = readFileSync(
+   resolve(process.cwd(), "context/foundation/resources/revolut-statement-example.csv"),
+   "utf8",
+@@ -1011,6 +1110,66 @@
+     expect(batch.id).toBe("batch-existing");
+     expect(batch.review_completed_at).toEqual(expect.any(String));
+   });
++
++  it("lists import history with pending batches first, newest imports first, and row counts attached", async () => {
++    const supabase = buildImportHistorySupabaseStub();
++
++    await expect(listImportBatchSummaries(supabase as never, "user-1")).resolves.toEqual([
++      expect.objectContaining({
++        id: "batch-pending-new",
++        review_completed_at: null,
++        row_count: 1,
++      }),
++      expect.objectContaining({
++        id: "batch-pending-old",
++        review_completed_at: null,
++        row_count: 3,
++      }),
++      expect.objectContaining({
++        id: "batch-complete",
++        review_completed_at: "2026-06-04T08:00:00.000Z",
++        row_count: 2,
++      }),
++    ]);
++  });
++
++  it("sorts batch summaries with pending work ahead of completed history", () => {
++    const summaries: ImportBatchSummary[] = [
++      {
++        bank: "revolut",
++        id: "complete",
++        imported_at: "2026-06-01T08:00:00.000Z",
++        review_completed_at: "2026-06-02T08:00:00.000Z",
++        row_count: 2,
++        source_filename: "complete.csv",
++        statement_month: "2026-05-01",
++      },
++      {
++        bank: "ing",
++        id: "pending-new",
++        imported_at: "2026-06-04T08:00:00.000Z",
++        review_completed_at: null,
++        row_count: 4,
++        source_filename: "pending-new.csv",
++        statement_month: "2026-06-01",
++      },
++      {
++        bank: "revolut",
++        id: "pending-old",
++        imported_at: "2026-06-03T08:00:00.000Z",
++        review_completed_at: null,
++        row_count: 1,
++        source_filename: "pending-old.csv",
++        statement_month: "2026-04-01",
++      },
++    ];
++
++    expect(sortImportBatchSummaries(summaries).map((summary) => summary.id)).toEqual([
++      "pending-new",
++      "pending-old",
++      "complete",
++    ]);
++  });
+ });
+ 
+ describe("import API routes", () => {
+@@ -1577,6 +1736,7 @@
+           Promise.resolve({
+             anchor_transaction: reviewTransactions[0],
+             applied_transactions: [],
++            batch: reviewRuleBatch,
+             match_count: 0,
+             rule: {
+               id: "rule-1",
+@@ -1620,6 +1780,7 @@
+           Promise.resolve({
+             anchor_transaction: reviewTransactions[0],
+             applied_transactions: [],
++            batch: reviewRuleBatch,
+             match_count: 0,
+             rule: {
+               id: "rule-1",
+@@ -1662,6 +1823,7 @@
+           Promise.resolve({
+             anchor_transaction: reviewTransactions[0],
+             applied_transactions: [],
++            batch: reviewRuleBatch,
+             match_count: 0,
+             rule: {
+               id: "rule-1",
+@@ -1688,6 +1850,7 @@
+           Promise.resolve({
+             anchor_transaction: reviewTransactions[0],
+             applied_transactions: [],
++            batch: reviewRuleBatch,
+             match_count: 0,
+             rule: {
+               id: "rule-1",
+@@ -1728,6 +1891,7 @@
+           Promise.resolve({
+             anchor_transaction: reviewTransactions[0],
+             applied_transactions: [],
++            batch: reviewRuleBatch,
+             match_count: 0,
+             rule: {
+               id: "rule-1",
+@@ -1759,6 +1923,92 @@
+     expect(markup).toContain("Restore to budget");
+   });
+ 
++  it("keeps an included row visible until an exclusion draft is actually saved", () => {
++    const markup = renderToStaticMarkup(
++      createElement(TransactionReviewTable, {
++        categories: reviewCategories,
++        initialDrafts: {
++          "tx-draft-excluded": {
++            category_id: "cat-food",
++            inclusion_status: "excluded",
++          },
++        },
++        onCreateRuleFromReview: vi.fn(() =>
++          Promise.resolve({
++            anchor_transaction: reviewTransactions[0],
++            applied_transactions: [],
++            batch: reviewRuleBatch,
++            match_count: 0,
++            rule: {
++              id: "rule-1",
++              match_field: "recipient",
++              match_text: "Lidl Warszawa",
++              target_category_id: "cat-food",
++            },
++            skipped_rows: [],
++          }),
++        ),
++        onSaveCategoryChanges: vi.fn(() =>
++          Promise.resolve({
++            failed: [],
++            updated: [],
++          }),
++        ),
++        transactions: [
++          {
++            ...reviewTransactions[0],
++            id: "tx-draft-excluded",
++            title: "Pending exclusion",
++          },
++        ],
++      }),
++    );
++
++    expect(markup).toContain("Pending exclusion");
++    expect(markup).toContain("1 unsaved review change");
++    expect(markup).toContain("Save all changes");
++    expect(markup).not.toContain("Reveal excluded rows");
++  });
++
++  it("treats rows without a persisted inclusion status as included in the default table", () => {
++    const markup = renderToStaticMarkup(
++      createElement(TransactionReviewTable, {
++        categories: reviewCategories,
++        onCreateRuleFromReview: vi.fn(() =>
++          Promise.resolve({
++            anchor_transaction: reviewTransactions[0],
++            applied_transactions: [],
++            batch: reviewRuleBatch,
++            match_count: 0,
++            rule: {
++              id: "rule-1",
++              match_field: "recipient",
++              match_text: "Lidl Warszawa",
++              target_category_id: "cat-food",
++            },
++            skipped_rows: [],
++          }),
++        ),
++        onSaveCategoryChanges: vi.fn(() =>
++          Promise.resolve({
++            failed: [],
++            updated: [],
++          }),
++        ),
++        transactions: [
++          {
++            ...reviewTransactions[0],
++            inclusion_status: undefined as unknown as "included",
++            title: "Implicitly included row",
++          },
++        ],
++      }),
++    );
++
++    expect(markup).toContain("Implicitly included row");
++    expect(markup).toContain("1 included row in the default view");
++  });
++
+   it("builds review rule drafts with recipient as the default field and anchor text", () => {
+     expect(buildInitialReviewRuleDraft(reviewTransactions[1])).toEqual({
+       category_id: null,
+@@ -1804,6 +2054,7 @@
+           Promise.resolve({
+             anchor_transaction: reviewTransactions[0],
+             applied_transactions: [],
++            batch: reviewRuleBatch,
+             match_count: 0,
+             rule: {
+               id: "rule-1",
+@@ -1841,6 +2092,40 @@
+ });
+ 
+ describe("import workspace helpers", () => {
++  it("loads a selected batch through the new batch-detail route", async () => {
++    const fetchMock = vi.fn(() =>
++      Promise.resolve({
++        json: () =>
++          Promise.resolve({
++            batch: {
++              bank: "revolut",
++              created_at: "2026-06-01T08:00:00.000Z",
++              id: "batch-1",
++              imported_at: "2026-06-02T08:00:00.000Z",
++              period_end: "2026-05-31",
++              period_start: "2026-05-01",
++              review_completed_at: null,
++              source_filename: "statement.csv",
++              statement_month: "2026-05-01",
++              updated_at: "2026-06-02T08:00:00.000Z",
++              user_id: "user-1",
++            },
++            transactions: reviewTransactions,
++          }),
++        ok: true,
++      } satisfies Pick<Response, "json" | "ok">),
++    ) as unknown as typeof fetch;
++
++    await expect(loadImportBatchDetail("batch-1", fetchMock)).resolves.toMatchObject({
++      batch: {
++        id: "batch-1",
++      },
++      transactions: reviewTransactions,
++    });
++
++    expect(fetchMock).toHaveBeenCalledWith("/api/imports/batches/batch-1");
++  });
++
+   it("sends bulk category drafts to the bulk review endpoint", async () => {
+     const fetchMock = vi.fn(() =>
+       Promise.resolve({
+@@ -1925,6 +2210,7 @@
+           Promise.resolve({
+             anchor_transaction: reviewTransactions[0],
+             applied_transactions: [],
++            batch: reviewRuleBatch,
+             match_count: 1,
+             rule: {
+               id: "rule-1",
+@@ -2031,9 +2317,155 @@
+       }),
+     ]);
+   });
++
++  it("keeps stored draft state isolated per batch while merging updates by batch id", () => {
++    const initial = patchStoredBatchReviewStateMap({}, "batch-1", {
++      drafts: {
++        "tx-1": {
++          category_id: "cat-food",
++          inclusion_status: "included",
++        },
++      },
++      hasDirtyChanges: true,
++    });
++    const next = patchStoredBatchReviewStateMap(initial, "batch-2", {
++      drafts: {
++        "tx-2": {
++          category_id: "cat-travel",
++          inclusion_status: "excluded",
++        },
++      },
++      hasDirtyChanges: true,
++    });
++
++    expect(next["batch-1"]).toMatchObject({
++      drafts: {
++        "tx-1": {
++          category_id: "cat-food",
++          inclusion_status: "included",
++        },
++      },
++      hasDirtyChanges: true,
++    });
++    expect(next["batch-2"]).toMatchObject({
++      drafts: {
++        "tx-2": {
++          category_id: "cat-travel",
++          inclusion_status: "excluded",
++        },
++      },
++      hasDirtyChanges: true,
++    });
++  });
++
++  it("upserts batch history metadata and re-sorts pending work ahead of completed history", () => {
++    expect(
++      upsertImportBatchSummary(
++        [
++          {
++            bank: "revolut",
++            id: "batch-complete",
++            imported_at: "2026-06-02T08:00:00.000Z",
++            review_completed_at: "2026-06-03T08:00:00.000Z",
++            row_count: 2,
++            source_filename: "complete.csv",
++            statement_month: "2026-05-01",
++          },
++        ],
++        {
++          bank: "ing",
++          created_at: "2026-06-04T08:00:00.000Z",
++          id: "batch-pending",
++          imported_at: "2026-06-05T08:00:00.000Z",
++          period_end: "2026-06-30",
++          period_start: "2026-06-01",
++          review_completed_at: null,
++          source_filename: "pending.csv",
++          statement_month: "2026-06-01",
++          updated_at: "2026-06-05T08:00:00.000Z",
++          user_id: "user-1",
++        },
++        5,
++      ).map((summary) => summary.id),
++    ).toEqual(["batch-pending", "batch-complete"]);
++  });
+ });
+ 
+ describe("import UI", () => {
++  it("renders import history with a deliberate history-first empty state when no batch is active", () => {
++    const markup = renderToStaticMarkup(
++      createElement(ImportWorkspace, {
++        categories: reviewCategories,
++        initialBatch: null,
++        initialBatchSummaries: [
++          {
++            bank: "revolut",
++            id: "batch-1",
++            imported_at: "2026-06-02T08:00:00.000Z",
++            review_completed_at: null,
++            row_count: 2,
++            source_filename: "revolut.csv",
++            statement_month: "2026-05-01",
++          },
++        ],
++        initialTransactions: [],
++      }),
++    );
++
++    expect(markup).toContain("Import History");
++    expect(markup).toContain("Past bank-month batches");
++    expect(markup).toContain("Choose a batch from import history to reopen its review.");
++    expect(markup).toContain("revolut.csv");
++    expect(markup).not.toContain("Open now");
++  });
++
++  it("renders the active batch as selected inside import history", () => {
++    const activeBatch: ImportBatch = {
++      bank: "ing",
++      created_at: "2026-06-04T08:00:00.000Z",
++      id: "batch-active",
++      imported_at: "2026-06-05T08:00:00.000Z",
++      period_end: "2026-06-30",
++      period_start: "2026-06-01",
++      review_completed_at: null,
++      source_filename: "active.csv",
++      statement_month: "2026-06-01",
++      updated_at: "2026-06-05T08:00:00.000Z",
++      user_id: "user-1",
++    };
++    const markup = renderToStaticMarkup(
++      createElement(ImportWorkspace, {
++        categories: reviewCategories,
++        initialBatch: activeBatch,
++        initialBatchSummaries: [
++          {
++            bank: "ing",
++            id: "batch-active",
++            imported_at: "2026-06-05T08:00:00.000Z",
++            review_completed_at: null,
++            row_count: 2,
++            source_filename: "active.csv",
++            statement_month: "2026-06-01",
++          },
++          {
++            bank: "revolut",
++            id: "batch-old",
++            imported_at: "2026-06-01T08:00:00.000Z",
++            review_completed_at: "2026-06-02T08:00:00.000Z",
++            row_count: 1,
++            source_filename: "old.csv",
++            statement_month: "2026-05-01",
++          },
++        ],
++        initialTransactions: reviewTransactions,
++      }),
++    );
++
++    expect(markup).toContain("Open now");
++    expect(markup).toContain("Active Review");
++    expect(markup).toContain("active.csv");
++  });
++
+   it("renders a bank selector for Revolut and ING uploads", () => {
+     const markup = renderToStaticMarkup(
+       createElement(ImportUploadForm, {
+Index: src/pages/api/imports/transactions/rule.ts
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/pages/api/imports/transactions/rule.ts b/src/pages/api/imports/transactions/rule.ts
+--- a/src/pages/api/imports/transactions/rule.ts	(revision 7d717e1945c1bc1ce4b898113d45765de63517d0)
++++ b/src/pages/api/imports/transactions/rule.ts	(date 1781342111461)
+@@ -13,6 +13,7 @@
+       {
+         anchor_transaction: result.anchor_transaction,
+         applied_transactions: result.applied_transactions,
++        batch: result.batch,
+         match_count: result.match_count,
+         rule: result.rule,
+         skipped_rows: result.skipped_rows,
+Index: tests/monthly-summary-and-rules.test.ts
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/tests/monthly-summary-and-rules.test.ts b/tests/monthly-summary-and-rules.test.ts
+--- a/tests/monthly-summary-and-rules.test.ts	(revision 7d717e1945c1bc1ce4b898113d45765de63517d0)
++++ b/tests/monthly-summary-and-rules.test.ts	(date 1781345932212)
+@@ -589,6 +589,52 @@
+     expect(summary.category_rows.map((row) => row.reviewed_spend)).toEqual([0, 0]);
+   });
+ 
++  it("moves reopened completed batches back into incomplete-review spend until they are re-completed", async () => {
++    const supabase = buildSummarySupabaseStub({
++      selectedBatches: [
++        {
++          id: "batch-reopened",
++          user_id: "user-1",
++          bank: "revolut",
++          statement_month: "2026-05-01",
++          period_start: "2026-05-01",
++          period_end: "2026-05-29",
++          source_filename: "reopened.csv",
++          imported_at: "2026-05-31T12:00:00.000Z",
++          review_completed_at: null,
++          created_at: "2026-05-31T12:00:00.000Z",
++          updated_at: "2026-06-01T12:00:00.000Z",
++        },
++      ],
++      selectedTransactions: [
++        {
++          id: "tx-reopened",
++          user_id: "user-1",
++          import_batch_id: "batch-reopened",
++          amount: -95,
++          category_id: "cat-food",
++          recipient: "Lidl",
++          title: "Card payment",
++          inclusion_status: "included",
++          transaction_date: "2026-05-11",
++          created_at: "2026-05-11T00:00:00.000Z",
++          updated_at: "2026-06-01T12:00:00.000Z",
++        },
++      ],
++    });
++
++    const summary = await loadDashboardSummary(supabase as never, "user-1", "2026-05-01");
++
++    expect(summary.reviewed_categorized_spend).toBe(0);
++    expect(summary.incomplete_review_spend).toBe(95);
++    expect(summary.warning_batches).toEqual([
++      expect.objectContaining({
++        id: "batch-reopened",
++        source_filename: "reopened.csv",
++      }),
++    ]);
++  });
++
+   it("recomputes from live transactions and refreshes the cached snapshot on repeated loads", async () => {
+     const supabase = buildSummarySupabaseStub({
+       existingSummary: {
+Index: src/pages/api/imports/transactions/bulk.ts
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/pages/api/imports/transactions/bulk.ts b/src/pages/api/imports/transactions/bulk.ts
+--- a/src/pages/api/imports/transactions/bulk.ts	(revision 7d717e1945c1bc1ce4b898113d45765de63517d0)
++++ b/src/pages/api/imports/transactions/bulk.ts	(date 1781349089559)
+@@ -11,6 +11,7 @@
+ 
+     return importJson(
+       {
++        ...(result.batch ? { batch: result.batch } : {}),
+         failed: result.failed,
+         updated: result.updated,
+       },
+Index: src/components/imports/TransactionReviewTable.tsx
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/components/imports/TransactionReviewTable.tsx b/src/components/imports/TransactionReviewTable.tsx
+--- a/src/components/imports/TransactionReviewTable.tsx	(revision 7d717e1945c1bc1ce4b898113d45765de63517d0)
++++ b/src/components/imports/TransactionReviewTable.tsx	(date 1781353967842)
+@@ -2,6 +2,7 @@
+ import { Button } from "@/components/ui/button";
+ import type { BudgetCategory } from "@/lib/budget/data";
+ import type {
++  ImportBatch,
+   ImportCategoryUpdateFailure,
+   ImportedTransactionReviewRow,
+   ImportTransactionRuleSummary,
+@@ -22,6 +23,7 @@
+ }
+ 
+ export interface ImportCategorySaveResult {
++  batch?: ImportBatch | null;
+   failed: ImportCategoryUpdateFailure[];
+   updated: { category_id: string | null; id: string; inclusion_status: TransactionInclusion }[];
+ }
+@@ -41,21 +43,32 @@
+ export interface ImportReviewRuleActionResult {
+   anchor_transaction: ImportedTransactionReviewRow;
+   applied_transactions: ImportedTransactionReviewRow[];
++  batch: ImportBatch;
+   match_count: number;
+   rule: ImportTransactionRuleSummary;
+   skipped_rows: { reason: "dirty_draft"; transaction_id: string }[];
+ }
+ 
++export interface TransactionReviewTableState {
++  drafts: Partial<Record<string, TransactionReviewDraft>>;
++  errorById: Partial<Record<string, string>>;
++  ruleDraftById: Partial<Record<string, ImportReviewRuleDraft>>;
++  showExcludedRows: boolean;
++  successById: Partial<Record<string, string>>;
++}
++
+ interface Props {
+   categories: BudgetCategory[];
++  initialDrafts?: Partial<Record<string, TransactionReviewDraft>>;
++  initialRowErrors?: Partial<Record<string, string>>;
++  initialRuleDraftById?: Partial<Record<string, ImportReviewRuleDraft>>;
++  initialShowExcluded?: boolean;
++  initialSuccessById?: Partial<Record<string, string>>;
+   onCreateRuleFromReview: (payload: ImportReviewRuleActionPayload) => Promise<ImportReviewRuleActionResult>;
+   onDirtyStateChange?: (hasDirtyChanges: boolean) => void;
+   onSaveCategoryChanges: (updates: ImportCategoryDraftUpdate[]) => Promise<ImportCategorySaveResult>;
++  onStateChange?: (state: TransactionReviewTableState) => void;
+   transactions: ImportedTransactionReviewRow[];
+-  initialDrafts?: Partial<Record<string, TransactionReviewDraft>>;
+-  initialRowErrors?: Partial<Record<string, string>>;
+-  initialShowExcluded?: boolean;
+-  initialSuccessById?: Partial<Record<string, string>>;
+ }
+ 
+ function formatAmount(amount: number) {
+@@ -104,6 +117,10 @@
+   );
+ }
+ 
++function getPersistedInclusionState(transaction: ImportedTransactionReviewRow): TransactionInclusion {
++  return (transaction.inclusion_status as TransactionInclusion | undefined) ?? "included";
++}
++
+ export function buildInitialReviewRuleDraft(
+   transaction: ImportedTransactionReviewRow,
+   drafts: Partial<Record<string, TransactionReviewDraft>> = {},
+@@ -169,7 +186,10 @@
+       return [];
+     }
+ 
+-    if (transaction.category_id === draft.category_id && transaction.inclusion_status === draft.inclusion_status) {
++    if (
++      transaction.category_id === draft.category_id &&
++      getPersistedInclusionState(transaction) === draft.inclusion_status
++    ) {
+       return [];
+     }
+ 
+@@ -211,15 +231,19 @@
+   categories,
+   initialDrafts,
+   initialRowErrors,
++  initialRuleDraftById,
+   initialShowExcluded = false,
+   initialSuccessById,
+   onCreateRuleFromReview,
+   onDirtyStateChange,
+   onSaveCategoryChanges,
++  onStateChange,
+   transactions,
+ }: Props) {
+   const [drafts, setDrafts] = useState<Partial<Record<string, TransactionReviewDraft>>>(initialDrafts ?? {});
+-  const [ruleDraftById, setRuleDraftById] = useState<Partial<Record<string, ImportReviewRuleDraft>>>({});
++  const [ruleDraftById, setRuleDraftById] = useState<Partial<Record<string, ImportReviewRuleDraft>>>(
++    initialRuleDraftById ?? {},
++  );
+   const [ruleBusyId, setRuleBusyId] = useState<string | null>(null);
+   const [isSavingAll, setIsSavingAll] = useState(false);
+   const [error, setError] = useState<string | null>(null);
+@@ -229,16 +253,26 @@
+   const dirtyUpdates = buildDirtyCategoryUpdates(transactions, drafts);
+   const dirtyCount = dirtyUpdates.length;
+   const includedTransactions = transactions.filter(
+-    (transaction) => getDraftState(transaction, drafts, transaction.id).inclusion_status === "included",
++    (transaction) => getPersistedInclusionState(transaction) === "included",
+   );
+   const excludedTransactions = transactions.filter(
+-    (transaction) => getDraftState(transaction, drafts, transaction.id).inclusion_status === "excluded",
++    (transaction) => getPersistedInclusionState(transaction) === "excluded",
+   );
+ 
+   useEffect(() => {
+     onDirtyStateChange?.(dirtyCount > 0);
+   }, [dirtyCount, onDirtyStateChange]);
+ 
++  useEffect(() => {
++    onStateChange?.({
++      drafts,
++      errorById,
++      ruleDraftById,
++      showExcludedRows,
++      successById,
++    });
++  }, [drafts, errorById, onStateChange, ruleDraftById, showExcludedRows, successById]);
++
+   async function handleSaveAllChanges() {
+     if (dirtyUpdates.length === 0) {
+       return;
+@@ -462,7 +496,7 @@
+               const isDirty =
+                 currentDraft !== undefined &&
+                 (transaction.category_id !== draftState.category_id ||
+-                  transaction.inclusion_status !== draftState.inclusion_status);
++                  getPersistedInclusionState(transaction) !== draftState.inclusion_status);
+               const currentRuleDraft = ruleDraftById[transaction.id];
+               const ruleDraftCategoryId = currentRuleDraft?.category_id ?? draftState.category_id;
+               const previewRule =
+@@ -665,7 +699,7 @@
+                 const draftState = getDraftState(transaction, drafts, transaction.id);
+                 const isDirty =
+                   transaction.category_id !== draftState.category_id ||
+-                  transaction.inclusion_status !== draftState.inclusion_status;
++                  getPersistedInclusionState(transaction) !== draftState.inclusion_status;
+ 
+                 return (
+                   <tr key={transaction.id} className="rounded-3xl bg-slate-950/28">
+Index: tests/auth-and-ownership-boundaries.test.ts
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/tests/auth-and-ownership-boundaries.test.ts b/tests/auth-and-ownership-boundaries.test.ts
+--- a/tests/auth-and-ownership-boundaries.test.ts	(revision 7d717e1945c1bc1ce4b898113d45765de63517d0)
++++ b/tests/auth-and-ownership-boundaries.test.ts	(date 1781345885481)
+@@ -880,6 +880,8 @@
+   });
+ 
+   it("keeps foreign import batch review loads and completion hidden behind not-found behavior", async () => {
++    const detailRoute: typeof import("@/pages/api/imports/batches/[id]") =
++      await import("@/pages/api/imports/batches/[id]");
+     const completeRoute: typeof import("@/pages/api/imports/batches/[id]/complete") =
+       await import("@/pages/api/imports/batches/[id]/complete");
+     const supabase = createOwnershipSupabaseStub();
+@@ -887,6 +889,18 @@
+ 
+     await expect(loadImportBatchReview(supabase as never, USER_A.id, "batch-2")).rejects.toThrow(/not found/i);
+ 
++    const detailResponse = await detailRoute.GET({
++      ...authenticatedContext(USER_A),
++      params: { id: "batch-2" },
++      request: new Request("http://localhost/api/imports/batches/batch-2"),
++    } as never);
++
++    expect(detailResponse.status).toBe(404);
++    await expect(readJson<{ error: string; field: string | null }>(detailResponse)).resolves.toEqual({
++      error: "Import batch was not found",
++      field: null,
++    });
++
+     const response = await completeRoute.POST({
+       ...authenticatedContext(USER_A),
+       params: { id: "batch-2" },
+Index: src/pages/api/imports/transactions/[id].ts
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/pages/api/imports/transactions/[id].ts b/src/pages/api/imports/transactions/[id].ts
+--- a/src/pages/api/imports/transactions/[id].ts	(revision 7d717e1945c1bc1ce4b898113d45765de63517d0)
++++ b/src/pages/api/imports/transactions/[id].ts	(date 1781349089615)
+@@ -21,6 +21,7 @@
+ 
+     return importJson(
+       {
++        ...(result.batch ? { batch: result.batch } : {}),
+         rule: result.rule,
+         transaction: result.transaction,
+       },
+Index: tests/review-persistence-and-rule-application.test.ts
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/tests/review-persistence-and-rule-application.test.ts b/tests/review-persistence-and-rule-application.test.ts
+--- a/tests/review-persistence-and-rule-application.test.ts	(revision 7d717e1945c1bc1ce4b898113d45765de63517d0)
++++ b/tests/review-persistence-and-rule-application.test.ts	(date 1781351186527)
+@@ -597,7 +597,11 @@
+       { category_id: "cat-housing", inclusion_status: "included", transaction_id: "tx-2" },
+     ]);
+ 
+-    expect(result).toEqual({
++    expect(result.batch).toMatchObject({
++      id: "batch-1",
++      review_completed_at: null,
++    });
++    expect(result).toMatchObject({
+       failed: [
+         {
+           error: "Imported transaction was not found",
+@@ -674,7 +678,17 @@
+     );
+ 
+     expect(response.status).toBe(200);
+-    expect(await response.json()).toEqual({
++    const payload = (await response.json()) as {
++      batch: ImportBatch;
++      failed: { error: string; transaction_id: string }[];
++      updated: { category_id: string | null; id: string }[];
++    };
++
++    expect(payload.batch).toMatchObject({
++      id: "batch-1",
++      review_completed_at: null,
++    });
++    expect(payload).toMatchObject({
+       failed: [
+         {
+           error: "Imported transaction was not found",
+Index: src/components/imports/ImportWorkspace.tsx
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/src/components/imports/ImportWorkspace.tsx b/src/components/imports/ImportWorkspace.tsx
+--- a/src/components/imports/ImportWorkspace.tsx	(revision 7d717e1945c1bc1ce4b898113d45765de63517d0)
++++ b/src/components/imports/ImportWorkspace.tsx	(date 1781351044233)
+@@ -1,6 +1,4 @@
+-import { startTransition, useState } from "react";
+-import type { BudgetCategory } from "@/lib/budget/data";
+-import type { ImportBatch, ImportedTransactionReviewRow } from "@/lib/imports/data";
++import { useMemo, useState } from "react";
+ import { ImportUploadForm, type ImportPreviewPayload } from "@/components/imports/ImportUploadForm";
+ import { ReviewCompletionBar } from "@/components/imports/ReviewCompletionBar";
+ import {
+@@ -9,11 +7,16 @@
+   type ImportCategorySaveResult,
+   type ImportReviewRuleActionPayload,
+   type ImportReviewRuleActionResult,
++  type TransactionReviewTableState,
+ } from "@/components/imports/TransactionReviewTable";
++import type { BudgetCategory } from "@/lib/budget/data";
++import type { ImportBatch, ImportBatchSummary, ImportedTransactionReviewRow } from "@/lib/imports/data";
++import { sortImportBatchSummaries, toImportBatchSummary } from "@/lib/imports/data";
+ 
+ interface Props {
+   categories: BudgetCategory[];
+   initialBatch: ImportBatch | null;
++  initialBatchSummaries: ImportBatchSummary[];
+   initialTransactions: ImportedTransactionReviewRow[];
+ }
+ 
+@@ -23,6 +26,12 @@
+   transactions: ImportedTransactionReviewRow[];
+ }
+ 
++interface BatchDetailResponse {
++  batch?: ImportBatch;
++  error?: string;
++  transactions?: ImportedTransactionReviewRow[];
++}
++
+ interface BulkCategorySaveResponse extends ImportCategorySaveResult {
+   error?: string;
+ }
+@@ -31,16 +40,118 @@
+   error?: string;
+ }
+ 
++interface BatchDetailState {
++  batch: ImportBatch;
++  transactions: ImportedTransactionReviewRow[];
++}
++
++export interface StoredBatchReviewState extends TransactionReviewTableState {
++  hasDirtyChanges: boolean;
++}
++
++function formatImportedAt(value: string) {
++  return new Intl.DateTimeFormat("en-US", {
++    day: "numeric",
++    month: "short",
++    year: "numeric",
++  }).format(new Date(value));
++}
++
++function formatStatementMonth(value: string) {
++  return new Intl.DateTimeFormat("en-US", {
++    month: "long",
++    year: "numeric",
++    timeZone: "UTC",
++  }).format(new Date(`${value}T00:00:00.000Z`));
++}
++
++function createEmptyStoredBatchReviewState(): StoredBatchReviewState {
++  return {
++    drafts: {},
++    errorById: {},
++    hasDirtyChanges: false,
++    ruleDraftById: {},
++    showExcludedRows: false,
++    successById: {},
++  };
++}
++
++export function getStoredBatchReviewState(
++  stateByBatchId: Partial<Record<string, StoredBatchReviewState>>,
++  batchId: string,
++): StoredBatchReviewState {
++  return stateByBatchId[batchId] ?? createEmptyStoredBatchReviewState();
++}
++
++export function patchStoredBatchReviewStateMap(
++  current: Partial<Record<string, StoredBatchReviewState>>,
++  batchId: string,
++  nextState: Partial<StoredBatchReviewState>,
++) {
++  return {
++    ...current,
++    [batchId]: {
++      ...getStoredBatchReviewState(current, batchId),
++      ...nextState,
++    },
++  };
++}
++
++function syncBatchQueryParam(batchId: string | null) {
++  if (typeof window === "undefined") {
++    return;
++  }
++
++  const nextUrl = new URL(window.location.href);
++
++  if (batchId) {
++    nextUrl.searchParams.set("batch", batchId);
++  } else {
++    nextUrl.searchParams.delete("batch");
++  }
++
++  window.history.replaceState({}, "", nextUrl);
++}
++
++function didReopenBatch(previousBatch: ImportBatch | null, nextBatch: ImportBatch | null) {
++  return Boolean(previousBatch?.review_completed_at && nextBatch && !nextBatch.review_completed_at);
++}
++
++export function upsertImportBatchSummary(
++  summaries: ImportBatchSummary[],
++  batch: ImportBatch,
++  rowCount: number,
++): ImportBatchSummary[] {
++  const nextSummary = toImportBatchSummary(batch, rowCount);
++  const withoutCurrent = summaries.filter((summary) => summary.id !== batch.id);
++
++  return sortImportBatchSummaries([...withoutCurrent, nextSummary]);
++}
++
++export async function loadImportBatchDetail(batchId: string, fetchFn: typeof fetch = fetch): Promise<BatchDetailState> {
++  const response = await fetchFn(`/api/imports/batches/${batchId}`);
++  const payload = (await response.json()) as BatchDetailResponse;
++
++  if (!response.ok || !payload.batch || !payload.transactions) {
++    throw new Error(payload.error ?? "Could not load this import batch");
++  }
++
++  return {
++    batch: payload.batch,
++    transactions: payload.transactions,
++  };
++}
++
+ export async function saveImportCategoryChanges(
+   updates: ImportCategoryDraftUpdate[],
+   fetchFn: typeof fetch = fetch,
+ ): Promise<ImportCategorySaveResult> {
+   const response = await fetchFn("/api/imports/transactions/bulk", {
+-    method: "PATCH",
++    body: JSON.stringify({ updates }),
+     headers: {
+       "content-type": "application/json",
+     },
+-    body: JSON.stringify({ updates }),
++    method: "PATCH",
+   });
+   const payload = (await response.json()) as BulkCategorySaveResponse;
+ 
+@@ -48,6 +159,14 @@
+     throw new Error(payload.error ?? "Could not save these category changes");
+   }
+ 
++  if (payload.batch) {
++    return {
++      batch: payload.batch,
++      failed: payload.failed,
++      updated: payload.updated,
++    };
++  }
++
+   return {
+     failed: payload.failed,
+     updated: payload.updated,
+@@ -59,11 +178,11 @@
+   fetchFn: typeof fetch = fetch,
+ ): Promise<ImportReviewRuleActionResult> {
+   const response = await fetchFn("/api/imports/transactions/rule", {
+-    method: "POST",
++    body: JSON.stringify(payload),
+     headers: {
+       "content-type": "application/json",
+     },
+-    body: JSON.stringify(payload),
++    method: "POST",
+   });
+   const body = (await response.json()) as CreateReviewRuleResponse;
+ 
+@@ -110,21 +229,59 @@
+     return {
+       ...transaction,
+       category_id: nextUpdate.category_id,
+-      inclusion_status: nextUpdate.inclusion_status,
+       category_rule: null,
+       categorized_by_rule_id: null,
++      inclusion_status: nextUpdate.inclusion_status,
+     };
+   });
+ }
+ 
+-export function ImportWorkspace({ categories, initialBatch, initialTransactions }: Props) {
++export function ImportWorkspace({ categories, initialBatch, initialBatchSummaries, initialTransactions }: Props) {
+   const [preview, setPreview] = useState<ImportPreviewPayload | null>(null);
+-  const [batch, setBatch] = useState(initialBatch);
+-  const [transactions, setTransactions] = useState(initialTransactions);
++  const [batchDetailsById, setBatchDetailsById] = useState<Partial<Record<string, BatchDetailState>>>(
++    initialBatch
++      ? {
++          [initialBatch.id]: {
++            batch: initialBatch,
++            transactions: initialTransactions,
++          },
++        }
++      : {},
++  );
++  const [batchSummaries, setBatchSummaries] = useState(initialBatchSummaries);
++  const [activeBatchId, setActiveBatchId] = useState<string | null>(initialBatch?.id ?? null);
+   const [error, setError] = useState<string | null>(null);
+-  const [hasDirtyReviewChanges, setHasDirtyReviewChanges] = useState(false);
++  const [loadingBatchId, setLoadingBatchId] = useState<string | null>(null);
+   const [notice, setNotice] = useState<string | null>(null);
+   const [isCommitting, setIsCommitting] = useState(false);
++  const [reviewStateByBatchId, setReviewStateByBatchId] = useState<Partial<Record<string, StoredBatchReviewState>>>({});
++
++  const activeDetail = activeBatchId ? (batchDetailsById[activeBatchId] ?? null) : null;
++  const activeReviewState = activeBatchId ? getStoredBatchReviewState(reviewStateByBatchId, activeBatchId) : null;
++  const hasDirtyReviewChanges = activeReviewState?.hasDirtyChanges ?? false;
++  const historyCount = batchSummaries.length;
++
++  const activeSummary = useMemo(
++    () => batchSummaries.find((summary) => summary.id === activeBatchId) ?? null,
++    [activeBatchId, batchSummaries],
++  );
++
++  function patchStoredBatchReviewState(batchId: string, nextState: Partial<StoredBatchReviewState>) {
++    setReviewStateByBatchId((current) => patchStoredBatchReviewStateMap(current, batchId, nextState));
++  }
++
++  function updateActiveBatch(batch: ImportBatch, transactions: ImportedTransactionReviewRow[]) {
++    setBatchDetailsById((current) => ({
++      ...current,
++      [batch.id]: {
++        batch,
++        transactions,
++      },
++    }));
++    setBatchSummaries((current) => upsertImportBatchSummary(current, batch, transactions.length));
++    setActiveBatchId(batch.id);
++    syncBatchQueryParam(batch.id);
++  }
+ 
+   async function handleCommit(confirmReplace: boolean) {
+     if (!preview) {
+@@ -137,10 +294,6 @@
+ 
+     try {
+       const response = await fetch("/api/imports/commit", {
+-        method: "POST",
+-        headers: {
+-          "content-type": "application/json",
+-        },
+         body: JSON.stringify({
+           bank: preview.bank,
+           confirm_replace: confirmReplace,
+@@ -150,6 +303,10 @@
+           statement_month: preview.statement_month,
+           transactions: preview.transactions,
+         }),
++        headers: {
++          "content-type": "application/json",
++        },
++        method: "POST",
+       });
+       const payload = (await response.json()) as CommitPayload & { error?: string };
+ 
+@@ -157,16 +314,17 @@
+         throw new Error(payload.error ?? "Could not save this import batch");
+       }
+ 
+-      startTransition(() => {
+-        setBatch(payload.batch);
+-        setTransactions(payload.transactions);
+-        setPreview(null);
+-        setNotice(
+-          payload.replaced
+-            ? "Existing batch replaced. Review the new transactions below."
+-            : "Import batch saved. Review the transactions below.",
+-        );
+-      });
++      updateActiveBatch(payload.batch, payload.transactions);
++      setPreview(null);
++      setReviewStateByBatchId((current) => ({
++        ...current,
++        [payload.batch.id]: createEmptyStoredBatchReviewState(),
++      }));
++      setNotice(
++        payload.replaced
++          ? "Existing batch replaced. Review the new transactions below."
++          : "Import batch saved. Review the transactions below.",
++      );
+     } catch (commitError) {
+       setError(commitError instanceof Error ? commitError.message : "Could not save this import batch");
+     } finally {
+@@ -174,18 +332,54 @@
+     }
+   }
+ 
++  async function handleSelectBatch(batchId: string) {
++    if (batchId === activeBatchId) {
++      syncBatchQueryParam(batchId);
++      return;
++    }
++
++    setError(null);
++
++    if (batchDetailsById[batchId]) {
++      setActiveBatchId(batchId);
++      syncBatchQueryParam(batchId);
++      return;
++    }
++
++    setLoadingBatchId(batchId);
++
++    try {
++      const detail = await loadImportBatchDetail(batchId);
++
++      setBatchDetailsById((current) => ({
++        ...current,
++        [batchId]: detail,
++      }));
++      setActiveBatchId(batchId);
++      syncBatchQueryParam(batchId);
++    } catch (loadError) {
++      setError(loadError instanceof Error ? loadError.message : "Could not load this import batch");
++    } finally {
++      setLoadingBatchId(null);
++    }
++  }
++
+   async function handleSaveCategoryChanges(updates: ImportCategoryDraftUpdate[]): Promise<ImportCategorySaveResult> {
++    const currentDetail = activeDetail;
+     const result = await saveImportCategoryChanges(updates);
+ 
+-    if (result.updated.length > 0) {
+-      startTransition(() => {
+-        setTransactions((current) => mergeImportedTransactionCategoryUpdates(current, result.updated));
+-        setNotice(
+-          result.failed.length > 0
++    if (currentDetail && result.updated.length > 0) {
++      const nextBatch = result.batch ?? currentDetail.batch;
++      const nextTransactions = mergeImportedTransactionCategoryUpdates(currentDetail.transactions, result.updated);
++
++      updateActiveBatch(nextBatch, nextTransactions);
++      setNotice(
++        didReopenBatch(currentDetail.batch, nextBatch)
++          ? "Saved changes reopened this batch. Mark it complete again after review."
++          : result.failed.length > 0
+             ? "Some review changes were saved, and some still need attention."
+             : "Review changes saved.",
+-        );
+-      });
++      );
+     }
+ 
+     return result;
+@@ -194,29 +388,34 @@
+   async function handleCreateRuleFromReview(
+     payload: ImportReviewRuleActionPayload,
+   ): Promise<ImportReviewRuleActionResult> {
++    const currentDetail = activeDetail;
+     const result = await createImportReviewRule(payload);
+     const updates = [result.anchor_transaction, ...result.applied_transactions];
+ 
+-    startTransition(() => {
+-      setTransactions((current) => mergeImportedTransactions(current, updates));
++    if (currentDetail) {
++      const nextTransactions = mergeImportedTransactions(currentDetail.transactions, updates);
++
++      updateActiveBatch(result.batch, nextTransactions);
+       setNotice(
+-        payload.apply_now
+-          ? result.applied_transactions.length > 0
+-            ? `Rule saved and applied to ${result.applied_transactions.length} current-batch row${result.applied_transactions.length === 1 ? "" : "s"}.`
+-            : "Rule saved. No additional persisted rows needed updates."
+-          : `Rule saved. ${result.match_count} additional matching row${result.match_count === 1 ? "" : "s"} available in this batch.`,
++        didReopenBatch(currentDetail.batch, result.batch)
++          ? "Rule changes reopened this batch. Mark it complete again after review."
++          : payload.apply_now
++            ? result.applied_transactions.length > 0
++              ? `Rule saved and applied to ${result.applied_transactions.length} current-batch row${result.applied_transactions.length === 1 ? "" : "s"}.`
++              : "Rule saved. No additional persisted rows needed updates."
++            : `Rule saved. ${result.match_count} additional matching row${result.match_count === 1 ? "" : "s"} available in this batch.`,
+       );
+-    });
++    }
+ 
+     return result;
+   }
+ 
+   async function handleCompleteReview() {
+-    if (!batch || hasDirtyReviewChanges) {
++    if (!activeDetail || hasDirtyReviewChanges) {
+       return;
+     }
+ 
+-    const response = await fetch(`/api/imports/batches/${batch.id}/complete`, {
++    const response = await fetch(`/api/imports/batches/${activeDetail.batch.id}/complete`, {
+       method: "POST",
+     });
+     const payload = (await response.json()) as { batch?: ImportBatch; error?: string };
+@@ -225,10 +424,8 @@
+       throw new Error(payload.error ?? "Could not mark this review complete");
+     }
+ 
+-    startTransition(() => {
+-      setBatch(payload.batch ?? null);
+-      setNotice("Review marked complete.");
+-    });
++    updateActiveBatch(payload.batch ?? activeDetail.batch, activeDetail.transactions);
++    setNotice("Review marked complete.");
+   }
+ 
+   return (
+@@ -261,30 +458,161 @@
+         </div>
+       )}
+ 
+-      {batch ? (
++      <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
++        <aside className="rounded-[28px] border border-white/12 bg-white/8 p-5 shadow-[0_20px_70px_rgba(2,6,23,0.35)] backdrop-blur-xl">
++          <div className="flex items-center justify-between gap-3">
++            <div>
++              <p className="text-xs font-semibold tracking-[0.28em] text-cyan-200/70 uppercase">Import History</p>
++              <h2 className="mt-2 text-2xl font-semibold text-white">Past bank-month batches</h2>
++            </div>
++            <div className="rounded-full border border-white/12 bg-slate-950/35 px-3 py-1 text-xs text-slate-200">
++              {historyCount} batch{historyCount === 1 ? "" : "es"}
++            </div>
++          </div>
++
++          {batchSummaries.length > 0 ? (
++            <div className="mt-5 space-y-3">
++              {batchSummaries.map((summary) => {
++                const isActive = summary.id === activeBatchId;
++                const storedState = getStoredBatchReviewState(reviewStateByBatchId, summary.id);
++                const isLoading = loadingBatchId === summary.id;
++
++                return (
++                  <button
++                    key={summary.id}
++                    type="button"
++                    onClick={() => {
++                      void handleSelectBatch(summary.id);
++                    }}
++                    className={`w-full rounded-3xl border px-4 py-4 text-left transition ${
++                      isActive
++                        ? "border-cyan-200/55 bg-cyan-200/12 shadow-[0_18px_40px_rgba(34,211,238,0.12)]"
++                        : "border-white/10 bg-slate-950/30 hover:border-white/20 hover:bg-slate-950/45"
++                    }`}
++                  >
++                    <div className="flex items-start justify-between gap-3">
++                      <div>
++                        <p className="text-xs font-semibold tracking-[0.2em] text-slate-300 uppercase">
++                          {summary.bank}
++                        </p>
++                        <h3 className="mt-2 text-lg font-semibold text-white">
++                          {formatStatementMonth(summary.statement_month)}
++                        </h3>
++                        <p className="mt-1 text-sm text-slate-300">{summary.source_filename}</p>
++                      </div>
++                      <span
++                        className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${
++                          summary.review_completed_at
++                            ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"
++                            : "border-amber-300/25 bg-amber-300/10 text-amber-100"
++                        }`}
++                      >
++                        {summary.review_completed_at ? "Review complete" : "Pending review"}
++                      </span>
++                    </div>
++
++                    <div className="mt-4 flex flex-wrap gap-3 text-xs text-slate-300">
++                      <span>
++                        {summary.row_count} row{summary.row_count === 1 ? "" : "s"}
++                      </span>
++                      <span>Imported {formatImportedAt(summary.imported_at)}</span>
++                    </div>
++
++                    {(storedState.hasDirtyChanges || isActive || isLoading) && (
++                      <div className="mt-3 flex flex-wrap gap-2 text-xs">
++                        {storedState.hasDirtyChanges && (
++                          <span className="rounded-full border border-cyan-200/25 bg-cyan-200/10 px-2.5 py-1 text-cyan-100">
++                            Drafts in browser
++                          </span>
++                        )}
++                        {isActive && (
++                          <span className="rounded-full border border-white/12 bg-white/10 px-2.5 py-1 text-white">
++                            Open now
++                          </span>
++                        )}
++                        {isLoading && (
++                          <span className="rounded-full border border-white/12 bg-white/10 px-2.5 py-1 text-white">
++                            Loading...
++                          </span>
++                        )}
++                      </div>
++                    )}
++                  </button>
++                );
++              })}
++            </div>
++          ) : (
++            <div className="mt-5 rounded-3xl border border-dashed border-white/12 bg-slate-950/25 px-4 py-6 text-sm text-slate-300">
++              No import history yet. Save your first supported CSV above to start a review batch.
++            </div>
++          )}
++        </aside>
++
+         <div className="space-y-6">
+-          <ReviewCompletionBar
+-            batch={batch}
+-            completionBlockedReason={
+-              hasDirtyReviewChanges ? "Save or discard review changes before marking this review complete." : null
+-            }
+-            isCompletionBlocked={hasDirtyReviewChanges}
+-            transactionCount={transactions.length}
+-            onComplete={handleCompleteReview}
+-          />
+-          <TransactionReviewTable
+-            categories={categories}
+-            onCreateRuleFromReview={handleCreateRuleFromReview}
+-            onDirtyStateChange={setHasDirtyReviewChanges}
+-            onSaveCategoryChanges={handleSaveCategoryChanges}
+-            transactions={transactions}
+-          />
+-        </div>
+-      ) : (
+-        <section className="rounded-[28px] border border-dashed border-white/15 bg-white/5 px-6 py-10 text-center text-sm text-slate-300">
+-          Choose a supported bank and upload its CSV preview above to create the first review batch.
+-        </section>
+-      )}
++          {activeDetail ? (
++            <>
++              <div className="rounded-[28px] border border-white/12 bg-slate-950/35 px-5 py-4 text-sm text-slate-200 shadow-[0_20px_70px_rgba(2,6,23,0.3)] backdrop-blur-xl">
++                <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
++                  <div>
++                    <p className="text-xs font-semibold tracking-[0.24em] text-cyan-200/70 uppercase">Active Review</p>
++                    <p className="mt-2 text-lg font-semibold text-white">
++                      {formatStatementMonth(activeDetail.batch.statement_month)} | {activeDetail.batch.bank}
++                    </p>
++                  </div>
++                  {activeSummary && (
++                    <div className="rounded-full border border-white/12 bg-white/8 px-4 py-2 text-xs text-slate-200">
++                      {activeSummary.row_count} imported row{activeSummary.row_count === 1 ? "" : "s"}
++                    </div>
++                  )}
++                </div>
++                {hasDirtyReviewChanges && (
++                  <p className="mt-3 text-sm text-cyan-100">
++                    Unsaved draft changes for this batch stay in this browser session while you switch between batches.
++                  </p>
++                )}
++              </div>
++
++              <ReviewCompletionBar
++                batch={activeDetail.batch}
++                completionBlockedReason={
++                  hasDirtyReviewChanges ? "Save or discard review changes before marking this review complete." : null
++                }
++                isCompletionBlocked={hasDirtyReviewChanges}
++                transactionCount={activeDetail.transactions.length}
++                onComplete={handleCompleteReview}
++              />
++              <TransactionReviewTable
++                key={activeDetail.batch.id}
++                categories={categories}
++                initialDrafts={activeReviewState?.drafts}
++                initialRowErrors={activeReviewState?.errorById}
++                initialRuleDraftById={activeReviewState?.ruleDraftById}
++                initialShowExcluded={activeReviewState?.showExcludedRows}
++                initialSuccessById={activeReviewState?.successById}
++                onCreateRuleFromReview={handleCreateRuleFromReview}
++                onDirtyStateChange={(hasDirtyChanges) => {
++                  patchStoredBatchReviewState(activeDetail.batch.id, { hasDirtyChanges });
++                }}
++                onSaveCategoryChanges={handleSaveCategoryChanges}
++                onStateChange={(state) => {
++                  patchStoredBatchReviewState(activeDetail.batch.id, state);
++                }}
++                transactions={activeDetail.transactions}
++              />
++            </>
++          ) : (
++            <section className="rounded-[28px] border border-dashed border-white/15 bg-white/5 px-6 py-10 text-center text-sm text-slate-300">
++              <p className="text-base font-semibold text-white">
++                Choose a batch from import history to reopen its review.
++              </p>
++              <p className="mt-3">
++                Keep this pane empty until you intentionally pick an older batch, or import a new statement above to
++                start another bank-month review.
++              </p>
++            </section>
++          )}
++        </div>
++      </div>
+     </div>
+   );
+ }
