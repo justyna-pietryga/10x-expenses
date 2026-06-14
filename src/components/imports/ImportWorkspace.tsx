@@ -1,6 +1,6 @@
 import { startTransition, useState } from "react";
 import type { BudgetCategory } from "@/lib/budget/data";
-import type { ImportBatch, ImportedTransactionReviewRow } from "@/lib/imports/data";
+import type { ImportBatch, ImportBatchHistorySummary, ImportedTransactionReviewRow } from "@/lib/imports/data";
 import { ImportUploadForm, type ImportPreviewPayload } from "@/components/imports/ImportUploadForm";
 import { ReviewCompletionBar } from "@/components/imports/ReviewCompletionBar";
 import {
@@ -14,6 +14,8 @@ import {
 interface Props {
   categories: BudgetCategory[];
   initialBatch: ImportBatch | null;
+  initialHistory?: ImportBatchHistorySummary[];
+  initialSelectedBatchId?: string | null;
   initialTransactions: ImportedTransactionReviewRow[];
 }
 

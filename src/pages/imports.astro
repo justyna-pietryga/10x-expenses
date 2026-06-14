@@ -4,34 +4,57 @@ import Topbar from "@/components/Topbar.astro";
 import { ImportWorkspace } from "@/components/imports/ImportWorkspace";
 import { listActiveCategories, type BudgetCategory } from "@/lib/budget/data";
 import {
+  listImportBatchHistory,
+  loadDefaultImportBatchReview,
   loadImportBatchReview,
-  loadLatestImportBatchReview,
+  type ImportBatchHistorySummary,
   type ImportBatch,
   type ImportedTransactionReviewRow,
 } from "@/lib/imports/data";
+import { isImportError } from "@/lib/imports/errors";
 import { createClient } from "@/lib/supabase";
 
 const { user } = Astro.locals;
-const selectedBatchId = Astro.url.searchParams.get("batch");
+const requestedBatchId = Astro.url.searchParams.get("batch");
 const supabase = createClient(Astro.request.headers, Astro.cookies);
 
 let categories: BudgetCategory[] = [];
 let batch: ImportBatch | null = null;
+let history: ImportBatchHistorySummary[] = [];
 let transactions: ImportedTransactionReviewRow[] = [];
 let loadError: string | null = null;
+let loadNotice: string | null = null;
+let selectedBatchId: string | null = null;
 
 if (supabase && user) {
   try {
-    const [activeCategories, review] = await Promise.all([
+    const [activeCategories, importHistory] = await Promise.all([
       listActiveCategories(supabase, user.id),
-      selectedBatchId
-        ? loadImportBatchReview(supabase, user.id, selectedBatchId)
-        : loadLatestImportBatchReview(supabase, user.id),
+      listImportBatchHistory(supabase, user.id),
     ]);
 
     categories = activeCategories;
+    history = importHistory;
+
+    let review = null;
+
+    if (requestedBatchId) {
+      try {
+        review = await loadImportBatchReview(supabase, user.id, requestedBatchId);
+      } catch (error) {
+        if (!isImportError(error) || error.status !== 404) {
+          throw error;
+        }
+
+        loadNotice = "The requested import batch is unavailable. Showing your latest available review instead.";
+      }
+    }
+
+    review ??= await loadDefaultImportBatchReview(supabase, user.id);
+
     batch = review?.batch ?? null;
     transactions = review?.transactions ?? [];
+    selectedBatchId = review?.batch.id ?? null;
   } catch (error) {
     loadError = error instanceof Error ? error.message : "Could not load import workspace";
   }
@@ -89,10 +112,17 @@ if (supabase && user) {
               </div>
             ) : (
               <div class="mt-8">
+                {loadNotice ? (
+                  <div class="mb-4 rounded-3xl border border-amber-300/25 bg-amber-300/10 px-5 py-4 text-sm text-amber-50">
+                    {loadNotice}
+                  </div>
+                ) : null}
                 <ImportWorkspace
                   client:load
                   categories={categories}
                   initialBatch={batch}
+                  initialHistory={history}
+                  initialSelectedBatchId={selectedBatchId}
                   initialTransactions={transactions}
                 />
               </div>

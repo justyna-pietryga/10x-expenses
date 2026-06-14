@@ -6,6 +6,8 @@ import { updateCategory, type BudgetCategory, type MonthlyIncome } from "@/lib/b
 import { createRule, deleteRule, listRules, updateRule, type CategorizationRule } from "@/lib/rules/data";
 import { loadDashboardSummary } from "@/lib/summary/data";
 import {
+  listImportBatchHistory,
+  loadDefaultImportBatchReview,
   loadImportBatchReview,
   markBatchReviewComplete,
   type ImportBatch,
@@ -881,10 +883,24 @@ describe("adapted ownership contract under anon-key plus RLS", () => {
   it("keeps foreign import batch review loads and completion hidden behind not-found behavior", async () => {
     const completeRoute: typeof import("@/pages/api/imports/batches/[id]/complete") =
       await import("@/pages/api/imports/batches/[id]/complete");
+    const batchRoute: typeof import("@/pages/api/imports/batches/[id]") =
+      await import("@/pages/api/imports/batches/[id]");
     const supabase = createOwnershipSupabaseStub();
     vi.mocked(createClient).mockReturnValue(supabase as never);
 
     await expect(loadImportBatchReview(supabase as never, USER_A.id, "batch-2")).rejects.toThrow(/not found/i);
+
+    const getResponse = await batchRoute.GET({
+      ...authenticatedContext(USER_A),
+      params: { id: "batch-2" },
+      request: new Request("http://localhost/api/imports/batches/batch-2", { method: "GET" }),
+    } as never);
+
+    expect(getResponse.status).toBe(404);
+    await expect(readJson<{ error: string; field: string | null }>(getResponse)).resolves.toEqual({
+      error: "Import batch was not found",
+      field: null,
+    });
 
     const response = await completeRoute.POST({
       ...authenticatedContext(USER_A),
@@ -1057,6 +1073,53 @@ describe("budget ownership coverage", () => {
 });
 
 describe("import ownership coverage", () => {
+  it("keeps pending-first default review selection and history rows scoped to the authenticated user", async () => {
+    const supabase = createOwnershipSupabaseStub({
+      batches: [
+        makeBatch("batch-owner-pending", USER_A.id, {
+          imported_at: "2026-06-11T08:00:00.000Z",
+          review_completed_at: null,
+          source_filename: "owner-pending.csv",
+          statement_month: "2026-05-01",
+        }),
+        makeBatch("batch-owner-complete", USER_A.id, {
+          imported_at: "2026-06-13T08:00:00.000Z",
+          review_completed_at: "2026-06-13T09:00:00.000Z",
+          source_filename: "owner-complete.csv",
+          statement_month: "2026-06-01",
+        }),
+        makeBatch("batch-other-pending", USER_B.id, {
+          imported_at: "2026-06-14T08:00:00.000Z",
+          review_completed_at: null,
+          source_filename: "other-pending.csv",
+          statement_month: "2026-06-01",
+        }),
+      ],
+      transactions: [
+        makeTransaction("tx-owner-pending", USER_A.id, { import_batch_id: "batch-owner-pending" }),
+        makeTransaction("tx-owner-complete", USER_A.id, { import_batch_id: "batch-owner-complete" }),
+        makeTransaction("tx-other-pending", USER_B.id, { import_batch_id: "batch-other-pending" }),
+      ],
+    });
+
+    await expect(loadDefaultImportBatchReview(supabase as never, USER_A.id)).resolves.toMatchObject({
+      batch: {
+        id: "batch-owner-pending",
+        user_id: USER_A.id,
+      },
+    });
+    await expect(listImportBatchHistory(supabase as never, USER_A.id)).resolves.toEqual([
+      expect.objectContaining({
+        id: "batch-owner-pending",
+        transaction_count: 1,
+      }),
+      expect.objectContaining({
+        id: "batch-owner-complete",
+        transaction_count: 1,
+      }),
+    ]);
+  });
+
   it("keeps existing batch lookup scoped to the authenticated user", async () => {
     const supabase = createOwnershipSupabaseStub({
       batches: [

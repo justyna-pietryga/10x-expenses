@@ -28,6 +28,8 @@ import {
 import { createClient } from "@/lib/supabase";
 import {
   commitImportBatch,
+  listImportBatchHistory,
+  loadDefaultImportBatchReview,
   markBatchReviewComplete,
   type ImportedTransaction,
   updateImportTransactionCategories,
@@ -461,6 +463,234 @@ function buildBulkImportSupabaseStub(options?: {
   return {
     supabase,
     transactionUpdates,
+  };
+}
+
+function buildImportHistorySupabaseStub(options?: {
+  batches?: {
+    bank: "revolut" | "ing";
+    id: string;
+    imported_at: string;
+    review_completed_at: string | null;
+    source_filename: string | null;
+    statement_month: string;
+    user_id: string;
+  }[];
+  rules?: {
+    id: string;
+    match_field: "recipient" | "title" | "both";
+    match_text: string;
+    target_category_id: string;
+    user_id: string;
+  }[];
+  transactions?: ImportedTransaction[];
+}) {
+  const batches = options?.batches ?? [
+    {
+      bank: "revolut" as const,
+      id: "batch-pending-latest-import",
+      imported_at: "2026-06-12T10:00:00.000Z",
+      review_completed_at: null,
+      source_filename: "pending-latest.csv",
+      statement_month: "2026-05-01",
+      user_id: "user-1",
+    },
+    {
+      bank: "revolut" as const,
+      id: "batch-complete-newer-month",
+      imported_at: "2026-06-13T10:00:00.000Z",
+      review_completed_at: "2026-06-13T12:00:00.000Z",
+      source_filename: "completed-newer.csv",
+      statement_month: "2026-06-01",
+      user_id: "user-1",
+    },
+    {
+      bank: "ing" as const,
+      id: "batch-pending-same-month-older-import",
+      imported_at: "2026-06-10T10:00:00.000Z",
+      review_completed_at: null,
+      source_filename: "pending-older.csv",
+      statement_month: "2026-05-01",
+      user_id: "user-1",
+    },
+  ];
+  const transactions = options?.transactions ?? [
+    {
+      amount: -12.34,
+      category_id: null,
+      categorized_by_rule_id: null,
+      created_at: "2026-06-12T10:00:00.000Z",
+      id: "tx-history-1",
+      import_batch_id: "batch-pending-latest-import",
+      recipient: "Merchant A",
+      title: "Merchant A",
+      transaction_date: "2026-05-03",
+      updated_at: "2026-06-12T10:00:00.000Z",
+      user_id: "user-1",
+    },
+    {
+      amount: -6.5,
+      category_id: null,
+      categorized_by_rule_id: null,
+      created_at: "2026-06-12T10:00:00.000Z",
+      id: "tx-history-2",
+      import_batch_id: "batch-pending-latest-import",
+      recipient: "Merchant B",
+      title: "Merchant B",
+      transaction_date: "2026-05-05",
+      updated_at: "2026-06-12T10:00:00.000Z",
+      user_id: "user-1",
+    },
+    {
+      amount: -18,
+      category_id: null,
+      categorized_by_rule_id: null,
+      created_at: "2026-06-10T10:00:00.000Z",
+      id: "tx-history-3",
+      import_batch_id: "batch-pending-same-month-older-import",
+      recipient: "Merchant C",
+      title: "Merchant C",
+      transaction_date: "2026-05-08",
+      updated_at: "2026-06-10T10:00:00.000Z",
+      user_id: "user-1",
+    },
+    {
+      amount: -40,
+      category_id: null,
+      categorized_by_rule_id: null,
+      created_at: "2026-06-13T10:00:00.000Z",
+      id: "tx-history-4",
+      import_batch_id: "batch-complete-newer-month",
+      recipient: "Merchant D",
+      title: "Merchant D",
+      transaction_date: "2026-06-02",
+      updated_at: "2026-06-13T10:00:00.000Z",
+      user_id: "user-1",
+    },
+  ];
+  const rules = options?.rules ?? [
+    {
+      id: "rule-food",
+      match_field: "both" as const,
+      match_text: "Lidl",
+      target_category_id: "cat-food",
+      user_id: "user-1",
+    },
+  ];
+
+  return {
+    from: vi.fn((table: string) => {
+      if (table === "statement_import_batches") {
+        return {
+          select: vi.fn(() => {
+            let idFilter: string | null = null;
+            let userFilter: string | null = null;
+            const chain = {
+              eq: vi.fn((field: string, value: string) => {
+                if (field === "id") {
+                  idFilter = value;
+                }
+
+                if (field === "user_id") {
+                  userFilter = value;
+                }
+
+                return chain;
+              }),
+              order: vi.fn(() =>
+                Promise.resolve({
+                  data: batches.filter(
+                    (batch) => (!idFilter || batch.id === idFilter) && (!userFilter || batch.user_id === userFilter),
+                  ),
+                  error: null,
+                }),
+              ),
+              single: vi.fn(() => {
+                const batch =
+                  batches.find(
+                    (item) => (!idFilter || item.id === idFilter) && (!userFilter || item.user_id === userFilter),
+                  ) ?? null;
+
+                return Promise.resolve(
+                  batch
+                    ? { data: batch, error: null }
+                    : { data: null, error: { code: "PGRST116", message: "not found" } },
+                );
+              }),
+            };
+
+            return chain;
+          }),
+        };
+      }
+
+      if (table === "transactions") {
+        return {
+          select: vi.fn(() => {
+            let batchFilter: string | null = null;
+            let userFilter: string | null = null;
+            const chain = {
+              eq: vi.fn((field: string, value: string) => {
+                if (field === "import_batch_id") {
+                  batchFilter = value;
+                }
+
+                if (field === "user_id") {
+                  userFilter = value;
+                }
+
+                return chain;
+              }),
+              order: vi.fn(() =>
+                Promise.resolve({
+                  data: transactions.filter(
+                    (transaction) =>
+                      (!batchFilter || transaction.import_batch_id === batchFilter) &&
+                      (!userFilter || transaction.user_id === userFilter),
+                  ),
+                  error: null,
+                }),
+              ),
+            };
+
+            return chain;
+          }),
+        };
+      }
+
+      if (table === "categorization_rules") {
+        return {
+          select: vi.fn(() => {
+            let userFilter: string | null = null;
+            const chain = {
+              eq: vi.fn((field: string, value: string) => {
+                if (field === "user_id") {
+                  userFilter = value;
+                }
+
+                return chain;
+              }),
+              order: vi.fn(() =>
+                Promise.resolve({
+                  data: rules.filter((rule) => !userFilter || rule.user_id === userFilter),
+                  error: null,
+                }),
+              ),
+            };
+
+            return chain;
+          }),
+        };
+      }
+
+      if (table === "budget_categories") {
+        return {
+          select: vi.fn().mockReturnValue(createSelectChain(reviewCategories)),
+        };
+      }
+
+      throw new Error(`Unexpected table ${table}`);
+    }),
   };
 }
 
@@ -975,9 +1205,172 @@ describe("import data helpers", () => {
     expect(batch.id).toBe("batch-existing");
     expect(batch.review_completed_at).toEqual(expect.any(String));
   });
+
+  it("lists import history with pending batches first, deterministic ordering, and transaction counts", async () => {
+    const supabase = buildImportHistorySupabaseStub();
+
+    await expect(listImportBatchHistory(supabase as never, "user-1")).resolves.toEqual([
+      expect.objectContaining({
+        id: "batch-pending-latest-import",
+        review_completed_at: null,
+        statement_month: "2026-05-01",
+        transaction_count: 2,
+      }),
+      expect.objectContaining({
+        id: "batch-pending-same-month-older-import",
+        review_completed_at: null,
+        statement_month: "2026-05-01",
+        transaction_count: 1,
+      }),
+      expect.objectContaining({
+        id: "batch-complete-newer-month",
+        review_completed_at: "2026-06-13T12:00:00.000Z",
+        statement_month: "2026-06-01",
+        transaction_count: 1,
+      }),
+    ]);
+  });
+
+  it("caps history at 50 rows", async () => {
+    const batches = Array.from({ length: 55 }, (_, index) => ({
+      bank: "revolut" as const,
+      id: `batch-${index + 1}`,
+      imported_at: `2026-06-${String((index % 28) + 1).padStart(2, "0")}T10:00:00.000Z`,
+      review_completed_at: null,
+      source_filename: `statement-${index + 1}.csv`,
+      statement_month: `2026-${String((index % 12) + 1).padStart(2, "0")}-01`,
+      user_id: "user-1",
+    }));
+    const supabase = buildImportHistorySupabaseStub({
+      batches,
+      transactions: batches.map((batch, index) => ({
+        amount: -10,
+        category_id: null,
+        categorized_by_rule_id: null,
+        created_at: "2026-06-01T10:00:00.000Z",
+        id: `tx-${index + 1}`,
+        import_batch_id: batch.id,
+        recipient: `Recipient ${index + 1}`,
+        title: `Title ${index + 1}`,
+        transaction_date: "2026-06-01",
+        updated_at: "2026-06-01T10:00:00.000Z",
+        user_id: "user-1",
+      })),
+    });
+
+    const history = await listImportBatchHistory(supabase as never, "user-1");
+
+    expect(history).toHaveLength(50);
+  });
+
+  it("defaults to the newest pending batch and falls back to the newest completed batch", async () => {
+    const pendingSupabase = buildImportHistorySupabaseStub();
+    const completedOnlySupabase = buildImportHistorySupabaseStub({
+      batches: [
+        {
+          bank: "revolut",
+          id: "batch-complete-older",
+          imported_at: "2026-06-11T10:00:00.000Z",
+          review_completed_at: "2026-06-11T11:00:00.000Z",
+          source_filename: "older.csv",
+          statement_month: "2026-05-01",
+          user_id: "user-1",
+        },
+        {
+          bank: "ing",
+          id: "batch-complete-newest",
+          imported_at: "2026-06-13T10:00:00.000Z",
+          review_completed_at: "2026-06-13T11:00:00.000Z",
+          source_filename: "newest.csv",
+          statement_month: "2026-06-01",
+          user_id: "user-1",
+        },
+      ],
+      transactions: [
+        {
+          amount: -10,
+          category_id: null,
+          categorized_by_rule_id: null,
+          created_at: "2026-06-13T10:00:00.000Z",
+          id: "tx-complete-newest",
+          import_batch_id: "batch-complete-newest",
+          recipient: "Completed newest",
+          title: "Completed newest",
+          transaction_date: "2026-06-02",
+          updated_at: "2026-06-13T10:00:00.000Z",
+          user_id: "user-1",
+        },
+      ],
+    });
+
+    await expect(loadDefaultImportBatchReview(pendingSupabase as never, "user-1")).resolves.toMatchObject({
+      batch: {
+        id: "batch-pending-latest-import",
+      },
+    });
+    await expect(loadDefaultImportBatchReview(completedOnlySupabase as never, "user-1")).resolves.toMatchObject({
+      batch: {
+        id: "batch-complete-newest",
+      },
+    });
+  });
+
+  it("returns null when no import history exists", async () => {
+    const supabase = buildImportHistorySupabaseStub({
+      batches: [],
+      transactions: [],
+      rules: [],
+    });
+
+    await expect(loadDefaultImportBatchReview(supabase as never, "user-1")).resolves.toBeNull();
+    await expect(listImportBatchHistory(supabase as never, "user-1")).resolves.toEqual([]);
+  });
 });
 
 describe("import API routes", () => {
+  it("loads an owned import batch review through the batch read route", async () => {
+    const batchRoute: typeof import("@/pages/api/imports/batches/[id]") =
+      await import("@/pages/api/imports/batches/[id]");
+    const supabase = buildImportHistorySupabaseStub();
+
+    vi.mocked(createClient).mockReturnValue(supabase as never);
+
+    const response = await batchRoute.GET({
+      cookies: {} as never,
+      locals: {
+        user: {
+          id: "user-1",
+          email: "user@example.com",
+        },
+      },
+      params: { id: "batch-pending-latest-import" },
+      redirect: vi.fn(),
+      request: new Request("http://localhost/api/imports/batches/batch-pending-latest-import", {
+        method: "GET",
+      }),
+    } as never);
+
+    expect(response.status).toBe(200);
+    const payload = (await response.json()) as {
+      batch: { id: string };
+      transactions: { import_batch_id: string }[];
+    };
+
+    expect(payload).toMatchObject({
+      batch: {
+        id: "batch-pending-latest-import",
+      },
+      transactions: [
+        {
+          import_batch_id: "batch-pending-latest-import",
+        },
+        {
+          import_batch_id: "batch-pending-latest-import",
+        },
+      ],
+    });
+  });
+
   it("parses a preview upload and reports an existing monthly batch", async () => {
     const previewRoute: typeof import("@/pages/api/imports/preview") = await import("@/pages/api/imports/preview");
     const supabase = buildImportSupabaseStub({ existingBatch: true });

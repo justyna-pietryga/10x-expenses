@@ -22,6 +22,11 @@ export type ImportedTransactionReviewRow = ImportedTransaction & {
   category_rule?: ImportTransactionRuleSummary | null;
 };
 
+export interface ImportBatchReview {
+  batch: ImportBatch;
+  transactions: ImportedTransactionReviewRow[];
+}
+
 export type ExistingImportBatchSummary = Pick<
   ImportBatch,
   | "bank"
@@ -33,6 +38,13 @@ export type ExistingImportBatchSummary = Pick<
   | "source_filename"
   | "statement_month"
 >;
+
+export type ImportBatchHistorySummary = Pick<
+  ImportBatch,
+  "bank" | "id" | "imported_at" | "review_completed_at" | "source_filename" | "statement_month"
+> & {
+  transaction_count: number;
+};
 
 export interface ImportCategoryUpdateFailure {
   error: string;
@@ -111,6 +123,61 @@ function attachRuleMetadata(
         })()
       : null,
   }));
+}
+
+function compareHistoryRows(
+  a: Pick<ImportBatch, "imported_at" | "review_completed_at" | "statement_month">,
+  b: typeof a,
+) {
+  const aPending = a.review_completed_at ? 1 : 0;
+  const bPending = b.review_completed_at ? 1 : 0;
+
+  if (aPending !== bPending) {
+    return aPending - bPending;
+  }
+
+  return b.statement_month.localeCompare(a.statement_month) || b.imported_at.localeCompare(a.imported_at);
+}
+
+async function listOwnedImportBatches(supabase: ImportClient, userId: string) {
+  const { data, error } = await supabase
+    .from("statement_import_batches")
+    .select("*")
+    .eq("user_id", userId)
+    .order("imported_at", { ascending: false });
+
+  mapPostgrestError(error, "Import batches could not be loaded");
+
+  return (data ?? []) as ImportBatch[];
+}
+
+async function loadImportBatchTransactions(
+  supabase: ImportClient,
+  userId: string,
+  batchId: string,
+): Promise<ImportedTransactionReviewRow[]> {
+  const { data: transactions, error: transactionError } = await supabase
+    .from("transactions")
+    .select("*")
+    .eq("import_batch_id", batchId)
+    .eq("user_id", userId)
+    .order("transaction_date", { ascending: true });
+
+  mapPostgrestError(transactionError, "Import transactions could not be loaded");
+  const rules = await listCategorizationRules(supabase, userId);
+
+  return attachRuleMetadata(transactions ?? [], rules);
+}
+
+async function buildImportBatchReview(
+  supabase: ImportClient,
+  userId: string,
+  batch: ImportBatch,
+): Promise<ImportBatchReview> {
+  return {
+    batch,
+    transactions: await loadImportBatchTransactions(supabase, userId, batch.id),
+  };
 }
 
 export async function findExistingImportBatch(
@@ -339,38 +406,74 @@ export async function loadImportBatchReview(supabase: ImportClient, userId: stri
 
   mapPostgrestError(batchError, "Import batch was not found");
 
+  if (!batch) {
+    throw new ImportError("Import batch was not found", { status: 404 });
+  }
+
+  return buildImportBatchReview(supabase, userId, batch);
+}
+
+export async function listImportBatchHistory(
+  supabase: ImportClient,
+  userId: string,
+  options?: { limit?: number },
+): Promise<ImportBatchHistorySummary[]> {
+  const limit = options?.limit ?? 50;
+  const batches = await listOwnedImportBatches(supabase, userId);
+
+  if (batches.length === 0) {
+    return [];
+  }
+
+  const orderedBatches = [...batches].sort(compareHistoryRows).slice(0, limit);
+  const batchIds = new Set(orderedBatches.map((batch) => batch.id));
   const { data: transactions, error: transactionError } = await supabase
     .from("transactions")
-    .select("*")
-    .eq("import_batch_id", batchId)
+    .select("import_batch_id")
     .eq("user_id", userId)
     .order("transaction_date", { ascending: true });
 
   mapPostgrestError(transactionError, "Import transactions could not be loaded");
-  const rules = await listCategorizationRules(supabase, userId);
 
-  return {
-    batch,
-    transactions: attachRuleMetadata(transactions ?? [], rules),
-  };
+  const transactionCountByBatchId = new Map<string, number>();
+
+  for (const transaction of (transactions ?? []) as Pick<ImportedTransaction, "import_batch_id">[]) {
+    if (!batchIds.has(transaction.import_batch_id)) {
+      continue;
+    }
+
+    transactionCountByBatchId.set(
+      transaction.import_batch_id,
+      (transactionCountByBatchId.get(transaction.import_batch_id) ?? 0) + 1,
+    );
+  }
+
+  return orderedBatches.map((batch) => ({
+    bank: batch.bank,
+    id: batch.id,
+    imported_at: batch.imported_at,
+    review_completed_at: batch.review_completed_at,
+    source_filename: batch.source_filename,
+    statement_month: batch.statement_month,
+    transaction_count: transactionCountByBatchId.get(batch.id) ?? 0,
+  }));
 }
 
-export async function loadLatestImportBatchReview(supabase: ImportClient, userId: string) {
-  const { data, error } = await supabase
-    .from("statement_import_batches")
-    .select("id")
-    .eq("user_id", userId)
-    .order("imported_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+export async function loadDefaultImportBatchReview(supabase: ImportClient, userId: string) {
+  const batches = await listOwnedImportBatches(supabase, userId);
 
-  mapPostgrestError(error, "Import batch was not found");
-
-  if (!data) {
+  if (batches.length === 0) {
     return null;
   }
 
-  return loadImportBatchReview(supabase, userId, data.id);
+  const sortedByImportTime = [...batches].sort((a, b) => b.imported_at.localeCompare(a.imported_at));
+  const selectedBatch = sortedByImportTime.find((batch) => !batch.review_completed_at) ?? sortedByImportTime[0];
+
+  return buildImportBatchReview(supabase, userId, selectedBatch);
+}
+
+export async function loadLatestImportBatchReview(supabase: ImportClient, userId: string) {
+  return loadDefaultImportBatchReview(supabase, userId);
 }
 
 export async function updateTransactionCategoryAndMaybeRule(
