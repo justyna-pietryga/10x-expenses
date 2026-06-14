@@ -1,4 +1,5 @@
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { BudgetCategory } from "@/lib/budget/data";
 import type { ImportBatch, ImportBatchHistorySummary, ImportedTransactionReviewRow } from "@/lib/imports/data";
 import { ImportHistory, ImportHistoryCollapseButton } from "@/components/imports/ImportHistory";
@@ -8,9 +9,11 @@ import {
   TransactionReviewTable,
   type ImportCategoryDraftUpdate,
   type ImportCategorySaveResult,
+  type ImportReviewPendingChangesControls,
   type ImportReviewRuleActionPayload,
   type ImportReviewRuleActionResult,
 } from "@/components/imports/TransactionReviewTable";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const IMPORT_HISTORY_COLLAPSED_STORAGE_KEY = "imports:history-panel-collapsed:v1";
@@ -36,6 +39,14 @@ interface BulkCategorySaveResponse extends ImportCategorySaveResult {
 interface CreateReviewRuleResponse extends ImportReviewRuleActionResult {
   error?: string;
 }
+
+interface ImportBatchReviewResponse {
+  batch: ImportBatch;
+  error?: string;
+  transactions: ImportedTransactionReviewRow[];
+}
+
+type HistorySyncMode = "none" | "push" | "replace";
 
 export async function saveImportCategoryChanges(
   updates: ImportCategoryDraftUpdate[],
@@ -122,6 +133,77 @@ export function mergeImportedTransactionCategoryUpdates(
   });
 }
 
+function compareImportHistoryRows(
+  a: Pick<ImportBatchHistorySummary, "imported_at" | "review_completed_at" | "statement_month">,
+  b: typeof a,
+) {
+  const aPending = a.review_completed_at ? 1 : 0;
+  const bPending = b.review_completed_at ? 1 : 0;
+
+  if (aPending !== bPending) {
+    return aPending - bPending;
+  }
+
+  return b.statement_month.localeCompare(a.statement_month) || b.imported_at.localeCompare(a.imported_at);
+}
+
+export function findDefaultImportHistoryBatchId(history: ImportBatchHistorySummary[]) {
+  return history[0]?.id ?? null;
+}
+
+export function buildImportHistorySummary(batch: ImportBatch, transactionCount: number): ImportBatchHistorySummary {
+  return {
+    bank: batch.bank,
+    id: batch.id,
+    imported_at: batch.imported_at,
+    review_completed_at: batch.review_completed_at,
+    source_filename: batch.source_filename,
+    statement_month: batch.statement_month,
+    transaction_count: transactionCount,
+  };
+}
+
+export function reconcileImportHistory(
+  history: ImportBatchHistorySummary[],
+  batch: ImportBatch,
+  transactionCount: number,
+): ImportBatchHistorySummary[] {
+  const nextHistory = [
+    ...history.filter((item) => item.id !== batch.id),
+    buildImportHistorySummary(batch, transactionCount),
+  ];
+
+  return nextHistory.sort(compareImportHistoryRows);
+}
+
+export function buildImportWorkspaceUrl(
+  batchId: string | null,
+  locationLike: Pick<Location, "hash" | "pathname" | "search">,
+) {
+  const searchParams = new URLSearchParams(locationLike.search);
+
+  if (batchId) {
+    searchParams.set("batch", batchId);
+  } else {
+    searchParams.delete("batch");
+  }
+
+  const query = searchParams.toString();
+
+  return `${locationLike.pathname}${query ? `?${query}` : ""}${locationLike.hash}`;
+}
+
+export async function loadImportBatchReviewFromApi(batchId: string, fetchFn: typeof fetch = fetch) {
+  const response = await fetchFn(`/api/imports/batches/${batchId}`);
+  const payload = (await response.json()) as ImportBatchReviewResponse;
+
+  if (!response.ok) {
+    throw new Error(payload.error ?? "Could not open this import batch");
+  }
+
+  return payload;
+}
+
 export function ImportWorkspace({
   categories,
   initialBatch,
@@ -131,13 +213,20 @@ export function ImportWorkspace({
 }: Props) {
   const [preview, setPreview] = useState<ImportPreviewPayload | null>(null);
   const [batch, setBatch] = useState(initialBatch);
-  const history = initialHistory ?? [];
+  const [history, setHistory] = useState(initialHistory ?? []);
   const [transactions, setTransactions] = useState(initialTransactions);
   const [error, setError] = useState<string | null>(null);
-  const [hasDirtyCategoryChanges, setHasDirtyCategoryChanges] = useState(false);
+  const [hasDirtyReviewChanges, setHasDirtyReviewChanges] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [isCommitting, setIsCommitting] = useState(false);
   const [isDesktopHistoryCollapsed, setIsDesktopHistoryCollapsed] = useState(false);
+  const [isLoadingBatch, setIsLoadingBatch] = useState(false);
+  const [isSavingBeforeSwitch, setIsSavingBeforeSwitch] = useState(false);
+  const [pendingSwitchBatchId, setPendingSwitchBatchId] = useState<string | null>(null);
+  const reviewControlsRef = useRef<ImportReviewPendingChangesControls | null>(null);
+  const activeLoadRequestRef = useRef(0);
+  const activeBatchId = batch?.id ?? initialSelectedBatchId ?? null;
+  const portalTarget = typeof document === "undefined" ? null : document.body;
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -156,6 +245,88 @@ export function ImportWorkspace({
       };
     }
   }, []);
+
+  const syncWorkspaceUrl = useCallback((batchId: string | null, mode: Exclude<HistorySyncMode, "none">) => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const nextUrl = buildImportWorkspaceUrl(batchId, window.location);
+
+    if (mode === "push") {
+      window.history.pushState({}, "", nextUrl);
+      return;
+    }
+
+    window.history.replaceState({}, "", nextUrl);
+  }, []);
+
+  const loadBatchIntoWorkspace = useCallback(
+    async (
+      batchId: string,
+      options?: {
+        failureMessage?: string;
+        successNotice?: string | null;
+        syncUrl?: HistorySyncMode;
+      },
+    ) => {
+      const requestId = activeLoadRequestRef.current + 1;
+      activeLoadRequestRef.current = requestId;
+      setIsLoadingBatch(true);
+      setError(null);
+
+      try {
+        const payload = await loadImportBatchReviewFromApi(batchId);
+
+        if (activeLoadRequestRef.current !== requestId) {
+          return false;
+        }
+
+        startTransition(() => {
+          setBatch(payload.batch);
+          setTransactions(payload.transactions);
+          setNotice(options?.successNotice ?? null);
+        });
+
+        if (options?.syncUrl === "push" || options?.syncUrl === "replace") {
+          syncWorkspaceUrl(payload.batch.id, options.syncUrl);
+        }
+
+        return true;
+      } catch (loadError) {
+        if (activeLoadRequestRef.current !== requestId) {
+          return false;
+        }
+
+        setError(
+          options?.failureMessage ??
+            (loadError instanceof Error ? loadError.message : "Could not open this import batch"),
+        );
+        return false;
+      } finally {
+        if (activeLoadRequestRef.current === requestId) {
+          setIsLoadingBatch(false);
+        }
+      }
+    },
+    [syncWorkspaceUrl],
+  );
+
+  async function requestBatchSwitch(nextBatchId: string) {
+    if (nextBatchId === activeBatchId || isLoadingBatch || isSavingBeforeSwitch) {
+      return false;
+    }
+
+    if (hasDirtyReviewChanges) {
+      setPendingSwitchBatchId(nextBatchId);
+      return true;
+    }
+
+    return loadBatchIntoWorkspace(nextBatchId, {
+      failureMessage: "Could not open the selected import batch.",
+      syncUrl: "push",
+    });
+  }
 
   async function handleCommit(confirmReplace: boolean) {
     if (!preview) {
@@ -190,6 +361,9 @@ export function ImportWorkspace({
 
       startTransition(() => {
         setBatch(payload.batch);
+        setHistory((current) => reconcileImportHistory(current, payload.batch, payload.transactions.length));
+        setHasDirtyReviewChanges(false);
+        setPendingSwitchBatchId(null);
         setTransactions(payload.transactions);
         setPreview(null);
         setNotice(
@@ -198,6 +372,8 @@ export function ImportWorkspace({
             : "Import batch saved. Review the transactions below.",
         );
       });
+
+      syncWorkspaceUrl(payload.batch.id, "push");
     } catch (commitError) {
       setError(commitError instanceof Error ? commitError.message : "Could not save this import batch");
     } finally {
@@ -243,7 +419,7 @@ export function ImportWorkspace({
   }
 
   async function handleCompleteReview() {
-    if (!batch || hasDirtyCategoryChanges) {
+    if (!batch || hasDirtyReviewChanges) {
       return;
     }
 
@@ -258,9 +434,98 @@ export function ImportWorkspace({
 
     startTransition(() => {
       setBatch(payload.batch ?? null);
+      setHistory((current) =>
+        payload.batch ? reconcileImportHistory(current, payload.batch, transactions.length) : current,
+      );
       setNotice("Review marked complete.");
     });
   }
+
+  async function handleDiscardAndSwitch() {
+    if (!pendingSwitchBatchId || isLoadingBatch || isSavingBeforeSwitch) {
+      return;
+    }
+
+    reviewControlsRef.current?.discardPendingChanges();
+    setHasDirtyReviewChanges(false);
+    const nextBatchId = pendingSwitchBatchId;
+    setPendingSwitchBatchId(null);
+    await loadBatchIntoWorkspace(nextBatchId, {
+      failureMessage: "Could not open the selected import batch.",
+      syncUrl: "push",
+    });
+  }
+
+  async function handleSaveAndSwitch() {
+    if (!pendingSwitchBatchId || isLoadingBatch || isSavingBeforeSwitch) {
+      return;
+    }
+
+    setIsSavingBeforeSwitch(true);
+
+    try {
+      const savedAllChanges = (await reviewControlsRef.current?.savePendingChanges()) ?? true;
+
+      if (!savedAllChanges) {
+        setNotice("Switching stopped because some review changes still need attention.");
+        return;
+      }
+
+      setHasDirtyReviewChanges(false);
+      const nextBatchId = pendingSwitchBatchId;
+      setPendingSwitchBatchId(null);
+      await loadBatchIntoWorkspace(nextBatchId, {
+        failureMessage: "Could not open the selected import batch.",
+        syncUrl: "push",
+      });
+    } finally {
+      setIsSavingBeforeSwitch(false);
+    }
+  }
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    function handlePopState() {
+      const requestedBatchId = new URLSearchParams(window.location.search).get("batch");
+      const fallbackBatchId = findDefaultImportHistoryBatchId(history);
+      const nextBatchId = requestedBatchId ?? fallbackBatchId;
+
+      if (nextBatchId === activeBatchId) {
+        return;
+      }
+
+      if (!nextBatchId) {
+        startTransition(() => {
+          setBatch(null);
+          setTransactions([]);
+          setNotice(null);
+        });
+        return;
+      }
+
+      if (hasDirtyReviewChanges) {
+        setNotice("Resolve unsaved review changes before leaving this batch.");
+        syncWorkspaceUrl(activeBatchId, "replace");
+        return;
+      }
+
+      void loadBatchIntoWorkspace(nextBatchId, {
+        failureMessage: "Could not open the selected import batch.",
+        syncUrl: "none",
+      });
+    }
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [activeBatchId, hasDirtyReviewChanges, history, loadBatchIntoWorkspace, syncWorkspaceUrl]);
+
+  const historySelectionHandler = isLoadingBatch || isSavingBeforeSwitch ? undefined : requestBatchSwitch;
 
   return (
     <div className="space-y-6">
@@ -293,7 +558,7 @@ export function ImportWorkspace({
       )}
 
       <div className="lg:hidden">
-        <ImportHistory activeBatchId={batch?.id ?? initialSelectedBatchId ?? null} history={history} />
+        <ImportHistory activeBatchId={activeBatchId} history={history} onSelectBatch={historySelectionHandler} />
       </div>
 
       <div className="space-y-6">
@@ -326,7 +591,7 @@ export function ImportWorkspace({
         >
           {history.length > 0 && !isDesktopHistoryCollapsed && (
             <div className="hidden min-w-0 lg:block">
-              <ImportHistory activeBatchId={batch?.id ?? initialSelectedBatchId ?? null} history={history} />
+              <ImportHistory activeBatchId={activeBatchId} history={history} onSelectBatch={historySelectionHandler} />
             </div>
           )}
 
@@ -336,18 +601,22 @@ export function ImportWorkspace({
                 <ReviewCompletionBar
                   batch={batch}
                   completionBlockedReason={
-                    hasDirtyCategoryChanges
-                      ? "Save or discard category changes before marking this review complete."
+                    hasDirtyReviewChanges
+                      ? "Save or discard unsaved review changes before marking this review complete."
                       : null
                   }
-                  isCompletionBlocked={hasDirtyCategoryChanges}
+                  isCompletionBlocked={hasDirtyReviewChanges}
                   transactionCount={transactions.length}
                   onComplete={handleCompleteReview}
                 />
                 <TransactionReviewTable
+                  key={batch.id}
                   categories={categories}
                   onCreateRuleFromReview={handleCreateRuleFromReview}
-                  onDirtyStateChange={setHasDirtyCategoryChanges}
+                  onDirtyStateChange={setHasDirtyReviewChanges}
+                  onReviewControlsReady={(controls) => {
+                    reviewControlsRef.current = controls;
+                  }}
                   onSaveCategoryChanges={handleSaveCategoryChanges}
                   transactions={transactions}
                 />
@@ -374,6 +643,65 @@ export function ImportWorkspace({
           </div>
         </div>
       </div>
+
+      {pendingSwitchBatchId &&
+        portalTarget &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 backdrop-blur-sm">
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="import-switch-dialog-title"
+              className="w-full max-w-lg rounded-[28px] border border-white/12 bg-slate-950/95 p-6 shadow-[0_28px_100px_rgba(2,6,23,0.55)]"
+            >
+              <p className="text-xs font-semibold tracking-[0.24em] text-amber-200/80 uppercase">
+                Unsaved review changes
+              </p>
+              <h2 id="import-switch-dialog-title" className="mt-3 text-2xl font-semibold text-white">
+                Switch batches without losing your current edits?
+              </h2>
+              <p className="mt-3 text-sm leading-6 text-slate-300/85">
+                Save your current review changes before switching, discard them, or stay on this batch and keep editing.
+              </p>
+
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="rounded-2xl border border-white/12 text-slate-100 hover:bg-white/8"
+                  disabled={isLoadingBatch || isSavingBeforeSwitch}
+                  onClick={() => {
+                    setPendingSwitchBatchId(null);
+                  }}
+                >
+                  Stay
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="rounded-2xl border border-amber-300/30 text-amber-100 hover:bg-amber-300/10"
+                  disabled={isLoadingBatch || isSavingBeforeSwitch}
+                  onClick={() => {
+                    void handleDiscardAndSwitch();
+                  }}
+                >
+                  {isLoadingBatch ? "Switching..." : "Discard and switch"}
+                </Button>
+                <Button
+                  type="button"
+                  className="rounded-2xl bg-cyan-300 text-slate-950 hover:bg-cyan-200"
+                  disabled={isLoadingBatch || isSavingBeforeSwitch}
+                  onClick={() => {
+                    void handleSaveAndSwitch();
+                  }}
+                >
+                  {isSavingBeforeSwitch ? "Saving changes..." : isLoadingBatch ? "Switching..." : "Save and switch"}
+                </Button>
+              </div>
+            </div>
+          </div>,
+          portalTarget,
+        )}
     </div>
   );
 }

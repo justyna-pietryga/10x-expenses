@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { BudgetCategory } from "@/lib/budget/data";
 import type {
@@ -39,10 +39,16 @@ export interface ImportReviewRuleActionResult {
   skipped_rows: { reason: "dirty_draft"; transaction_id: string }[];
 }
 
+export interface ImportReviewPendingChangesControls {
+  discardPendingChanges: () => void;
+  savePendingChanges: () => Promise<boolean>;
+}
+
 interface Props {
   categories: BudgetCategory[];
   onCreateRuleFromReview: (payload: ImportReviewRuleActionPayload) => Promise<ImportReviewRuleActionResult>;
   onDirtyStateChange?: (hasDirtyChanges: boolean) => void;
+  onReviewControlsReady?: (controls: ImportReviewPendingChangesControls | null) => void;
   onSaveCategoryChanges: (updates: ImportCategoryDraftUpdate[]) => Promise<ImportCategorySaveResult>;
   transactions: ImportedTransactionReviewRow[];
   initialDrafts?: Partial<Record<string, string>>;
@@ -193,6 +199,7 @@ export function TransactionReviewTable({
   initialSuccessById,
   onCreateRuleFromReview,
   onDirtyStateChange,
+  onReviewControlsReady,
   onSaveCategoryChanges,
   transactions,
 }: Props) {
@@ -210,9 +217,17 @@ export function TransactionReviewTable({
     onDirtyStateChange?.(dirtyCount > 0);
   }, [dirtyCount, onDirtyStateChange]);
 
-  async function handleSaveAllChanges() {
+  const discardPendingChanges = useCallback(() => {
+    setDrafts({});
+    setError(null);
+    setErrorById({});
+    setRuleDraftById({});
+    setSuccessById({});
+  }, []);
+
+  const handleSaveAllChanges = useCallback(async () => {
     if (dirtyUpdates.length === 0) {
-      return;
+      return true;
     }
 
     setIsSavingAll(true);
@@ -221,6 +236,7 @@ export function TransactionReviewTable({
     try {
       const result = await onSaveCategoryChanges(dirtyUpdates);
       const nextFeedback = buildBulkSaveFeedback(drafts, result);
+      const hasRemainingDirtyChanges = buildDirtyCategoryUpdates(transactions, nextFeedback.drafts).length > 0;
 
       setDrafts(nextFeedback.drafts);
       setErrorById(nextFeedback.errorById);
@@ -228,19 +244,37 @@ export function TransactionReviewTable({
 
       if (result.failed.length > 0 && result.updated.length > 0) {
         setError("Some category updates still need attention.");
-        return;
+        return !hasRemainingDirtyChanges;
       }
 
       if (result.failed.length > 0) {
         setError("No category changes were saved.");
-        return;
+        return !hasRemainingDirtyChanges;
       }
+
+      return !hasRemainingDirtyChanges;
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Could not save these category changes");
+      return false;
     } finally {
       setIsSavingAll(false);
     }
-  }
+  }, [dirtyUpdates, drafts, onSaveCategoryChanges, transactions]);
+
+  useEffect(() => {
+    if (!onReviewControlsReady) {
+      return;
+    }
+
+    onReviewControlsReady({
+      discardPendingChanges,
+      savePendingChanges: handleSaveAllChanges,
+    });
+
+    return () => {
+      onReviewControlsReady(null);
+    };
+  }, [discardPendingChanges, handleSaveAllChanges, onReviewControlsReady]);
 
   function openRuleDraft(transactionId: string) {
     const transaction = transactions.find((item) => item.id === transactionId);
@@ -359,10 +393,7 @@ export function TransactionReviewTable({
               className="rounded-2xl border border-white/12 text-slate-200 hover:bg-white/8"
               disabled={isSavingAll}
               onClick={() => {
-                setDrafts({});
-                setError(null);
-                setErrorById({});
-                setSuccessById({});
+                discardPendingChanges();
               }}
             >
               Discard changes

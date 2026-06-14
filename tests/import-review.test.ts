@@ -6,10 +6,15 @@ import { describe, expect, it, vi } from "vitest";
 import { ImportHistory } from "@/components/imports/ImportHistory";
 import { ImportUploadForm } from "@/components/imports/ImportUploadForm";
 import {
+  buildImportHistorySummary,
+  buildImportWorkspaceUrl,
   createImportReviewRule,
+  findDefaultImportHistoryBatchId,
   ImportWorkspace,
+  loadImportBatchReviewFromApi,
   mergeImportedTransactions,
   mergeImportedTransactionCategoryUpdates,
+  reconcileImportHistory,
   saveImportCategoryChanges,
 } from "@/components/imports/ImportWorkspace";
 import { ReviewCompletionBar } from "@/components/imports/ReviewCompletionBar";
@@ -2111,6 +2116,119 @@ describe("transaction review table", () => {
 });
 
 describe("import workspace helpers", () => {
+  it("builds a history summary from the active batch payload", () => {
+    expect(
+      buildImportHistorySummary(
+        {
+          bank: "revolut",
+          created_at: "2026-06-12T10:00:00.000Z",
+          id: "batch-history-new",
+          imported_at: "2026-06-12T10:00:00.000Z",
+          period_end: "2026-05-31",
+          period_start: "2026-05-01",
+          review_completed_at: null,
+          source_filename: "fresh.csv",
+          statement_month: "2026-05-01",
+          updated_at: "2026-06-12T10:00:00.000Z",
+          user_id: "user-1",
+        },
+        4,
+      ),
+    ).toEqual({
+      bank: "revolut",
+      id: "batch-history-new",
+      imported_at: "2026-06-12T10:00:00.000Z",
+      review_completed_at: null,
+      source_filename: "fresh.csv",
+      statement_month: "2026-05-01",
+      transaction_count: 4,
+    });
+  });
+
+  it("keeps pending-first ordering when reconciling newly imported or completed batches", () => {
+    const history = reconcileImportHistory(
+      reviewBatchHistory,
+      {
+        bank: "ing",
+        created_at: "2026-06-14T10:00:00.000Z",
+        id: "batch-complete-newer-month",
+        imported_at: "2026-06-14T10:00:00.000Z",
+        period_end: "2026-06-30",
+        period_start: "2026-06-01",
+        review_completed_at: null,
+        source_filename: "completed-now-pending.csv",
+        statement_month: "2026-06-01",
+        updated_at: "2026-06-14T10:00:00.000Z",
+        user_id: "user-1",
+      },
+      5,
+    );
+
+    expect(history.map((item) => item.id)).toEqual(["batch-complete-newer-month", "batch-pending-latest-import"]);
+    expect(history[0]).toMatchObject({
+      review_completed_at: null,
+      source_filename: "completed-now-pending.csv",
+      transaction_count: 5,
+    });
+  });
+
+  it("finds the default batch from the first history item", () => {
+    expect(findDefaultImportHistoryBatchId(reviewBatchHistory)).toBe("batch-pending-latest-import");
+    expect(findDefaultImportHistoryBatchId([])).toBeNull();
+  });
+
+  it("adds and removes the batch query parameter while preserving other URL parts", () => {
+    expect(
+      buildImportWorkspaceUrl("batch-2", {
+        hash: "#history",
+        pathname: "/imports",
+        search: "?from=dashboard",
+      }),
+    ).toBe("/imports?from=dashboard&batch=batch-2#history");
+
+    expect(
+      buildImportWorkspaceUrl(null, {
+        hash: "",
+        pathname: "/imports",
+        search: "?from=dashboard&batch=batch-2",
+      }),
+    ).toBe("/imports?from=dashboard");
+  });
+
+  it("loads a selected batch through the owned review API contract", async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve({
+        json: () =>
+          Promise.resolve({
+            batch: {
+              bank: "revolut",
+              created_at: "2026-06-12T10:00:00.000Z",
+              id: "batch-pending-latest-import",
+              imported_at: "2026-06-12T10:00:00.000Z",
+              period_end: "2026-05-31",
+              period_start: "2026-05-01",
+              review_completed_at: null,
+              source_filename: "pending-latest.csv",
+              statement_month: "2026-05-01",
+              updated_at: "2026-06-12T10:00:00.000Z",
+              user_id: "user-1",
+            },
+            transactions: reviewTransactions,
+          }),
+        ok: true,
+      } satisfies Pick<Response, "json" | "ok">),
+    ) as unknown as typeof fetch;
+
+    await expect(loadImportBatchReviewFromApi("batch-pending-latest-import", fetchMock)).resolves.toMatchObject({
+      batch: {
+        id: "batch-pending-latest-import",
+      },
+      transactions: reviewTransactions,
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/imports/batches/batch-pending-latest-import");
+  });
+
   it("sends bulk category drafts to the bulk review endpoint", async () => {
     const fetchMock = vi.fn(() =>
       Promise.resolve({
@@ -2468,5 +2586,34 @@ describe("import UI", () => {
     expect(markup).toContain("Save or discard category changes before marking this review complete.");
     expect(markup).toContain("disabled");
     expect(markup).toContain("Mark review complete");
+  });
+
+  it("renders completed batches as still editable correction surfaces", () => {
+    const markup = renderToStaticMarkup(
+      createElement(ReviewCompletionBar, {
+        batch: {
+          bank: "revolut",
+          created_at: "2026-05-30T08:00:00.000Z",
+          id: "batch-complete",
+          imported_at: "2026-05-30T08:00:00.000Z",
+          period_end: "2026-05-29",
+          period_start: "2026-05-01",
+          review_completed_at: "2026-05-31T08:00:00.000Z",
+          source_filename: "revolut.csv",
+          statement_month: "2026-05-01",
+          updated_at: "2026-05-31T08:00:00.000Z",
+          user_id: "user-1",
+        },
+        completionBlockedReason: null,
+        isCompletionBlocked: false,
+        onComplete: vi.fn(() => Promise.resolve()),
+        transactionCount: 2,
+      }),
+    );
+
+    expect(markup).toContain("This batch was already confirmed and stays open for corrections.");
+    expect(markup).toContain("still flows through to summaries without reopening review");
+    expect(markup).toContain("Review complete");
+    expect(markup).not.toContain("Mark review complete");
   });
 });

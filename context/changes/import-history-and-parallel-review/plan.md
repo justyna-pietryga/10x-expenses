@@ -467,31 +467,31 @@ The transaction-inclusion change may land before or during UX-06. Implement the 
 
 #### Automated
 
-- [x] 2.1 `npm test -- tests/import-review.test.ts` passes with history presentation coverage.
-- [x] 2.2 `npm run check` passes.
-- [x] 2.3 Targeted ESLint passes for the history component, workspace, page, and tests.
+- [x] 2.1 `npm test -- tests/import-review.test.ts` passes with history presentation coverage. — e963345
+- [x] 2.2 `npm run check` passes. — e963345
+- [x] 2.3 Targeted ESLint passes for the history component, workspace, page, and tests. — e963345
 
 #### Manual
 
-- [x] 2.4 Confirm desktop collapse restores review width and persists across reloads.
-- [x] 2.5 Confirm the mobile slide-over meets focus, dismissal, and accessible-title requirements.
-- [x] 2.6 Confirm every history item shows bank, month, status, filename, and row count.
+- [x] 2.4 Confirm desktop collapse restores review width and persists across reloads. — e963345
+- [x] 2.5 Confirm the mobile slide-over meets focus, dismissal, and accessible-title requirements. — e963345
+- [x] 2.6 Confirm every history item shows bank, month, status, filename, and row count. — e963345
 
 ### Phase 3: Guarded Batch Switching and Historical Editing
 
 #### Automated
 
-- [ ] 3.1 `npm test -- tests/import-review.test.ts tests/review-persistence-and-rule-application.test.ts` passes with guarded-switching coverage.
-- [ ] 3.2 `npm run check` passes.
-- [ ] 3.3 `npm run build` passes.
-- [ ] 3.4 Targeted ESLint passes for the Phase 3 review components and tests.
+- [x] 3.1 `npm test -- tests/import-review.test.ts tests/review-persistence-and-rule-application.test.ts` passes with guarded-switching coverage.
+- [x] 3.2 `npm run check` passes.
+- [x] 3.3 `npm run build` passes.
+- [x] 3.4 Targeted ESLint passes for the Phase 3 review components and tests.
 
 #### Manual
 
-- [ ] 3.5 Confirm clean switching updates the review and URL without a full reload.
-- [ ] 3.6 Confirm stay, discard-and-switch, save-and-switch, and save-failure outcomes.
-- [ ] 3.7 Confirm completed historical edits persist without resetting completion status.
-- [ ] 3.8 Confirm new and replacement imports reconcile and select the correct pending history item.
+- [x] 3.5 Confirm clean switching updates the review and URL without a full reload.
+- [x] 3.6 Confirm stay, discard-and-switch, save-and-switch, and save-failure outcomes.
+- [x] 3.7 Confirm completed historical edits persist without resetting completion status.
+- [x] 3.8 Confirm new and replacement imports reconcile and select the correct pending history item.
 
 ### Phase 4: Focused E2E Regression and Handoff
 

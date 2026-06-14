@@ -46,11 +46,13 @@ export function ReviewCompletionBar({
           <p className="text-xs font-semibold tracking-[0.28em] text-cyan-200/70 uppercase">Review Status</p>
           <h2 className="mt-2 text-2xl font-semibold text-white">
             {isComplete
-              ? "This batch is ready for downstream summaries."
+              ? "This batch was already confirmed and stays open for corrections."
               : "This batch still needs review confirmation."}
           </h2>
           <p className="mt-3 text-sm leading-6 text-slate-200/75">
-            {transactionCount} imported transaction{transactionCount === 1 ? "" : "s"} in {batch.statement_month}
+            {isComplete
+              ? `${transactionCount} imported transaction${transactionCount === 1 ? "" : "s"} in ${batch.statement_month}. Any correction you save here still flows through to summaries without reopening review.`
+              : `${transactionCount} imported transaction${transactionCount === 1 ? "" : "s"} in ${batch.statement_month}`}
           </p>
           {isCompletionBlocked && completionBlockedReason && (
             <p className="mt-3 text-sm text-amber-200">{completionBlockedReason}</p>
