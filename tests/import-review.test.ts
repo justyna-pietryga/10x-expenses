@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ImportHistory } from "@/components/imports/ImportHistory";
 import { ImportUploadForm } from "@/components/imports/ImportUploadForm";
 import {
+  buildImportWorkspaceDesktopLayoutClasses,
   buildImportHistorySummary,
   buildImportWorkspaceUrl,
   createImportReviewRule,
@@ -3268,6 +3269,13 @@ describe("import workspace helpers", () => {
         search: "?from=dashboard&batch=batch-2",
       }),
     ).toBe("/imports?from=dashboard");
+  });
+
+  it("builds a wider desktop workspace split only when history stays visible", () => {
+    expect(buildImportWorkspaceDesktopLayoutClasses(true, false)).toContain("xl:grid-cols-[20rem_minmax(0,1fr)]");
+    expect(buildImportWorkspaceDesktopLayoutClasses(true, false)).toContain("2xl:grid-cols-[22rem_minmax(0,1fr)]");
+    expect(buildImportWorkspaceDesktopLayoutClasses(true, true)).toBe("space-y-6");
+    expect(buildImportWorkspaceDesktopLayoutClasses(false, false)).toBe("space-y-6");
   });
 
   it("loads a selected batch through the owned review API contract", async () => {

@@ -53,6 +53,14 @@ interface ImportBatchReviewResponse {
 
 type HistorySyncMode = "none" | "push" | "replace";
 
+export function buildImportWorkspaceDesktopLayoutClasses(hasHistory: boolean, isDesktopHistoryCollapsed: boolean) {
+  if (!hasHistory || isDesktopHistoryCollapsed) {
+    return "space-y-6";
+  }
+
+  return "space-y-6 xl:grid xl:grid-cols-[20rem_minmax(0,1fr)] xl:items-start xl:gap-8 xl:space-y-0 2xl:grid-cols-[22rem_minmax(0,1fr)]";
+}
+
 export async function saveImportReviewChanges(
   updates: ImportReviewDraftUpdate[],
   fetchFn: typeof fetch = fetch,
@@ -586,21 +594,14 @@ export function ImportWorkspace({
           </div>
         )}
 
-        <div
-          className={cn(
-            "space-y-6",
-            history.length > 0 &&
-              !isDesktopHistoryCollapsed &&
-              "xl:grid xl:grid-cols-[18rem_minmax(0,1fr)] xl:items-start xl:gap-6 xl:space-y-0",
-          )}
-        >
+        <div className={cn(buildImportWorkspaceDesktopLayoutClasses(history.length > 0, isDesktopHistoryCollapsed))}>
           {history.length > 0 && !isDesktopHistoryCollapsed && (
-            <div className="hidden min-w-0 xl:block">
+            <div className="hidden min-w-0 xl:sticky xl:top-6 xl:block">
               <ImportHistory activeBatchId={activeBatchId} history={history} onSelectBatch={historySelectionHandler} />
             </div>
           )}
 
-          <div className="min-w-0 space-y-6">
+          <div className="min-w-0 space-y-6 2xl:space-y-8">
             {batch ? (
               <>
                 <ReviewCompletionBar

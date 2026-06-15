@@ -265,25 +265,25 @@ No data migration is required. If a new shared shell helper or wrapper is introd
 
 #### Automated
 
-- [x] 2.1 Type and Astro checks pass: `npm run check`
-- [x] 2.2 Linting passes: `npm run lint`
-- [x] 2.3 Production build passes: `npm run build`
+- [x] 2.1 Type and Astro checks pass: `npm run check` â€” 50607bb
+- [x] 2.2 Linting passes: `npm run lint` â€” 50607bb
+- [x] 2.3 Production build passes: `npm run build` â€” 50607bb
 
 #### Manual
 
-- [x] 2.4 Dashboard summary panels and cards show more usable horizontal density on desktop without turning descriptive copy into very long lines.
-- [x] 2.5 Budget category and rule management surfaces feel wider and less cramped on desktop while retaining the existing single-column behavior on tablet/mobile.
+- [x] 2.4 Dashboard summary panels and cards show more usable horizontal density on desktop without turning descriptive copy into very long lines. â€” 50607bb
+- [x] 2.5 Budget category and rule management surfaces feel wider and less cramped on desktop while retaining the existing single-column behavior on tablet/mobile. â€” 50607bb
 
 ### Phase 3: Import Workspace Adoption And Regression Guardrails
 
 #### Automated
 
-- [ ] 3.1 Type and Astro checks pass: `npm run check`
-- [ ] 3.2 Linting passes: `npm run lint`
-- [ ] 3.3 Production build passes: `npm run build`
+- [x] 3.1 Type and Astro checks pass: `npm run check`
+- [x] 3.2 Linting passes: `npm run lint`
+- [x] 3.3 Production build passes: `npm run build`
 
 #### Manual
 
-- [ ] 3.4 `/imports` uses the same wider authenticated shell as `/dashboard` and `/budget` on large desktop viewports.
-- [ ] 3.5 Import history, upload, review table, and batch-switch dialog still behave correctly after the layout change.
-- [ ] 3.6 No target route introduces horizontal overflow at common mobile, tablet, laptop, or large-desktop widths.
+- [x] 3.4 `/imports` uses the same wider authenticated shell as `/dashboard` and `/budget` on large desktop viewports.
+- [x] 3.5 Import history, upload, review table, and batch-switch dialog still behave correctly after the layout change.
+- [x] 3.6 No target route introduces horizontal overflow at common mobile, tablet, laptop, or large-desktop widths.
