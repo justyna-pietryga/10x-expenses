@@ -282,6 +282,10 @@ Add exclusion and restore controls to import review while preserving the existin
 
 Surface excluded spend clearly in the dashboard and complete final regression coverage so the feature is trustworthy from import review through monthly summary.
 
+### Implementation Addendum
+
+Phase 4 also shipped a small import-history support adjustment in `src/components/imports/ImportHistory.tsx`. Within each pending/completed bucket, history ordering now prefers the latest statement month before import recency, and the desktop/mobile breakpoint moved from `lg` to `xl` to keep the review workspace stable while the new exclusion and reconciliation surfaces are visible.
+
 ### Changes Required:
 
 #### 1. Excluded Transactions Panel

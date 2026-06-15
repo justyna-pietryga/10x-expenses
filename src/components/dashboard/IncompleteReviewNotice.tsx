@@ -30,7 +30,7 @@ export function IncompleteReviewNotice({ incompleteReviewSpend, warningBatches }
       <ul className="mt-4 space-y-2 text-sm text-amber-50/90">
         {warningBatches.map((batch) => (
           <li key={batch.id} className="rounded-2xl border border-amber-200/20 bg-black/10 px-4 py-3">
-            {batch.bank} · {batch.source_filename ?? "Unnamed statement"} · imported{" "}
+            {batch.bank} | {batch.source_filename ?? "Unnamed statement"} | imported{" "}
             {new Date(batch.imported_at).toLocaleString()}
           </li>
         ))}

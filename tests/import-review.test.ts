@@ -253,7 +253,9 @@ function buildImportSupabaseStub(options?: {
     updated_at: "2026-05-30T08:00:00.000Z",
     user_id: "user-1",
   };
-  let batchTransactions: ImportedTransaction[] = options?.existingBatch ? [...existingTransactions] : [];
+  let batchTransactions: ImportedTransaction[] = options?.existingBatch
+    ? [...existingTransactions]
+    : [...insertedTransactions];
   let insertCallCount = 0;
 
   return {
@@ -353,6 +355,18 @@ function buildImportSupabaseStub(options?: {
                 filters.set(field, value);
                 return chain;
               }),
+              single: vi.fn().mockImplementation(() =>
+                Promise.resolve({
+                  data:
+                    batchTransactions.find((transaction) => {
+                      const id = filters.get("id");
+                      const userId = filters.get("user_id");
+
+                      return transaction.id === id && transaction.user_id === userId;
+                    }) ?? null,
+                  error: null,
+                }),
+              ),
               order: vi.fn().mockImplementation(() =>
                 Promise.resolve({
                   data: batchTransactions.filter((transaction) => {
@@ -1459,6 +1473,153 @@ describe("import data helpers", () => {
     ).rejects.toThrow(/cannot create rules/i);
   });
 
+  it("restores the previous review state when rule persistence fails after the row update", async () => {
+    const transaction = {
+      ...reviewTransactions[0],
+      category_id: "cat-food",
+      categorized_by_rule_id: "rule-food",
+      is_included: true,
+    };
+    const updatePayloads: Partial<ImportedTransaction>[] = [];
+    const supabase = {
+      from: vi.fn((table: string) => {
+        if (table === "budget_categories") {
+          return {
+            select: vi.fn().mockReturnValue(
+              createSelectChain([
+                {
+                  archived_at: null,
+                  carryover_enabled: false,
+                  created_at: "2026-05-01T00:00:00.000Z",
+                  id: "cat-travel",
+                  name: "Travel",
+                  percentage_limit: 20,
+                  updated_at: "2026-05-01T00:00:00.000Z",
+                  user_id: "user-1",
+                },
+              ]),
+            ),
+          };
+        }
+
+        if (table === "categorization_rules") {
+          return {
+            upsert: vi.fn().mockReturnValue(
+              createInsertSingleChain({
+                created_at: "2026-05-30T08:00:00.000Z",
+                id: "rule-1",
+                match_field: "recipient",
+                match_text: transaction.recipient,
+                target_category_id: "cat-travel",
+                updated_at: "2026-05-30T08:00:00.000Z",
+                user_id: "user-1",
+              }),
+            ),
+          };
+        }
+
+        if (table === "transactions") {
+          return {
+            select: vi.fn(() => {
+              const filters = new Map<string, string>();
+              const chain = {
+                eq: vi.fn((field: string, value: string) => {
+                  filters.set(field, value);
+                  return chain;
+                }),
+                single: vi.fn(() => ({
+                  data:
+                    transaction.id === filters.get("id") && transaction.user_id === filters.get("user_id")
+                      ? { ...transaction }
+                      : null,
+                  error: null,
+                })),
+              };
+
+              return chain;
+            }),
+            update: vi.fn((values: Partial<ImportedTransaction>) => {
+              updatePayloads.push(values);
+              const filters = new Map<string, string>();
+              const chain = {
+                eq: vi.fn((field: string, value: string) => {
+                  filters.set(field, value);
+                  return chain;
+                }),
+                select: vi.fn(() => chain),
+                single: vi.fn(() => {
+                  if (transaction.id !== filters.get("id") || transaction.user_id !== filters.get("user_id")) {
+                    return {
+                      data: null,
+                      error: { code: "PGRST116", message: "not found" },
+                    };
+                  }
+
+                  const isRuleBackfillUpdate =
+                    values.categorized_by_rule_id === "rule-1" && values.is_included === undefined;
+
+                  if (isRuleBackfillUpdate) {
+                    return {
+                      data: null,
+                      error: { code: "23505", message: "rule transaction update failed" },
+                    };
+                  }
+
+                  Object.assign(transaction, values);
+
+                  return {
+                    data: { ...transaction },
+                    error: null,
+                  };
+                }),
+              };
+
+              return chain;
+            }),
+          };
+        }
+
+        throw new Error(`Unexpected table ${table}`);
+      }),
+    };
+
+    await expect(
+      updateTransactionReviewAndMaybeRule(
+        supabase as never,
+        "user-1",
+        {
+          category_id: "cat-travel",
+          is_included: true,
+          transaction_id: "tx-1",
+        },
+        {
+          saveRule: true,
+        },
+      ),
+    ).rejects.toThrow(/rule transaction update failed/i);
+
+    expect(updatePayloads).toEqual([
+      {
+        category_id: "cat-travel",
+        categorized_by_rule_id: null,
+        is_included: true,
+      },
+      {
+        categorized_by_rule_id: "rule-1",
+      },
+      {
+        category_id: "cat-food",
+        categorized_by_rule_id: "rule-food",
+        is_included: true,
+      },
+    ]);
+    expect(transaction).toMatchObject({
+      category_id: "cat-food",
+      categorized_by_rule_id: "rule-food",
+      is_included: true,
+    });
+  });
+
   it("skips excluded matching rows when applying a review rule now", async () => {
     const { appliedUpdateIds, supabase } = buildImportReviewRuleSupabaseStub();
 
@@ -1482,6 +1643,21 @@ describe("import data helpers", () => {
     });
 
     expect(appliedUpdateIds).toEqual(["tx-1", "tx-3"]);
+  });
+
+  it("rejects review rules when the anchor transaction is excluded", async () => {
+    const { supabase } = buildImportReviewRuleSupabaseStub();
+
+    await expect(
+      persistImportReviewRule(supabase as never, "user-1", {
+        apply_now: true,
+        category_id: "cat-food",
+        dirty_transaction_ids: [],
+        match_field: "recipient",
+        match_text: "Lidl",
+        transaction_id: "tx-2",
+      }),
+    ).rejects.toThrow(/excluded transactions cannot create rules/i);
   });
 
   it("updates multiple imported transaction categories without creating rules", async () => {
@@ -2474,6 +2650,83 @@ describe("import API routes", () => {
     await expect(response.json()).resolves.toMatchObject({
       error: "Excluded transactions cannot create rules",
       field: "save_rule",
+    });
+  });
+
+  it("rejects single-row review updates whose body transaction_id does not match the route id", async () => {
+    const transactionRoute: typeof import("@/pages/api/imports/transactions/[id]") =
+      await import("@/pages/api/imports/transactions/[id]");
+    const supabase = buildImportSupabaseStub();
+
+    vi.mocked(createClient).mockReturnValue(supabase as never);
+
+    const response = await transactionRoute.PATCH({
+      cookies: {} as never,
+      locals: {
+        user: {
+          id: "user-1",
+          email: "user@example.com",
+        },
+      },
+      params: { id: "tx-1" },
+      redirect: vi.fn(),
+      request: new Request("http://localhost/api/imports/transactions/tx-1", {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          category_id: "cat-travel",
+          is_included: true,
+          transaction_id: "tx-2",
+        }),
+      }),
+    } as never);
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "transaction_id must match the route id",
+      field: "transaction_id",
+    });
+  });
+
+  it("rejects direct rule requests for excluded anchor transactions", async () => {
+    const ruleRoute: typeof import("@/pages/api/imports/transactions/rule") =
+      await import("@/pages/api/imports/transactions/rule");
+    const { supabase } = buildImportReviewRuleSupabaseStub();
+
+    vi.mocked(createClient).mockReturnValue(supabase as never);
+
+    const response = await ruleRoute.POST({
+      cookies: {} as never,
+      locals: {
+        user: {
+          id: "user-1",
+          email: "user@example.com",
+        },
+      },
+      params: {},
+      redirect: vi.fn(),
+      request: new Request("http://localhost/api/imports/transactions/rule", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          apply_now: true,
+          category_id: "cat-food",
+          dirty_transaction_ids: [],
+          match_field: "recipient",
+          match_text: "Lidl",
+          transaction_id: "tx-2",
+        }),
+      }),
+    } as never);
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Excluded transactions cannot create rules",
+      field: "transaction_id",
     });
   });
 });
