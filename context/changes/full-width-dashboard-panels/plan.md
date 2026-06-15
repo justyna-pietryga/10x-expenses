@@ -252,14 +252,14 @@ No data migration is required. If a new shared shell helper or wrapper is introd
 
 #### Automated
 
-- [ ] 1.1 Type and Astro checks pass: `npm run check`
-- [ ] 1.2 Linting passes: `npm run lint`
-- [ ] 1.3 Production build passes: `npm run build`
+- [x] 1.1 Type and Astro checks pass: `npm run check`
+- [x] 1.2 Linting passes: `npm run lint`
+- [x] 1.3 Production build passes: `npm run build`
 
 #### Manual
 
-- [ ] 1.4 On a large desktop viewport, `/dashboard`, `/budget`, and `/imports` all visibly use a wider shared shell than before.
-- [ ] 1.5 On mobile and tablet widths, the page shell still collapses cleanly without horizontal scrolling.
+- [x] 1.4 On a large desktop viewport, `/dashboard`, `/budget`, and `/imports` all visibly use a wider shared shell than before.
+- [x] 1.5 On mobile and tablet widths, the page shell still collapses cleanly without horizontal scrolling.
 
 ### Phase 2: Dashboard And Budget Panel Width Behavior
 

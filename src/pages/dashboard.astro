@@ -1,5 +1,6 @@
 ---
 import Topbar from "@/components/Topbar.astro";
+import AuthenticatedWorkspaceShell from "@/components/AuthenticatedWorkspaceShell.astro";
 import { SummaryWorkspace } from "@/components/dashboard/SummaryWorkspace";
 import { listActiveCategories, type BudgetCategory } from "@/lib/budget/data";
 import { validateMonthString } from "@/lib/budget/validation";
@@ -34,7 +35,7 @@ if (supabase && user) {
 
 <Layout title="Dashboard">
   <main class="bg-cosmic min-h-screen">
-    <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+    <AuthenticatedWorkspaceShell>
       <Topbar />
 
       <section
@@ -57,6 +58,6 @@ if (supabase && user) {
           }
         </div>
       </section>
-    </div>
+    </AuthenticatedWorkspaceShell>
   </main>
 </Layout>

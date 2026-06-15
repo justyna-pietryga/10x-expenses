@@ -1,5 +1,6 @@
 ---
 import Layout from "@/layouts/Layout.astro";
+import AuthenticatedWorkspaceShell from "@/components/AuthenticatedWorkspaceShell.astro";
 import Topbar from "@/components/Topbar.astro";
 import { ImportWorkspace } from "@/components/imports/ImportWorkspace";
 import { listActiveCategories, type BudgetCategory } from "@/lib/budget/data";
@@ -65,7 +66,7 @@ if (supabase && user) {
 
 <Layout title="Import Review">
   <main class="bg-cosmic min-h-screen">
-    <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+    <AuthenticatedWorkspaceShell>
       <Topbar />
 
       <section
@@ -130,6 +131,6 @@ if (supabase && user) {
           }
         </div>
       </section>
-    </div>
+    </AuthenticatedWorkspaceShell>
   </main>
 </Layout>
