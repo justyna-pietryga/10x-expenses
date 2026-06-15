@@ -209,6 +209,7 @@ export interface Database {
           created_at: string;
           id: string;
           import_batch_id: string;
+          is_included: boolean;
           recipient: string;
           title: string;
           transaction_date: string;
@@ -222,6 +223,7 @@ export interface Database {
           created_at?: string;
           id?: string;
           import_batch_id: string;
+          is_included?: boolean;
           recipient: string;
           title: string;
           transaction_date: string;
@@ -235,6 +237,7 @@ export interface Database {
           created_at?: string;
           id?: string;
           import_batch_id?: string;
+          is_included?: boolean;
           recipient?: string;
           title?: string;
           transaction_date?: string;

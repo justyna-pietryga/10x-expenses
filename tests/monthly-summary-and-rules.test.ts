@@ -68,6 +68,7 @@ interface SummaryTransactionRow {
   created_at: string;
   id: string;
   import_batch_id: string;
+  is_included: boolean;
   recipient: string;
   title: string;
   transaction_date: string;
@@ -200,6 +201,7 @@ function buildSummarySupabaseStub(options: SummaryStubOptions = {}) {
       import_batch_id: "batch-may-reviewed",
       amount: -200,
       category_id: "cat-food",
+      is_included: true,
       recipient: "Lidl",
       title: "Card payment",
       transaction_date: "2026-05-02",
@@ -212,6 +214,7 @@ function buildSummarySupabaseStub(options: SummaryStubOptions = {}) {
       import_batch_id: "batch-may-reviewed",
       amount: -50,
       category_id: null,
+      is_included: true,
       recipient: "Unknown",
       title: "Wire",
       transaction_date: "2026-05-05",
@@ -224,6 +227,7 @@ function buildSummarySupabaseStub(options: SummaryStubOptions = {}) {
       import_batch_id: "batch-may-pending",
       amount: -30,
       category_id: "cat-travel",
+      is_included: true,
       recipient: "Uber",
       title: "Ride",
       transaction_date: "2026-05-07",
@@ -238,6 +242,7 @@ function buildSummarySupabaseStub(options: SummaryStubOptions = {}) {
       import_batch_id: "batch-apr-reviewed",
       amount: -60,
       category_id: "cat-travel",
+      is_included: true,
       recipient: "PKP",
       title: "Train",
       transaction_date: "2026-04-11",
@@ -440,6 +445,8 @@ describe("summary data helpers", () => {
     expect(summary.reviewed_categorized_spend).toBe(200);
     expect(summary.reviewed_uncategorized_spend).toBe(50);
     expect(summary.incomplete_review_spend).toBe(30);
+    expect(summary.excluded_outflow).toBe(0);
+    expect(summary.excluded_inflow).toBe(0);
     expect(summary.total_imported_spend).toBe(280);
     expect(summary.warning_batches).toHaveLength(1);
     expect(summary.category_rows).toContainEqual(
@@ -506,6 +513,7 @@ describe("summary data helpers", () => {
           import_batch_id: "batch-may-reviewed",
           amount: -90,
           category_id: "cat-food",
+          is_included: true,
           recipient: "Lidl",
           title: "Card payment",
           transaction_date: "2026-05-05",
@@ -555,6 +563,7 @@ describe("summary data helpers", () => {
           import_batch_id: "batch-jun-pending",
           amount: -140,
           category_id: "cat-food",
+          is_included: true,
           recipient: "Biedronka",
           title: "Card payment",
           transaction_date: "2026-06-03",
@@ -615,6 +624,133 @@ describe("summary data helpers", () => {
     expect(secondSummary.reviewed_categorized_spend).toBe(260);
     expect(secondSummary.total_imported_spend).toBe(340);
     expect(secondSnapshot.total_spent).toBe(340);
+  });
+
+  it("keeps excluded transactions out of budget totals while tracking split outflow and inflow", async () => {
+    const supabase = buildSummarySupabaseStub({
+      selectedTransactions: [
+        {
+          id: "tx-may-food",
+          user_id: "user-1",
+          import_batch_id: "batch-may-reviewed",
+          amount: -200,
+          category_id: "cat-food",
+          is_included: true,
+          recipient: "Lidl",
+          title: "Card payment",
+          transaction_date: "2026-05-02",
+          created_at: "2026-05-02T00:00:00.000Z",
+          updated_at: "2026-05-02T00:00:00.000Z",
+        },
+        {
+          id: "tx-may-excluded-outflow",
+          user_id: "user-1",
+          import_batch_id: "batch-may-reviewed",
+          amount: -75,
+          category_id: "cat-travel",
+          is_included: false,
+          recipient: "Transfer out",
+          title: "Own transfer",
+          transaction_date: "2026-05-03",
+          created_at: "2026-05-03T00:00:00.000Z",
+          updated_at: "2026-05-03T00:00:00.000Z",
+        },
+        {
+          id: "tx-may-excluded-inflow",
+          user_id: "user-1",
+          import_batch_id: "batch-may-reviewed",
+          amount: 45,
+          category_id: null,
+          is_included: false,
+          recipient: "Refund",
+          title: "Refund",
+          transaction_date: "2026-05-04",
+          created_at: "2026-05-04T00:00:00.000Z",
+          updated_at: "2026-05-04T00:00:00.000Z",
+        },
+        {
+          id: "tx-may-excluded-zero",
+          user_id: "user-1",
+          import_batch_id: "batch-may-reviewed",
+          amount: 0,
+          category_id: null,
+          is_included: false,
+          recipient: "Adjustment",
+          title: "Zero adjustment",
+          transaction_date: "2026-05-05",
+          created_at: "2026-05-05T00:00:00.000Z",
+          updated_at: "2026-05-05T00:00:00.000Z",
+        },
+        {
+          id: "tx-may-pending",
+          user_id: "user-1",
+          import_batch_id: "batch-may-pending",
+          amount: -30,
+          category_id: "cat-travel",
+          is_included: true,
+          recipient: "Uber",
+          title: "Ride",
+          transaction_date: "2026-05-07",
+          created_at: "2026-05-07T00:00:00.000Z",
+          updated_at: "2026-05-07T00:00:00.000Z",
+        },
+      ],
+      historicalTransactions: [
+        {
+          id: "tx-apr-travel",
+          user_id: "user-1",
+          import_batch_id: "batch-apr-reviewed",
+          amount: -60,
+          category_id: "cat-travel",
+          is_included: true,
+          recipient: "PKP",
+          title: "Train",
+          transaction_date: "2026-04-11",
+          created_at: "2026-04-11T00:00:00.000Z",
+          updated_at: "2026-04-11T00:00:00.000Z",
+        },
+        {
+          id: "tx-may-excluded-history",
+          user_id: "user-1",
+          import_batch_id: "batch-may-reviewed",
+          amount: -25,
+          category_id: "cat-travel",
+          is_included: false,
+          recipient: "Old transfer",
+          title: "Internal transfer",
+          transaction_date: "2026-05-06",
+          created_at: "2026-05-06T00:00:00.000Z",
+          updated_at: "2026-05-06T00:00:00.000Z",
+        },
+      ],
+    });
+
+    const summary = await loadDashboardSummary(supabase as never, "user-1", "2026-05-01");
+    const snapshot = supabase.__state.monthlySummaryRecord();
+    if (!snapshot) {
+      throw new Error("Expected monthly summary snapshot to be saved");
+    }
+
+    expect(summary.reviewed_categorized_spend).toBe(200);
+    expect(summary.reviewed_uncategorized_spend).toBe(0);
+    expect(summary.incomplete_review_spend).toBe(30);
+    expect(summary.total_imported_spend).toBe(230);
+    expect(summary.excluded_outflow).toBe(75);
+    expect(summary.excluded_inflow).toBe(45);
+    expect(summary.category_rows).toContainEqual(
+      expect.objectContaining({
+        category_id: "cat-travel",
+        carryover_opening: 40,
+        carryover_closing: 140,
+        reviewed_spend: 0,
+      }),
+    );
+    expect(snapshot.summary_snapshot).toMatchObject({
+      excluded_inflow: 45,
+      excluded_outflow: 75,
+      total_imported_spend: 230,
+    });
+    expect(snapshot.total_spent).toBe(230);
   });
 });
 

@@ -32,6 +32,9 @@ export interface CategorySummaryRow {
 
 export interface MonthlySummaryResult {
   available_months: SummaryMonthOption[];
+  category_rows: CategorySummaryRow[];
+  excluded_inflow: number;
+  excluded_outflow: number;
   generated_at: string;
   incomplete_review_spend: number;
   reviewed_categorized_spend: number;
@@ -40,7 +43,6 @@ export interface MonthlySummaryResult {
   summary_id: string | null;
   total_imported_spend: number;
   total_income: number;
-  category_rows: CategorySummaryRow[];
   warning_batches: Pick<ImportBatch, "bank" | "id" | "imported_at" | "review_completed_at" | "source_filename">[];
 }
 
@@ -243,13 +245,28 @@ export async function loadDashboardSummary(supabase: SummaryClient, userId: stri
   let reviewedCategorizedSpend = 0;
   let reviewedUncategorizedSpend = 0;
   let incompleteReviewSpend = 0;
+  let excludedOutflow = 0;
+  let excludedInflow = 0;
   const reviewedSpendByCategory = new Map<string, number>();
 
   for (const transaction of selectedTransactions) {
     const batch = selectedBatchById.get(transaction.import_batch_id);
     const spendAmount = toSpendAmount(transaction.amount);
 
-    if (!batch || spendAmount === 0) {
+    if (!batch) {
+      continue;
+    }
+
+    if (!transaction.is_included) {
+      if (transaction.amount < 0) {
+        excludedOutflow += spendAmount;
+      } else if (transaction.amount > 0) {
+        excludedInflow += toCurrency(transaction.amount);
+      }
+      continue;
+    }
+
+    if (spendAmount === 0) {
       continue;
     }
 
@@ -276,7 +293,7 @@ export async function loadDashboardSummary(supabase: SummaryClient, userId: stri
     const batch = historicalBatchById.get(transaction.import_batch_id);
     const spendAmount = toSpendAmount(transaction.amount);
 
-    if (!batch?.review_completed_at || !transaction.category_id || spendAmount === 0) {
+    if (!transaction.is_included || !batch?.review_completed_at || !transaction.category_id || spendAmount === 0) {
       continue;
     }
 
@@ -331,6 +348,8 @@ export async function loadDashboardSummary(supabase: SummaryClient, userId: stri
   const generatedAt = new Date().toISOString();
   const snapshot = {
     category_rows: categoryRows,
+    excluded_inflow: toCurrency(excludedInflow),
+    excluded_outflow: toCurrency(excludedOutflow),
     incomplete_review_spend: toCurrency(incompleteReviewSpend),
     reviewed_categorized_spend: toCurrency(reviewedCategorizedSpend),
     reviewed_uncategorized_spend: toCurrency(reviewedUncategorizedSpend),
@@ -373,6 +392,8 @@ export async function loadDashboardSummary(supabase: SummaryClient, userId: stri
   return {
     available_months: availableMonths,
     category_rows: categoryRows,
+    excluded_inflow: toCurrency(excludedInflow),
+    excluded_outflow: toCurrency(excludedOutflow),
     generated_at: generatedAt,
     incomplete_review_spend: toCurrency(incompleteReviewSpend),
     reviewed_categorized_spend: toCurrency(reviewedCategorizedSpend),

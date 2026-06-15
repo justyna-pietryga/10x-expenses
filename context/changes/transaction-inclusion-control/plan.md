@@ -2,7 +2,7 @@
 
 ## Overview
 
-Implement roadmap item `UX-05`: let a signed-in user exclude imported transactions from budget calculations without deleting the imported row. Exclusion must be persistent, reversible through an explicit restore action, compatible with the existing bulk review workflow, and reflected clearly in the dashboard so budget totals remain trustworthy and reconcilable.
+Implement roadmap item `UX-05`: let a signed-in user exclude any imported transaction from budget calculations without deleting the imported row. Exclusion is persistent, reversible through an explicit restore action, compatible with the existing bulk review workflow, and reflected clearly in the dashboard. Separate excluded outflow and inflow values preserve reconciliation and prepare safely for future `S-05` cashflow typing without introducing that model early.
 
 ## Current State Analysis
 
@@ -24,7 +24,7 @@ Today the transaction model has no inclusion state. The only persisted transacti
 
 A signed-in user reviewing imported transactions can exclude a row from budget calculations without deleting it. The excluded state persists on the transaction, can be saved in the same draft-and-bulk-save workflow as category edits, and removes that row from both trusted category totals and incomplete-review spend calculations. Excluded rows are hidden from the default import-review list, but the UI provides a dedicated restore path so the user can re-include a row intentionally.
 
-On the dashboard, excluded rows do not count toward budget totals or category usage, but the user can still see a separate excluded amount so the imported statement remains explainable. The summary continues to distinguish reviewed trusted spend, reviewed uncategorized spend, incomplete-review spend, and now excluded spend as a separate explicit bucket.
+On the dashboard, excluded rows do not count toward budget totals or category usage. A reconciliation panel reports excluded outflows and excluded inflows separately so positive and negative records remain explainable without netting. The summary continues to distinguish reviewed trusted spend, reviewed uncategorized spend, incomplete-review spend, excluded outflow, and excluded inflow.
 
 ## What We're NOT Doing
 
@@ -34,13 +34,15 @@ On the dashboard, excluded rows do not count toward budget totals or category us
 - No automatic rule-driven exclusion.
 - No silent autosave for exclusion changes.
 - No deletion or mutation of source transaction fields such as date, title, recipient, or amount.
-- No broad import-review filtering/sorting redesign beyond the minimum excluded-row visibility needed for this slice.
+- No broad import-review filtering/sorting redesign beyond a collapsible excluded-transactions section.
+- No preservation of the prior category or rule provenance after exclusion.
+- No heuristic transfer of exclusions when a bank/month import is replaced.
 
 ## Implementation Approach
 
-Add one persistent inclusion field to `transactions`, defaulting to included. Expand the existing import-review transaction update contracts so both single-row and bulk save flows can persist category changes and inclusion changes together. Reuse the current dirty-state workflow in the review table instead of introducing a second save model.
+Add boolean `is_included` to `transactions`, defaulting to `true`. Expand the existing import-review transaction update contracts so single-row and bulk save flows persist category and inclusion changes together. Excluding a row atomically clears `category_id` and `categorized_by_rule_id`; restoring it leaves both null. Reuse the current dirty-state workflow instead of introducing a second save model.
 
-For summaries, treat excluded rows as intentionally out of scope for budget math regardless of whether the batch review is complete. They should never contribute to reviewed categorized spend, reviewed uncategorized spend, incomplete-review spend, category carry-over math, or total imported budget spend. Instead, compute them into a separate excluded bucket that the dashboard surfaces explicitly for reconciliation and auditability.
+For summaries, branch on exclusion before review status or category. Excluded rows never contribute to reviewed categorized spend, reviewed uncategorized spend, incomplete-review spend, warning state, category carry-over, or total imported budget spend. Negative excluded amounts add their absolute value to `excluded_outflow`; positive excluded amounts add to `excluded_inflow`; zero adds to neither.
 
 ## Critical Implementation Details
 
@@ -50,13 +52,21 @@ Once a transaction is excluded, it should bypass both reviewed and incomplete-re
 
 ### Restore Is Explicit, Not Symmetric
 
-The user chose a separate restore action rather than a simple toggle. The review UI therefore needs a clear way to reveal excluded rows and restore them intentionally, instead of letting hidden rows flip back to included accidentally through the default table controls.
+The user chose a separate restore action rather than a simple toggle. Exclusion clears category and rule provenance, while restoration returns the row as included and uncategorized.
 
 ### Hidden-by-Default Review Surface
 
-Excluded rows should not stay inline in the main review list by default. The import-review surface needs a dedicated excluded-row view or reveal control so the default workflow stays focused on included rows that still affect the budget, while preserving a clear audit trail and restore path.
+Excluded rows should not stay inline in the main review list by default. Render a collapsed "Excluded transactions" section below the main table, showing the excluded count and a distinct restore action when expanded.
 
-## Phase 1: Transaction Inclusion Schema and Summary Contract
+### Inclusion Is Orthogonal to Cashflow Type
+
+All imported rows may be excluded, including positive rows. Positive transactions currently produce zero spend because `toSpendAmount()` ignores amounts greater than or equal to zero. Split excluded outflow/inflow fields preserve information for `S-05` without treating inclusion as expense, income, reimbursement, or transfer classification.
+
+### Completed Reviews and Replacement Imports
+
+Saving inclusion corrections on a completed batch does not clear `review_completed_at`, matching the existing historical correction contract. Replacing a bank/month import creates replacement rows with the default included state and does not attempt unsafe heuristic matching against prior exclusions.
+
+## Phase 1: Schema and Summary Semantics
 
 ### Overview
 
@@ -70,7 +80,7 @@ Add persistent transaction inclusion state and update the summary engine so excl
 
 **Intent**: Persist whether an imported transaction should participate in budget calculations.
 
-**Contract**: Add a non-null inclusion field to `transactions` with a default included state. The field should support simple MVP semantics only: included versus excluded. Existing transactions must backfill to included automatically so historical data keeps current behavior until the user changes it.
+**Contract**: Add non-null boolean `is_included` with default `true`. Existing rows backfill to included. New and replacement import rows use the same default, so bank/month replacement intentionally resets prior exclusion decisions.
 
 #### 2. Generated Types Refresh
 
@@ -86,7 +96,7 @@ Add persistent transaction inclusion state and update the summary engine so excl
 
 **Intent**: Keep excluded transactions out of budget math while preserving a visible excluded bucket in summary results.
 
-**Contract**: Extend `MonthlySummaryResult` with an explicit excluded-spend field. During selected-month and historical aggregation, excluded transactions must not contribute to reviewed categorized spend, reviewed uncategorized spend, incomplete-review spend, total imported budget spend, or carry-over calculations. They should instead aggregate into the separate excluded amount for the selected month.
+**Contract**: Extend `MonthlySummaryResult` with `excluded_outflow` and `excluded_inflow`. Excluded transactions bypass reviewed, uncategorized, incomplete, warning, total-spend, and carry-over paths. Aggregate negative values as positive outflow magnitude and positive values as inflow without netting.
 
 #### 4. Summary Snapshot Contract
 
@@ -94,7 +104,7 @@ Add persistent transaction inclusion state and update the summary engine so excl
 
 **Intent**: Keep cached monthly summary snapshots structurally consistent with the live result.
 
-**Contract**: Include the excluded-spend field in the summary snapshot written to `monthly_summaries`, alongside the existing reviewed and incomplete buckets.
+**Contract**: Persist both excluded-flow fields in `summary_snapshot`. Keep `monthly_summaries.total_spent` equal to budget-relevant imported spend only.
 
 #### 5. Summary Tests
 
@@ -102,13 +112,13 @@ Add persistent transaction inclusion state and update the summary engine so excl
 
 **Intent**: Protect the budget-trust contract before the review UI starts mutating inclusion state.
 
-**Contract**: Add coverage proving that excluded negative transactions are removed from trusted, uncategorized, and incomplete buckets; bypass carry-over calculations; and accumulate only in the excluded bucket. Keep existing reviewed-versus-incomplete behaviors unchanged for included rows.
+**Contract**: Cover excluded negative, positive, and zero rows; reviewed and pending batches; historical carry-over; snapshot persistence; and replacement rows defaulting to included. Preserve existing behavior for included rows.
 
 ### Success Criteria:
 
 #### Automated Verification:
 
-- `npm test -- tests/monthly-summary-and-rules.test.ts` passes with excluded-bucket coverage.
+- `npm test -- tests/monthly-summary-and-rules.test.ts` passes with split excluded-flow coverage.
 - `npx astro check` passes after the type refresh and summary contract changes.
 - Targeted `npx eslint src/lib/summary/data.ts tests/monthly-summary-and-rules.test.ts` passes.
 
@@ -116,13 +126,13 @@ Add persistent transaction inclusion state and update the summary engine so excl
 
 - Review the migration and confirm all existing transactions default to included behavior after rollout.
 - Confirm an excluded transaction no longer contributes to trusted spend, uncategorized spend, incomplete-review spend, or carry-over math.
-- Confirm the summary contract now exposes excluded spend as its own top-level bucket instead of silently dropping excluded rows.
+- Confirm the summary contract exposes separate excluded outflow and inflow values without netting.
 
 **Implementation Note**: After completing this phase and all automated verification passes, pause here for manual confirmation before changing import-review save contracts.
 
 ---
 
-## Phase 2: Import Review Save Contracts
+## Phase 2: Review Persistence Contracts
 
 ### Overview
 
@@ -136,7 +146,7 @@ Expand the transaction update contracts so inclusion state can be saved through 
 
 **Intent**: Validate inclusion updates centrally and keep category-only assumptions from leaking into the routes.
 
-**Contract**: Extend the single-row and bulk import-review payload validators so transaction updates can carry both nullable `category_id` and the inclusion field. Keep `save_rule` isolated to the single-row rule shortcut path and disallow it from the bulk contract.
+**Contract**: Replace category-only payload naming with a general review-update contract carrying `transaction_id`, nullable `category_id`, and boolean `is_included`. Keep `save_rule` isolated to the single-row shortcut and reject it in bulk updates.
 
 #### 2. Import Data Helpers
 
@@ -144,7 +154,7 @@ Expand the transaction update contracts so inclusion state can be saved through 
 
 **Intent**: Persist inclusion state together with category changes for owned transactions only.
 
-**Contract**: Expand the single-row helper and the bulk helper so they update the inclusion field alongside `category_id`. Preserve existing category ownership validation, row-level failure behavior, and no-rule side-effect boundaries for bulk saves. The returned transaction payloads must include the inclusion field so UI state can refresh from persisted data.
+**Contract**: Exclusion atomically writes `is_included = false`, `category_id = null`, and `categorized_by_rule_id = null`. Restoration writes `is_included = true` while leaving category/provenance null. Preserve ownership validation and mixed failures, returning full persisted rows.
 
 #### 3. Single-Row Transaction Route
 
@@ -152,7 +162,7 @@ Expand the transaction update contracts so inclusion state can be saved through 
 
 **Intent**: Keep the row-level route consistent with the expanded transaction contract.
 
-**Contract**: `PATCH` continues to support row-level category update and optional rule creation, but now also accepts the inclusion field as part of the same transaction update contract.
+**Contract**: `PATCH` accepts the general review-update payload. Exclusion takes precedence over category input, and excluded rows cannot create a rule.
 
 #### 4. Bulk Transaction Route
 
@@ -160,7 +170,7 @@ Expand the transaction update contracts so inclusion state can be saved through 
 
 **Intent**: Let the review table save multiple category and inclusion changes in one request.
 
-**Contract**: `PATCH /api/imports/transactions/bulk` accepts an array of transaction updates that may include category changes, inclusion changes, or both. It returns mixed `updated` and `failed` rows using the existing partial-failure pattern.
+**Contract**: `PATCH /api/imports/transactions/bulk` accepts general review updates and returns mixed `updated` and `failed` rows. Bulk updates never create or mutate rules.
 
 #### 5. Import Contract Tests
 
@@ -168,7 +178,7 @@ Expand the transaction update contracts so inclusion state can be saved through 
 
 **Intent**: Lock in ownership, single-row parity, uncategorized compatibility, and bulk partial-failure behavior for the new field.
 
-**Contract**: Add tests proving that inclusion changes persist through both routes, another user's rows still cannot be mutated, excluded rows can remain uncategorized, and bulk updates preserve mixed success/failure semantics without touching rule creation.
+**Contract**: Prove exclusion clears category/provenance, restore stays uncategorized, foreign rows remain protected, completed batches remain completed, mixed outcomes stay truthful, and rule apply-now skips excluded matches.
 
 ### Success Criteria:
 
@@ -188,7 +198,7 @@ Expand the transaction update contracts so inclusion state can be saved through 
 
 ---
 
-## Phase 3: Import Review Inclusion UI
+## Phase 3: Import Review UI
 
 ### Overview
 
@@ -202,7 +212,7 @@ Add exclusion and restore controls to import review while preserving the existin
 
 **Intent**: Let the review table draft inclusion changes alongside category changes using one save/discard workflow.
 
-**Contract**: Expand local draft state and dirty-update derivation so a row can have pending category changes, pending inclusion changes, or both. Dirty state must continue to be derived by comparing local drafts to persisted transaction data rather than tracking a separate mutable flag.
+**Contract**: Replace category-only drafts with per-row review drafts. Exclusion supersedes and clears any category draft; restoration stages included plus null category. Dirty state remains derived from draft-versus-persisted values.
 
 #### 2. Exclude Action in Main Review List
 
@@ -210,7 +220,7 @@ Add exclusion and restore controls to import review while preserving the existin
 
 **Intent**: Give the user an explicit action to remove an included row from budget calculations.
 
-**Contract**: Included rows in the default review list expose an exclusion action that updates local draft state rather than saving immediately. The unsaved-change count and bulk `Save all changes` / `Discard changes` controls must account for inclusion edits the same way they already account for category edits.
+**Contract**: Every included row, including positive rows, exposes an exclusion action that stages a draft. Unsaved counts and save/discard controls cover category and inclusion edits together.
 
 #### 3. Hidden-by-Default Excluded Rows and Restore Path
 
@@ -218,7 +228,7 @@ Add exclusion and restore controls to import review while preserving the existin
 
 **Intent**: Keep the default review view focused on budget-relevant rows while preserving reversibility.
 
-**Contract**: Excluded rows are hidden from the default review list. The component must provide a dedicated reveal surface for excluded rows and a distinct restore action that returns a row to included state. Restore should follow the same draft-and-save model instead of bypassing bulk save.
+**Contract**: Persisted or drafted-excluded rows leave the main table and appear in a collapsed section below it. The accessible section exposes count and a distinct restore action. Restore follows the same draft-and-save model and returns the row uncategorized.
 
 #### 4. Workspace Merge and Notice Handling
 
@@ -226,7 +236,7 @@ Add exclusion and restore controls to import review while preserving the existin
 
 **Intent**: Keep persisted inclusion state synchronized with local review data after successful saves.
 
-**Contract**: Expand workspace save helpers so successful bulk and single-row updates merge persisted inclusion state back into `transactions`, preserve failure metadata for dirty rows, and keep review-completion blocking tied to any unsaved transaction changes, not category-only changes.
+**Contract**: Rename category-only fetch/merge helpers to review-update equivalents and merge full persisted rows. Preserve failed drafts and keep history switching, import commit, and review completion blocked by any unsaved review change.
 
 #### 5. Completion Guard Alignment
 
@@ -245,7 +255,7 @@ Add exclusion and restore controls to import review while preserving the existin
 
 **Intent**: Protect the visible review workflow and restore semantics.
 
-**Contract**: Add rendered/helper coverage for excluded rows being hidden by default, the excluded-row reveal path, restore action visibility, inclusion changes contributing to dirty-state counts, persisted inclusion merges after save, and completion-blocked copy for any unsaved review change.
+**Contract**: Cover positive-row eligibility, category-draft supersession, hidden main-list behavior, collapsed reveal, uncategorized restore, partial-save reconciliation, completed-batch stability, and generic completion-blocked copy.
 
 ### Success Criteria:
 
@@ -266,7 +276,7 @@ Add exclusion and restore controls to import review while preserving the existin
 
 ---
 
-## Phase 4: Dashboard Presentation and Regression Handoff
+## Phase 4: Dashboard Reconciliation
 
 ### Overview
 
@@ -274,13 +284,13 @@ Surface excluded spend clearly in the dashboard and complete final regression co
 
 ### Changes Required:
 
-#### 1. Summary Cards Update
+#### 1. Excluded Transactions Panel
 
-**File**: `src/components/dashboard/SummaryCards.tsx`
+**File**: `src/components/dashboard/ExcludedTransactionsPanel.tsx`
 
-**Intent**: Make excluded spend visible at the same abstraction level as the other top-line budget buckets.
+**Intent**: Reconcile intentionally ignored records without giving them equal weight to budget totals.
 
-**Contract**: Add an excluded-spend card or equivalent top-level summary element. The existing imported-spend label should continue to represent budget-relevant imported spend only, while excluded spend is shown separately for reconciliation.
+**Contract**: Add one panel labeled "Excluded transactions" showing outflow and inflow separately. Do not net the values. Keep top-level cards focused on budget-relevant totals.
 
 #### 2. Summary Workspace Wiring
 
@@ -288,7 +298,7 @@ Surface excluded spend clearly in the dashboard and complete final regression co
 
 **Intent**: Pass the new excluded bucket through the existing dashboard composition cleanly.
 
-**Contract**: Consume the extended `MonthlySummaryResult` and render the excluded-spend presentation alongside the existing trusted and incomplete-review surfaces.
+**Contract**: Pass `excluded_outflow` and `excluded_inflow` into the reconciliation panel. The imported-spend card continues to represent budget-relevant imported spend only.
 
 #### 3. Dashboard Messaging Alignment
 
@@ -323,19 +333,51 @@ Surface excluded spend clearly in the dashboard and complete final regression co
 
 #### Manual Verification:
 
-- The dashboard shows excluded spend separately from trusted categorized spend and incomplete-review spend.
+- The dashboard shows excluded outflow and inflow separately from trusted categorized spend and incomplete-review spend.
 - The top-level imported-spend total now reflects only budget-relevant imported rows.
 - The dashboard copy still makes it clear that excluded rows remain in the imported record history even though they no longer affect budget calculations.
 
-**Implementation Note**: After completing this phase and all automated verification passes, pause here for manual confirmation before impl-review or archive.
+**Implementation Note**: After completing this phase and all automated verification passes, pause here for manual confirmation before browser verification.
+
+---
+
+## Phase 5: Focused Browser Verification
+
+### Overview
+
+Add one deterministic Playwright flow for the highest-risk cross-surface behavior.
+
+### Changes Required:
+
+#### 1. Transaction Inclusion E2E
+
+**File**: `tests/e2e/transaction-inclusion-control.spec.ts`
+
+**Intent**: Prove persisted inclusion remains truthful across import review, completed historical-batch editing, and dashboard reconciliation.
+
+**Contract**: Following `/10x-e2e`, seed unique owned data and cover exclude, save, disappearance from the main table, expansion of the excluded section, restore as uncategorized, completed-status preservation, and separate dashboard excluded outflow/inflow values. Use role/label/text locators, state-based waits, and independent cleanup.
+
+### Success Criteria:
+
+#### Automated Verification:
+
+- `npm run test:e2e -- tests/e2e/transaction-inclusion-control.spec.ts` passes.
+- The E2E test uses no CSS/XPath locators and no `page.waitForTimeout()`.
+- `npm run lint`, `npm run check`, and `npm run build` pass.
+
+#### Manual Verification:
+
+- Review the browser flow and confirm it covers the user-visible risk without duplicating lower-level Vitest coverage.
+
+**Implementation Note**: Generate and review this phase with `/10x-e2e`, then pause for manual confirmation before impl-review or archive.
 
 ## Testing Strategy
 
 ### Unit Tests:
 
-- Transaction update payload validation for inclusion state in both single-row and bulk save contracts.
-- Dirty-update derivation for category plus inclusion drafts.
-- Summary bucket math proving excluded rows bypass reviewed, uncategorized, incomplete, and carry-over calculations.
+- General review-update validation for single-row and bulk contracts.
+- Dirty-update derivation, category clearing, and uncategorized restoration.
+- Split excluded-flow math proving excluded rows bypass reviewed, uncategorized, incomplete, and carry-over calculations.
 
 ### Integration Tests:
 
@@ -352,7 +394,7 @@ Surface excluded spend clearly in the dashboard and complete final regression co
 5. Reveal excluded rows and restore one row through the dedicated restore path.
 6. Save again and confirm the restored row returns to the default review list.
 7. Mark another row excluded in a batch that is still not review-complete.
-8. Open `/dashboard` for that month and confirm the excluded amount appears separately while trusted and incomplete-review totals no longer include the excluded row.
+8. Open `/dashboard` for that month and confirm excluded outflow and inflow appear separately while trusted and incomplete-review totals omit excluded rows.
 9. Confirm reviewed uncategorized and incomplete-review messaging still behaves correctly for included rows.
 
 ## Performance Considerations
@@ -363,7 +405,7 @@ This slice stays within MVP-scale monthly batch sizes, so extending the existing
 
 Land the transaction schema migration and generated type refresh before changing import-review helpers or summary math. Existing transactions must backfill to the included state so historical summaries preserve current behavior until users intentionally exclude rows.
 
-Because the dashboard meaning of "Imported spend" changes to budget-relevant imported spend, UI copy and tests need to be updated together to avoid a silent semantic regression.
+Because "Imported spend" changes to budget-relevant imported spend, UI copy and tests must update together. Inclusion remains independent from future `S-05` cashflow classification; split excluded-flow fields are observational preparation, not a type model.
 
 ## References
 
@@ -384,21 +426,21 @@ Because the dashboard meaning of "Imported spend" changes to budget-relevant imp
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` - <commit sha>` when a step lands. Do not rename step titles. See `references/progress-format.md`.
 
-### Phase 1: Transaction Inclusion Schema and Summary Contract
+### Phase 1: Schema and Summary Semantics
 
 #### Automated
 
-- [ ] 1.1 `npm test -- tests/monthly-summary-and-rules.test.ts` passes with excluded-bucket coverage.
-- [ ] 1.2 `npx astro check` passes after the type refresh and summary contract changes.
-- [ ] 1.3 Targeted `npx eslint src/lib/summary/data.ts tests/monthly-summary-and-rules.test.ts` passes.
+- [x] 1.1 `npm test -- tests/monthly-summary-and-rules.test.ts` passes with split excluded-flow coverage.
+- [x] 1.2 `npx astro check` passes after the type refresh and summary contract changes.
+- [x] 1.3 Targeted `npx eslint src/lib/summary/data.ts tests/monthly-summary-and-rules.test.ts` passes.
 
 #### Manual
 
 - [ ] 1.4 Review the migration and confirm all existing transactions default to included behavior after rollout.
 - [ ] 1.5 Confirm an excluded transaction no longer contributes to trusted spend, uncategorized spend, incomplete-review spend, or carry-over math.
-- [ ] 1.6 Confirm the summary contract now exposes excluded spend as its own top-level bucket instead of silently dropping excluded rows.
+- [ ] 1.6 Confirm the summary contract exposes separate excluded outflow and inflow values without netting them.
 
-### Phase 2: Import Review Save Contracts
+### Phase 2: Review Persistence Contracts
 
 #### Automated
 
@@ -412,7 +454,7 @@ Because the dashboard meaning of "Imported spend" changes to budget-relevant imp
 - [ ] 2.5 Confirm excluded rows are allowed to stay uncategorized.
 - [ ] 2.6 Confirm bulk inclusion changes do not create or mutate categorization rules.
 
-### Phase 3: Import Review Inclusion UI
+### Phase 3: Import Review UI
 
 #### Automated
 
@@ -427,7 +469,7 @@ Because the dashboard meaning of "Imported spend" changes to budget-relevant imp
 - [ ] 3.6 A user can reveal excluded rows and restore one intentionally through a dedicated restore action.
 - [ ] 3.7 `Mark review complete` remains blocked while any category or inclusion changes are unsaved.
 
-### Phase 4: Dashboard Presentation and Regression Handoff
+### Phase 4: Dashboard Reconciliation
 
 #### Automated
 
@@ -438,6 +480,18 @@ Because the dashboard meaning of "Imported spend" changes to budget-relevant imp
 
 #### Manual
 
-- [ ] 4.5 The dashboard shows excluded spend separately from trusted categorized spend and incomplete-review spend.
+- [ ] 4.5 The dashboard shows excluded outflow and inflow separately from trusted categorized spend and incomplete-review spend.
 - [ ] 4.6 The top-level imported-spend total now reflects only budget-relevant imported rows.
 - [ ] 4.7 The dashboard copy still makes it clear that excluded rows remain in the imported record history even though they no longer affect budget calculations.
+
+### Phase 5: Focused Browser Verification
+
+#### Automated
+
+- [ ] 5.1 `npm run test:e2e -- tests/e2e/transaction-inclusion-control.spec.ts` passes.
+- [ ] 5.2 The E2E test uses no CSS/XPath locators and no `page.waitForTimeout()`.
+- [ ] 5.3 `npm run lint`, `npm run check`, and `npm run build` pass.
+
+#### Manual
+
+- [ ] 5.4 Review the browser flow and confirm it covers the user-visible risk without duplicating lower-level Vitest coverage.

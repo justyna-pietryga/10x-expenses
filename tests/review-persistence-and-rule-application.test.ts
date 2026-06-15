@@ -76,7 +76,7 @@ function makeBatch(overrides: Partial<ImportBatch> = {}): ImportBatch {
 }
 
 function makeTransaction(id: string, overrides: Partial<ImportedTransaction> = {}): ImportedTransaction {
-  const { categorized_by_rule_id = null, ...rest } = overrides;
+  const { categorized_by_rule_id = null, is_included = true, ...rest } = overrides;
 
   return {
     amount: -10,
@@ -85,6 +85,7 @@ function makeTransaction(id: string, overrides: Partial<ImportedTransaction> = {
     created_at: createdAt,
     id,
     import_batch_id: "batch-1",
+    is_included,
     recipient: `Recipient ${id}`,
     title: `Title ${id}`,
     transaction_date: "2026-06-03",
