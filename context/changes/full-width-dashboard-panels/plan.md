@@ -278,12 +278,12 @@ No data migration is required. If a new shared shell helper or wrapper is introd
 
 #### Automated
 
-- [x] 3.1 Type and Astro checks pass: `npm run check`
-- [x] 3.2 Linting passes: `npm run lint`
-- [x] 3.3 Production build passes: `npm run build`
+- [x] 3.1 Type and Astro checks pass: `npm run check` — c393175
+- [x] 3.2 Linting passes: `npm run lint` — c393175
+- [x] 3.3 Production build passes: `npm run build` — c393175
 
 #### Manual
 
-- [x] 3.4 `/imports` uses the same wider authenticated shell as `/dashboard` and `/budget` on large desktop viewports.
-- [x] 3.5 Import history, upload, review table, and batch-switch dialog still behave correctly after the layout change.
-- [x] 3.6 No target route introduces horizontal overflow at common mobile, tablet, laptop, or large-desktop widths.
+- [x] 3.4 `/imports` uses the same wider authenticated shell as `/dashboard` and `/budget` on large desktop viewports. — c393175
+- [x] 3.5 Import history, upload, review table, and batch-switch dialog still behave correctly after the layout change. — c393175
+- [x] 3.6 No target route introduces horizontal overflow at common mobile, tablet, laptop, or large-desktop widths. — c393175
