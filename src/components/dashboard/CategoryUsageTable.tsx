@@ -15,10 +15,14 @@ export function CategoryUsageTable({ categoryRows, reviewedUncategorizedSpend }:
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-xs font-semibold tracking-[0.28em] text-cyan-200/70 uppercase">Category Usage</p>
-          <h2 className="mt-2 text-2xl font-semibold text-white">Trusted reviewed category totals.</h2>
+          <h2 className="mt-2 text-2xl font-semibold text-white">Trusted reviewed category totals only.</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-300/80">
+            Included reviewed uncategorized spend stays separate, and excluded transactions are reconciled outside this
+            table.
+          </p>
         </div>
         <div className="rounded-full border border-white/12 bg-slate-950/30 px-4 py-2 text-sm text-slate-200">
-          Reviewed uncategorized: {formatAmount(reviewedUncategorizedSpend)}
+          Reviewed uncategorized included spend: {formatAmount(reviewedUncategorizedSpend)}
         </div>
       </div>
 

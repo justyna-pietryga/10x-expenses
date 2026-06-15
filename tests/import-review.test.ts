@@ -1644,7 +1644,7 @@ describe("import data helpers", () => {
     expect(batch.review_completed_at).toEqual(expect.any(String));
   });
 
-  it("lists import history with pending batches first, deterministic ordering, and transaction counts", async () => {
+  it("lists import history with pending batches first, latest statement months first, and transaction counts", async () => {
     const supabase = buildImportHistorySupabaseStub();
 
     await expect(listImportBatchHistory(supabase as never, "user-1")).resolves.toEqual([
@@ -1665,6 +1665,70 @@ describe("import data helpers", () => {
         review_completed_at: "2026-06-13T12:00:00.000Z",
         statement_month: "2026-06-01",
         transaction_count: 1,
+      }),
+    ]);
+  });
+
+  it("orders visible history by latest statement month before older months within the same completion bucket", async () => {
+    const supabase = buildImportHistorySupabaseStub({
+      batches: [
+        {
+          bank: "revolut",
+          id: "batch-pending-newer-import-older-month",
+          imported_at: "2026-06-15T10:00:00.000Z",
+          review_completed_at: null,
+          source_filename: "newer-import.csv",
+          statement_month: "2026-05-01",
+          user_id: "user-1",
+        },
+        {
+          bank: "ing",
+          id: "batch-pending-older-import-newer-month",
+          imported_at: "2026-06-14T10:00:00.000Z",
+          review_completed_at: null,
+          source_filename: "older-import.csv",
+          statement_month: "2026-06-01",
+          user_id: "user-1",
+        },
+      ],
+      transactions: [
+        {
+          amount: -10,
+          category_id: null,
+          categorized_by_rule_id: null,
+          created_at: "2026-06-15T10:00:00.000Z",
+          id: "tx-newer-import",
+          import_batch_id: "batch-pending-newer-import-older-month",
+          is_included: true,
+          recipient: "Newer import",
+          title: "Newer import",
+          transaction_date: "2026-06-15",
+          updated_at: "2026-06-15T10:00:00.000Z",
+          user_id: "user-1",
+        },
+        {
+          amount: -12,
+          category_id: null,
+          categorized_by_rule_id: null,
+          created_at: "2026-06-14T10:00:00.000Z",
+          id: "tx-older-import",
+          import_batch_id: "batch-pending-older-import-newer-month",
+          is_included: true,
+          recipient: "Older import",
+          title: "Older import",
+          transaction_date: "2026-06-14",
+          updated_at: "2026-06-14T10:00:00.000Z",
+          user_id: "user-1",
+        },
+      ],
+    });
+
+    await expect(listImportBatchHistory(supabase as never, "user-1")).resolves.toEqual([
+      expect.objectContaining({
+        id: "batch-pending-older-import-newer-month",
+      }),
+      expect.objectContaining({
+        id: "batch-pending-newer-import-older-month",
       }),
     ]);
   });
@@ -1787,7 +1851,7 @@ describe("import data helpers", () => {
     ]);
   });
 
-  it("defaults to the newest pending batch and falls back to the newest completed batch", async () => {
+  it("defaults to the latest statement month even when an older month still has a pending batch", async () => {
     const pendingSupabase = buildImportHistorySupabaseStub();
     const completedOnlySupabase = buildImportHistorySupabaseStub({
       batches: [
@@ -1830,7 +1894,7 @@ describe("import data helpers", () => {
 
     await expect(loadDefaultImportBatchReview(pendingSupabase as never, "user-1")).resolves.toMatchObject({
       batch: {
-        id: "batch-pending-latest-import",
+        id: "batch-complete-newer-month",
       },
     });
     await expect(loadDefaultImportBatchReview(completedOnlySupabase as never, "user-1")).resolves.toMatchObject({
@@ -2863,22 +2927,75 @@ describe("import workspace helpers", () => {
     });
   });
 
-  it("finds the default batch from newest pending import recency, not visible ordering alone", () => {
-    expect(findDefaultImportBatchId(reviewBatchHistory)).toBe("batch-pending-latest-import");
+  it("reconciles history by latest statement month before import recency within the same completion bucket", () => {
+    const history = reconcileImportHistory(
+      [
+        {
+          bank: "ing",
+          id: "batch-newer-month-older-import",
+          imported_at: "2026-06-14T10:00:00.000Z",
+          review_completed_at: null,
+          source_filename: "older-import.csv",
+          statement_month: "2026-06-01",
+          transaction_count: 1,
+        },
+      ],
+      {
+        bank: "revolut",
+        created_at: "2026-06-15T10:00:00.000Z",
+        id: "batch-older-month-newer-import",
+        imported_at: "2026-06-15T10:00:00.000Z",
+        period_end: "2026-05-31",
+        period_start: "2026-05-01",
+        review_completed_at: null,
+        source_filename: "newer-import.csv",
+        statement_month: "2026-05-01",
+        updated_at: "2026-06-15T10:00:00.000Z",
+        user_id: "user-1",
+      },
+      2,
+    );
+
+    expect(history.map((item) => item.id)).toEqual([
+      "batch-newer-month-older-import",
+      "batch-older-month-newer-import",
+    ]);
+  });
+
+  it("finds the default batch from the latest statement month, then latest import inside that month", () => {
+    expect(findDefaultImportBatchId(reviewBatchHistory)).toBe("batch-complete-newer-month");
     expect(
       findDefaultImportBatchId([
         {
-          id: "batch-pending-newer-month-older-import",
+          id: "batch-newer-month-older-import",
           imported_at: "2026-06-10T10:00:00.000Z",
           review_completed_at: null,
+          statement_month: "2026-06-01",
         },
         {
-          id: "batch-pending-older-month-newer-import",
+          id: "batch-older-month-newer-import",
           imported_at: "2026-06-12T10:00:00.000Z",
           review_completed_at: null,
+          statement_month: "2026-05-01",
         },
       ]),
-    ).toBe("batch-pending-older-month-newer-import");
+    ).toBe("batch-newer-month-older-import");
+    expect(
+      findDefaultImportBatchId([
+        {
+          id: "batch-same-month-older-import",
+          imported_at: "2026-06-10T10:00:00.000Z",
+          review_completed_at: null,
+          statement_month: "2026-06-01",
+        },
+        {
+          id: "batch-same-month-newer-import",
+          imported_at: "2026-06-12T10:00:00.000Z",
+          review_completed_at: "2026-06-12T11:00:00.000Z",
+          statement_month: "2026-06-01",
+        },
+      ]),
+    ).toBe("batch-same-month-newer-import");
     expect(findDefaultImportBatchId([])).toBeNull();
   });
 
@@ -3079,6 +3196,29 @@ describe("import workspace helpers", () => {
         category_id: "cat-travel",
         categorized_by_rule_id: null,
         category_rule: null,
+      },
+      reviewTransactions[1],
+    ]);
+  });
+
+  it("merges excluded review saves back into local rows with cleared categorization metadata", () => {
+    expect(
+      mergeImportedTransactionReviewUpdates(reviewTransactions, [
+        {
+          ...reviewTransactions[0],
+          category_id: null,
+          categorized_by_rule_id: null,
+          category_rule: null,
+          is_included: false,
+        },
+      ]),
+    ).toEqual([
+      {
+        ...reviewTransactions[0],
+        category_id: null,
+        categorized_by_rule_id: null,
+        category_rule: null,
+        is_included: false,
       },
       reviewTransactions[1],
     ]);

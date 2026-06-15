@@ -128,15 +128,18 @@ function attachRuleMetadata(
   }));
 }
 
-type DefaultImportBatchCandidate = Pick<ImportBatch, "id" | "imported_at" | "review_completed_at">;
+type DefaultImportBatchCandidate = Pick<ImportBatch, "id" | "imported_at" | "review_completed_at" | "statement_month">;
 
 export function findDefaultImportBatchId(batches: DefaultImportBatchCandidate[]) {
   if (batches.length === 0) {
     return null;
   }
 
-  const sortedByImportTime = [...batches].sort((a, b) => b.imported_at.localeCompare(a.imported_at));
-  return sortedByImportTime.find((batch) => !batch.review_completed_at)?.id ?? sortedByImportTime[0].id;
+  const sortedBatches = [...batches].sort(
+    (a, b) => b.statement_month.localeCompare(a.statement_month) || b.imported_at.localeCompare(a.imported_at),
+  );
+
+  return sortedBatches[0]?.id ?? null;
 }
 
 async function listOwnedImportBatchesByCompletionStatus(
@@ -489,27 +492,25 @@ export async function listImportBatchHistory(
 }
 
 export async function loadDefaultImportBatchReview(supabase: ImportClient, userId: string) {
-  const pendingBatches = await listOwnedImportBatchesByCompletionStatus(supabase, userId, {
-    completed: false,
-    limit: 1,
-    sortBy: "imported_at",
-  });
+  const [pendingBatches, completedBatches] = await Promise.all([
+    listOwnedImportBatchesByCompletionStatus(supabase, userId, {
+      completed: false,
+      limit: 50,
+      sortBy: "display",
+    }),
+    listOwnedImportBatchesByCompletionStatus(supabase, userId, {
+      completed: true,
+      limit: 50,
+      sortBy: "display",
+    }),
+  ]);
+  const defaultBatchId = findDefaultImportBatchId([...pendingBatches, ...completedBatches]);
 
-  if (pendingBatches.length > 0) {
-    return buildImportBatchReview(supabase, userId, pendingBatches[0]);
-  }
-
-  const completedBatches = await listOwnedImportBatchesByCompletionStatus(supabase, userId, {
-    completed: true,
-    limit: 1,
-    sortBy: "imported_at",
-  });
-
-  if (!completedBatches[0]) {
+  if (!defaultBatchId) {
     return null;
   }
 
-  return buildImportBatchReview(supabase, userId, completedBatches[0]);
+  return loadImportBatchReview(supabase, userId, defaultBatchId);
 }
 
 export async function loadLatestImportBatchReview(supabase: ImportClient, userId: string) {

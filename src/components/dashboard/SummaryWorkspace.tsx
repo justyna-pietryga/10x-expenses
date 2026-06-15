@@ -3,6 +3,7 @@ import type { BudgetCategory } from "@/lib/budget/data";
 import type { RuleWithCategory } from "@/lib/rules/data";
 import type { MonthlySummaryResult } from "@/lib/summary/data";
 import { CategoryUsageTable } from "@/components/dashboard/CategoryUsageTable";
+import { ExcludedTransactionsPanel } from "@/components/dashboard/ExcludedTransactionsPanel";
 import { IncompleteReviewNotice } from "@/components/dashboard/IncompleteReviewNotice";
 import { MonthlySummaryHeader } from "@/components/dashboard/MonthlySummaryHeader";
 import { SummaryCards } from "@/components/dashboard/SummaryCards";
@@ -184,6 +185,8 @@ export function SummaryWorkspace({ categories, initialRules, initialSummary }: P
         incompleteReviewSpend={summary.incomplete_review_spend}
         warningBatches={summary.warning_batches}
       />
+
+      <ExcludedTransactionsPanel excludedInflow={summary.excluded_inflow} excludedOutflow={summary.excluded_outflow} />
 
       <CategoryUsageTable
         categoryRows={summary.category_rows}

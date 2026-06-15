@@ -458,31 +458,31 @@ Because "Imported spend" changes to budget-relevant imported spend, UI copy and 
 
 #### Automated
 
-- [x] 3.1 `npm test -- tests/import-review.test.ts` passes with inclusion UI coverage.
-- [x] 3.2 `npx astro check` passes.
-- [x] 3.3 Targeted `npx eslint src/components/imports/TransactionReviewTable.tsx src/components/imports/ImportWorkspace.tsx src/components/imports/ReviewCompletionBar.tsx tests/import-review.test.ts` passes.
+- [x] 3.1 `npm test -- tests/import-review.test.ts` passes with inclusion UI coverage. — 8f1de57
+- [x] 3.2 `npx astro check` passes. — 8f1de57
+- [x] 3.3 Targeted `npx eslint src/components/imports/TransactionReviewTable.tsx src/components/imports/ImportWorkspace.tsx src/components/imports/ReviewCompletionBar.tsx tests/import-review.test.ts` passes. — 8f1de57
 
 #### Manual
 
-- [x] 3.4 A user can exclude multiple included rows and save those changes through the existing bulk-save workflow.
-- [x] 3.5 Excluded rows disappear from the default review list after persistence.
-- [x] 3.6 A user can reveal excluded rows and restore one intentionally through a dedicated restore action.
-- [x] 3.7 `Mark review complete` remains blocked while any category or inclusion changes are unsaved.
+- [x] 3.4 A user can exclude multiple included rows and save those changes through the existing bulk-save workflow. — 8f1de57
+- [x] 3.5 Excluded rows disappear from the default review list after persistence. — 8f1de57
+- [x] 3.6 A user can reveal excluded rows and restore one intentionally through a dedicated restore action. — 8f1de57
+- [x] 3.7 `Mark review complete` remains blocked while any category or inclusion changes are unsaved. — 8f1de57
 
 ### Phase 4: Dashboard Reconciliation
 
 #### Automated
 
-- [ ] 4.1 `npm test -- tests/import-review.test.ts tests/monthly-summary-and-rules.test.ts` passes.
-- [ ] 4.2 `npx astro check` passes.
-- [ ] 4.3 `npm run build` passes.
-- [ ] 4.4 Targeted lint passes for the touched dashboard, import-review, and summary files.
+- [x] 4.1 `npm test -- tests/import-review.test.ts tests/monthly-summary-and-rules.test.ts` passes.
+- [x] 4.2 `npx astro check` passes.
+- [x] 4.3 `npm run build` passes.
+- [x] 4.4 Targeted lint passes for the touched dashboard, import-review, and summary files.
 
 #### Manual
 
-- [ ] 4.5 The dashboard shows excluded outflow and inflow separately from trusted categorized spend and incomplete-review spend.
-- [ ] 4.6 The top-level imported-spend total now reflects only budget-relevant imported rows.
-- [ ] 4.7 The dashboard copy still makes it clear that excluded rows remain in the imported record history even though they no longer affect budget calculations.
+- [x] 4.5 The dashboard shows excluded outflow and inflow separately from trusted categorized spend and incomplete-review spend.
+- [x] 4.6 The top-level imported-spend total now reflects only budget-relevant imported rows.
+- [x] 4.7 The dashboard copy still makes it clear that excluded rows remain in the imported record history even though they no longer affect budget calculations.
 
 ### Phase 5: Focused Browser Verification
 

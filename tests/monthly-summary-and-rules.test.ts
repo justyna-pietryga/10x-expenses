@@ -1,8 +1,11 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import { CategoryUsageTable } from "@/components/dashboard/CategoryUsageTable";
+import { ExcludedTransactionsPanel } from "@/components/dashboard/ExcludedTransactionsPanel";
 import { IncompleteReviewNotice } from "@/components/dashboard/IncompleteReviewNotice";
 import { MonthlySummaryHeader } from "@/components/dashboard/MonthlySummaryHeader";
+import { SummaryWorkspace } from "@/components/dashboard/SummaryWorkspace";
 import { RuleManager } from "@/components/rules/RuleManager";
 import { createClient } from "@/lib/supabase";
 import { loadDashboardSummary } from "@/lib/summary/data";
@@ -945,6 +948,7 @@ describe("summary UI", () => {
 
     expect(markup).toContain("Incomplete imported spend stays separate");
     expect(markup).toContain("/imports");
+    expect(markup).toContain("excluded transactions panel");
     expect(markup).toContain("pending.csv");
   });
 
@@ -978,6 +982,85 @@ describe("summary UI", () => {
     expect(markup).toContain("Some imported spend is still pending review");
     expect(markup).toContain("2026-05");
     expect(markup).toContain("2026-04");
+  });
+
+  it("renders a separate excluded-transactions panel without netting inflow and outflow", () => {
+    const markup = renderToStaticMarkup(
+      createElement(ExcludedTransactionsPanel, {
+        excludedInflow: 45,
+        excludedOutflow: 75,
+      }),
+    );
+
+    expect(markup).toContain("Excluded transactions");
+    expect(markup).toContain("Imported history kept, budget math removed");
+    expect(markup).toContain("Excluded outflow");
+    expect(markup).toContain("75.00 PLN");
+    expect(markup).toContain("Excluded inflow");
+    expect(markup).toContain("45.00 PLN");
+  });
+
+  it("keeps category usage copy distinct from uncategorized and excluded buckets", () => {
+    const markup = renderToStaticMarkup(
+      createElement(CategoryUsageTable, {
+        categoryRows: [
+          {
+            carryover_closing: 0,
+            carryover_enabled: false,
+            carryover_opening: 0,
+            category_id: "cat-food",
+            category_name: "Food",
+            limit_amount: 200,
+            limit_usage_percentage: 50,
+            percentage_limit: 20,
+            percent_of_income: 10,
+            reviewed_spend: 100,
+          },
+        ],
+        reviewedUncategorizedSpend: 25,
+      }),
+    );
+
+    expect(markup).toContain("Trusted reviewed category totals only");
+    expect(markup).toContain("Reviewed uncategorized included spend");
+    expect(markup).toContain("excluded transactions are reconciled outside this table");
+  });
+
+  it("wires excluded summary fields into the dashboard surface while keeping imported spend separate", () => {
+    const markup = renderToStaticMarkup(
+      createElement(SummaryWorkspace, {
+        categories: [],
+        initialRules: [],
+        initialSummary: {
+          available_months: [
+            {
+              has_completed_review: true,
+              has_income: true,
+              has_pending_review: true,
+              month: "2026-05-01",
+            },
+          ],
+          category_rows: [],
+          excluded_inflow: 45,
+          excluded_outflow: 75,
+          generated_at: "2026-05-31T12:00:00.000Z",
+          incomplete_review_spend: 30,
+          reviewed_categorized_spend: 200,
+          reviewed_uncategorized_spend: 50,
+          selected_month: "2026-05-01",
+          summary_id: "summary-1",
+          total_imported_spend: 280,
+          total_income: 1000,
+          warning_batches: [],
+        },
+      }),
+    );
+
+    expect(markup).toContain("Imported spend");
+    expect(markup).toContain("280.00 PLN");
+    expect(markup).toContain("Excluded transactions");
+    expect(markup).toContain("75.00 PLN");
+    expect(markup).toContain("45.00 PLN");
   });
 
   it("renders saved rules in user language with create and delete actions", () => {

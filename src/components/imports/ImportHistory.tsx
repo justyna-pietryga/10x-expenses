@@ -237,7 +237,8 @@ export function ImportHistory({ activeBatchId, history, initialMobileOpen = fals
           </div>
 
           <p className="mt-4 text-sm leading-6 text-slate-300/80">
-            Pending reviews stay at the top so unfinished work is always easier to reopen than completed corrections.
+            Pending reviews stay at the top, and each section is ordered by latest statement month first so the newest
+            review period stays easiest to reopen.
           </p>
 
           <div className="mt-5">{renderHistoryList(history, activeBatchId, onSelectBatch)}</div>
