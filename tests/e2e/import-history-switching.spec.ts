@@ -15,9 +15,9 @@ function escapeForRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function getHistoryButton(page: Page, bankLabel: "ING" | "Revolut") {
+function getHistoryButton(page: Page, sourceFilename: string) {
   return page.getByRole("button", {
-    name: new RegExp(`^${escapeForRegExp(bankLabel)}\\b`, "i"),
+    name: new RegExp(escapeForRegExp(sourceFilename), "i"),
   });
 }
 
@@ -162,10 +162,10 @@ test.describe("risk #3 - import history switching preserves review changes", () 
         sourceFilename: ingFilename,
       });
 
-      // Reload the workspace without a batch param and confirm the newest pending batch is selected by default.
-      await page.goto("/imports");
-      const revolutHistoryButton = getHistoryButton(page, "Revolut");
-      const ingHistoryButton = getHistoryButton(page, "ING");
+      // Open the seeded ING batch directly so the switch flow is isolated from older history rows.
+      await page.goto(`/imports?batch=${ingBatch.id}`);
+      const revolutHistoryButton = getHistoryButton(page, revolutBatch.sourceFilename);
+      const ingHistoryButton = getHistoryButton(page, ingBatch.sourceFilename);
       await expect(ingHistoryButton).toHaveAttribute("aria-current", "page");
       await expect(page.getByRole("heading", { name: "This batch still needs review confirmation." })).toBeVisible();
 
@@ -256,7 +256,7 @@ test.describe("risk #3 - import history switching preserves review changes", () 
       );
       await page.getByRole("button", { name: "Save all changes" }).click();
       await saveCompletedCorrectionResponse;
-      await expect(page.getByText("Category changes saved.")).toBeVisible();
+      await expect(page.getByText("Review changes saved.")).toBeVisible();
       await expect(completedBatchCategorySelect).toHaveValue("");
       await expect(page.getByText("1 unsaved change")).toHaveCount(0);
       await expect(

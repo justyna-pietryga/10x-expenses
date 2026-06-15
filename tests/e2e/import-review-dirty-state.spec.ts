@@ -37,7 +37,7 @@ test("import review does not allow completion while category drafts are unsaved 
 
     await page.goto("/imports");
     await expect(page.getByRole("heading", { name: /import and review your bank statement/i })).toBeVisible();
-    await page.evaluate(
+    const batch = await page.evaluate(
       async ({ csvContent }) => {
         const formData = new FormData();
         formData.set("bank", "revolut");
@@ -82,15 +82,17 @@ test("import review does not allow completion while category drafts are unsaved 
             transactions: previewPayload.transactions,
           }),
         });
-        const commitPayload = (await commitResponse.json()) as { error?: string };
+        const commitPayload = (await commitResponse.json()) as { batch?: { id: string }; error?: string };
 
-        if (!commitResponse.ok) {
+        if (!commitResponse.ok || !commitPayload.batch) {
           throw new Error(commitPayload.error ?? "Could not commit test import");
         }
+
+        return commitPayload.batch;
       },
       { csvContent: sampleCsvContent },
     );
-    await page.reload();
+    await page.goto(`/imports?batch=${batch.id}`);
     await expect(page.getByText("Transaction Review")).toBeVisible();
     await expect(page.getByRole("heading", { name: /this batch still needs review confirmation/i })).toBeVisible();
 
@@ -106,9 +108,13 @@ test("import review does not allow completion while category drafts are unsaved 
     ).toBeVisible();
     await expect(completeReviewButton).toBeDisabled();
 
+    const saveReviewResponse = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/imports/transactions/bulk") && response.request().method() === "PATCH",
+    );
     await page.getByRole("button", { name: "Save all changes" }).click();
+    await saveReviewResponse;
 
-    await expect(page.getByText("Category changes saved.")).toBeVisible();
     await expect(page.getByText("1 unsaved change")).not.toBeVisible();
     await expect(
       page.getByText("Save or discard unsaved review changes before marking this review complete."),

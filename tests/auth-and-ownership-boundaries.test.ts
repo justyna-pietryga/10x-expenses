@@ -1103,7 +1103,7 @@ describe("budget ownership coverage", () => {
 });
 
 describe("import ownership coverage", () => {
-  it("keeps pending-first default review selection and history rows scoped to the authenticated user", async () => {
+  it("keeps latest-month default review selection and history rows scoped to the authenticated user", async () => {
     const supabase = createOwnershipSupabaseStub({
       batches: [
         makeBatch("batch-owner-pending", USER_A.id, {
@@ -1134,7 +1134,7 @@ describe("import ownership coverage", () => {
 
     await expect(loadDefaultImportBatchReview(supabase as never, USER_A.id)).resolves.toMatchObject({
       batch: {
-        id: "batch-owner-pending",
+        id: "batch-owner-complete",
         user_id: USER_A.id,
       },
     });
