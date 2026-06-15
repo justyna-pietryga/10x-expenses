@@ -473,25 +473,25 @@ Because "Imported spend" changes to budget-relevant imported spend, UI copy and 
 
 #### Automated
 
-- [x] 4.1 `npm test -- tests/import-review.test.ts tests/monthly-summary-and-rules.test.ts` passes.
-- [x] 4.2 `npx astro check` passes.
-- [x] 4.3 `npm run build` passes.
-- [x] 4.4 Targeted lint passes for the touched dashboard, import-review, and summary files.
+- [x] 4.1 `npm test -- tests/import-review.test.ts tests/monthly-summary-and-rules.test.ts` passes. â€” 9468da2
+- [x] 4.2 `npx astro check` passes. â€” 9468da2
+- [x] 4.3 `npm run build` passes. â€” 9468da2
+- [x] 4.4 Targeted lint passes for the touched dashboard, import-review, and summary files. â€” 9468da2
 
 #### Manual
 
-- [x] 4.5 The dashboard shows excluded outflow and inflow separately from trusted categorized spend and incomplete-review spend.
-- [x] 4.6 The top-level imported-spend total now reflects only budget-relevant imported rows.
-- [x] 4.7 The dashboard copy still makes it clear that excluded rows remain in the imported record history even though they no longer affect budget calculations.
+- [x] 4.5 The dashboard shows excluded outflow and inflow separately from trusted categorized spend and incomplete-review spend. â€” 9468da2
+- [x] 4.6 The top-level imported-spend total now reflects only budget-relevant imported rows. â€” 9468da2
+- [x] 4.7 The dashboard copy still makes it clear that excluded rows remain in the imported record history even though they no longer affect budget calculations. â€” 9468da2
 
 ### Phase 5: Focused Browser Verification
 
 #### Automated
 
-- [ ] 5.1 `npm run test:e2e -- tests/e2e/transaction-inclusion-control.spec.ts` passes.
-- [ ] 5.2 The E2E test uses no CSS/XPath locators and no `page.waitForTimeout()`.
-- [ ] 5.3 `npm run lint`, `npm run check`, and `npm run build` pass.
+- [x] 5.1 `npm run test:e2e -- tests/e2e/transaction-inclusion-control.spec.ts` passes.
+- [x] 5.2 The E2E test uses no CSS/XPath locators and no `page.waitForTimeout()`.
+- [x] 5.3 `npm run lint`, `npm run check`, and `npm run build` pass.
 
 #### Manual
 
-- [ ] 5.4 Review the browser flow and confirm it covers the user-visible risk without duplicating lower-level Vitest coverage.
+- [x] 5.4 Review the browser flow and confirm it covers the user-visible risk without duplicating lower-level Vitest coverage.
