@@ -1,7 +1,12 @@
 import { startTransition, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { BudgetCategory } from "@/lib/budget/data";
-import type { ImportBatch, ImportBatchHistorySummary, ImportedTransactionReviewRow } from "@/lib/imports/data";
+import {
+  findDefaultImportBatchId,
+  type ImportBatch,
+  type ImportBatchHistorySummary,
+  type ImportedTransactionReviewRow,
+} from "@/lib/imports/data";
 import { ImportHistory, ImportHistoryCollapseButton } from "@/components/imports/ImportHistory";
 import { ImportUploadForm, type ImportPreviewPayload } from "@/components/imports/ImportUploadForm";
 import { ReviewCompletionBar } from "@/components/imports/ReviewCompletionBar";
@@ -133,24 +138,6 @@ export function mergeImportedTransactionCategoryUpdates(
   });
 }
 
-function compareImportHistoryRows(
-  a: Pick<ImportBatchHistorySummary, "imported_at" | "review_completed_at" | "statement_month">,
-  b: typeof a,
-) {
-  const aPending = a.review_completed_at ? 1 : 0;
-  const bPending = b.review_completed_at ? 1 : 0;
-
-  if (aPending !== bPending) {
-    return aPending - bPending;
-  }
-
-  return b.statement_month.localeCompare(a.statement_month) || b.imported_at.localeCompare(a.imported_at);
-}
-
-export function findDefaultImportHistoryBatchId(history: ImportBatchHistorySummary[]) {
-  return history[0]?.id ?? null;
-}
-
 export function buildImportHistorySummary(batch: ImportBatch, transactionCount: number): ImportBatchHistorySummary {
   return {
     bank: batch.bank,
@@ -173,7 +160,16 @@ export function reconcileImportHistory(
     buildImportHistorySummary(batch, transactionCount),
   ];
 
-  return nextHistory.sort(compareImportHistoryRows);
+  return nextHistory.sort((a, b) => {
+    const aPending = a.review_completed_at ? 1 : 0;
+    const bPending = b.review_completed_at ? 1 : 0;
+
+    if (aPending !== bPending) {
+      return aPending - bPending;
+    }
+
+    return b.statement_month.localeCompare(a.statement_month) || b.imported_at.localeCompare(a.imported_at);
+  });
 }
 
 export function buildImportWorkspaceUrl(
@@ -227,6 +223,9 @@ export function ImportWorkspace({
   const activeLoadRequestRef = useRef(0);
   const activeBatchId = batch?.id ?? initialSelectedBatchId ?? null;
   const portalTarget = typeof document === "undefined" ? null : document.body;
+  const commitBlockedReason = hasDirtyReviewChanges
+    ? "Save or discard unsaved review changes before saving another import batch."
+    : null;
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -330,6 +329,11 @@ export function ImportWorkspace({
 
   async function handleCommit(confirmReplace: boolean) {
     if (!preview) {
+      return;
+    }
+
+    if (hasDirtyReviewChanges) {
+      setNotice("Save or discard unsaved review changes before saving another import batch.");
       return;
     }
 
@@ -490,7 +494,7 @@ export function ImportWorkspace({
 
     function handlePopState() {
       const requestedBatchId = new URLSearchParams(window.location.search).get("batch");
-      const fallbackBatchId = findDefaultImportHistoryBatchId(history);
+      const fallbackBatchId = findDefaultImportBatchId(history);
       const nextBatchId = requestedBatchId ?? fallbackBatchId;
 
       if (nextBatchId === activeBatchId) {
@@ -530,6 +534,8 @@ export function ImportWorkspace({
   return (
     <div className="space-y-6">
       <ImportUploadForm
+        commitBlockedReason={commitBlockedReason}
+        isCommitBlocked={hasDirtyReviewChanges}
         isCommitting={isCommitting}
         preview={preview}
         onPreviewLoaded={(nextPreview) => {

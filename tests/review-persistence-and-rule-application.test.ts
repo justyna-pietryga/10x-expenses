@@ -853,7 +853,7 @@ describe("review completion boundary truthfulness", () => {
     const blockedMarkup = renderToStaticMarkup(
       createElement(ReviewCompletionBar, {
         batch: makeBatch(),
-        completionBlockedReason: "Save or discard category changes before marking this review complete.",
+        completionBlockedReason: "Save or discard unsaved review changes before marking this review complete.",
         isCompletionBlocked: true,
         onComplete: vi.fn(() => Promise.resolve()),
         transactionCount: 2,
@@ -870,10 +870,10 @@ describe("review completion boundary truthfulness", () => {
       }),
     );
 
-    expect(blockedMarkup).toContain("Save or discard category changes before marking this review complete.");
+    expect(blockedMarkup).toContain("Save or discard unsaved review changes before marking this review complete.");
     expect(blockedMarkup).toContain("disabled");
     expect(readyMarkup).toContain("Mark review complete");
-    expect(readyMarkup).not.toContain("Save or discard category changes before marking this review complete.");
+    expect(readyMarkup).not.toContain("Save or discard unsaved review changes before marking this review complete.");
   });
 
   it("marks a batch review complete through the helper and route contract", async () => {

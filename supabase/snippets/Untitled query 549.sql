@@ -1,1 +1,0 @@
-select * from public.statement_import_batches;

@@ -125,26 +125,37 @@ function attachRuleMetadata(
   }));
 }
 
-function compareHistoryRows(
-  a: Pick<ImportBatch, "imported_at" | "review_completed_at" | "statement_month">,
-  b: typeof a,
-) {
-  const aPending = a.review_completed_at ? 1 : 0;
-  const bPending = b.review_completed_at ? 1 : 0;
+type DefaultImportBatchCandidate = Pick<ImportBatch, "id" | "imported_at" | "review_completed_at">;
 
-  if (aPending !== bPending) {
-    return aPending - bPending;
+export function findDefaultImportBatchId(batches: DefaultImportBatchCandidate[]) {
+  if (batches.length === 0) {
+    return null;
   }
 
-  return b.statement_month.localeCompare(a.statement_month) || b.imported_at.localeCompare(a.imported_at);
+  const sortedByImportTime = [...batches].sort((a, b) => b.imported_at.localeCompare(a.imported_at));
+  return sortedByImportTime.find((batch) => !batch.review_completed_at)?.id ?? sortedByImportTime[0].id;
 }
 
-async function listOwnedImportBatches(supabase: ImportClient, userId: string) {
-  const { data, error } = await supabase
-    .from("statement_import_batches")
-    .select("*")
-    .eq("user_id", userId)
-    .order("imported_at", { ascending: false });
+async function listOwnedImportBatchesByCompletionStatus(
+  supabase: ImportClient,
+  userId: string,
+  options: {
+    completed: boolean;
+    limit: number;
+    sortBy: "display" | "imported_at";
+  },
+) {
+  let query = supabase.from("statement_import_batches").select("*").eq("user_id", userId);
+
+  query = options.completed ? query.not("review_completed_at", "is", null) : query.is("review_completed_at", null);
+
+  if (options.sortBy === "display") {
+    query = query.order("statement_month", { ascending: false }).order("imported_at", { ascending: false });
+  } else {
+    query = query.order("imported_at", { ascending: false });
+  }
+
+  const { data, error } = await query.limit(options.limit);
 
   mapPostgrestError(error, "Import batches could not be loaded");
 
@@ -419,18 +430,37 @@ export async function listImportBatchHistory(
   options?: { limit?: number },
 ): Promise<ImportBatchHistorySummary[]> {
   const limit = options?.limit ?? 50;
-  const batches = await listOwnedImportBatches(supabase, userId);
 
-  if (batches.length === 0) {
+  if (limit <= 0) {
     return [];
   }
 
-  const orderedBatches = [...batches].sort(compareHistoryRows).slice(0, limit);
-  const batchIds = new Set(orderedBatches.map((batch) => batch.id));
+  const pendingBatches = await listOwnedImportBatchesByCompletionStatus(supabase, userId, {
+    completed: false,
+    limit,
+    sortBy: "display",
+  });
+  const remainingLimit = limit - pendingBatches.length;
+  const completedBatches =
+    remainingLimit > 0
+      ? await listOwnedImportBatchesByCompletionStatus(supabase, userId, {
+          completed: true,
+          limit: remainingLimit,
+          sortBy: "display",
+        })
+      : [];
+  const orderedBatches = [...pendingBatches, ...completedBatches];
+
+  if (orderedBatches.length === 0) {
+    return [];
+  }
+
+  const batchIds = orderedBatches.map((batch) => batch.id);
   const { data: transactions, error: transactionError } = await supabase
     .from("transactions")
     .select("import_batch_id")
     .eq("user_id", userId)
+    .in("import_batch_id", batchIds)
     .order("transaction_date", { ascending: true });
 
   mapPostgrestError(transactionError, "Import transactions could not be loaded");
@@ -438,10 +468,6 @@ export async function listImportBatchHistory(
   const transactionCountByBatchId = new Map<string, number>();
 
   for (const transaction of (transactions ?? []) as Pick<ImportedTransaction, "import_batch_id">[]) {
-    if (!batchIds.has(transaction.import_batch_id)) {
-      continue;
-    }
-
     transactionCountByBatchId.set(
       transaction.import_batch_id,
       (transactionCountByBatchId.get(transaction.import_batch_id) ?? 0) + 1,
@@ -460,16 +486,27 @@ export async function listImportBatchHistory(
 }
 
 export async function loadDefaultImportBatchReview(supabase: ImportClient, userId: string) {
-  const batches = await listOwnedImportBatches(supabase, userId);
+  const pendingBatches = await listOwnedImportBatchesByCompletionStatus(supabase, userId, {
+    completed: false,
+    limit: 1,
+    sortBy: "imported_at",
+  });
 
-  if (batches.length === 0) {
+  if (pendingBatches.length > 0) {
+    return buildImportBatchReview(supabase, userId, pendingBatches[0]);
+  }
+
+  const completedBatches = await listOwnedImportBatchesByCompletionStatus(supabase, userId, {
+    completed: true,
+    limit: 1,
+    sortBy: "imported_at",
+  });
+
+  if (!completedBatches[0]) {
     return null;
   }
 
-  const sortedByImportTime = [...batches].sort((a, b) => b.imported_at.localeCompare(a.imported_at));
-  const selectedBatch = sortedByImportTime.find((batch) => !batch.review_completed_at) ?? sortedByImportTime[0];
-
-  return buildImportBatchReview(supabase, userId, selectedBatch);
+  return buildImportBatchReview(supabase, userId, completedBatches[0]);
 }
 
 export async function loadLatestImportBatchReview(supabase: ImportClient, userId: string) {

@@ -155,7 +155,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** UX-01 and UX-02 should settle the workflow semantics before the management surfaces are compressed.
 - **Unknowns:** final density target, mobile behavior, and whether categories and rules need separate or combined management views.
 - **Risk:** If the management UI remains too spacious after workflows expand, routine category/rule maintenance becomes slow and visually noisy.
-- **Status:** proposed
+- **Status:** implemented
 
 ### UX-04: Uncategorized review prioritization
 

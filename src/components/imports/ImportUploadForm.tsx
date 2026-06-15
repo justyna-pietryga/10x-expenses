@@ -14,6 +14,8 @@ export interface ImportPreviewPayload {
 }
 
 interface Props {
+  commitBlockedReason?: string | null;
+  isCommitBlocked?: boolean;
   isCommitting: boolean;
   onPreviewLoaded: (preview: ImportPreviewPayload) => void;
   onCommitRequested: (confirmReplace: boolean) => Promise<void>;
@@ -45,7 +47,14 @@ const BANK_COPY: Record<
   },
 };
 
-export function ImportUploadForm({ isCommitting, onPreviewLoaded, onCommitRequested, preview }: Props) {
+export function ImportUploadForm({
+  commitBlockedReason,
+  isCommitBlocked = false,
+  isCommitting,
+  onPreviewLoaded,
+  onCommitRequested,
+  preview,
+}: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
@@ -205,7 +214,7 @@ export function ImportUploadForm({ isCommitting, onPreviewLoaded, onCommitReques
                 <Button
                   type="button"
                   className="rounded-2xl bg-amber-300 text-slate-950 hover:bg-amber-200"
-                  disabled={isCommitting}
+                  disabled={isCommitting || isCommitBlocked}
                   onClick={() => {
                     void onCommitRequested(true);
                   }}
@@ -213,14 +222,18 @@ export function ImportUploadForm({ isCommitting, onPreviewLoaded, onCommitReques
                   {isCommitting ? "Replacing..." : "Replace existing batch"}
                 </Button>
               </div>
+              {commitBlockedReason && <p className="mt-3 text-amber-100/85">{commitBlockedReason}</p>}
             </div>
           ) : (
             <div className="mt-5 flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-emerald-300/20 bg-emerald-300/10 p-4 text-sm text-emerald-50">
-              <p>This import will create a new monthly batch and open it in review mode.</p>
+              <div>
+                <p>This import will create a new monthly batch and open it in review mode.</p>
+                {commitBlockedReason && <p className="mt-2 text-emerald-100/85">{commitBlockedReason}</p>}
+              </div>
               <Button
                 type="button"
                 className="rounded-2xl bg-emerald-300 text-slate-950 hover:bg-emerald-200"
-                disabled={isCommitting}
+                disabled={isCommitting || isCommitBlocked}
                 onClick={() => {
                   void onCommitRequested(false);
                 }}

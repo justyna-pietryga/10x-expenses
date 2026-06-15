@@ -15,9 +15,9 @@ function escapeForRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function getHistoryButton(page: Page, sourceFilename: string) {
+function getHistoryButton(page: Page, bankLabel: "ING" | "Revolut") {
   return page.getByRole("button", {
-    name: new RegExp(escapeForRegExp(sourceFilename)),
+    name: new RegExp(`^${escapeForRegExp(bankLabel)}\\b`, "i"),
   });
 }
 
@@ -164,8 +164,8 @@ test.describe("risk #3 - import history switching preserves review changes", () 
 
       // Reload the workspace without a batch param and confirm the newest pending batch is selected by default.
       await page.goto("/imports");
-      const revolutHistoryButton = getHistoryButton(page, revolutBatch.sourceFilename);
-      const ingHistoryButton = getHistoryButton(page, ingBatch.sourceFilename);
+      const revolutHistoryButton = getHistoryButton(page, "Revolut");
+      const ingHistoryButton = getHistoryButton(page, "ING");
       await expect(ingHistoryButton).toHaveAttribute("aria-current", "page");
       await expect(page.getByRole("heading", { name: "This batch still needs review confirmation." })).toBeVisible();
 

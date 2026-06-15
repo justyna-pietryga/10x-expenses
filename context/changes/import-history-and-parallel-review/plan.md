@@ -505,6 +505,6 @@ The transaction-inclusion change may land before or during UX-06. Implement the 
 
 #### Manual
 
-- [ ] 4.6 Confirm several bank-month imports can be started, found, reopened, and edited independently.
-- [ ] 4.7 Confirm collapsed desktop, mobile slide-over, refresh, direct-link, and back/forward behavior.
-- [ ] 4.8 Confirm the final scope is resumable persisted batches, not simultaneous multi-table editing or persistent local drafts.
+- [x] 4.6 Confirm several bank-month imports can be started, found, reopened, and edited independently.
+- [x] 4.7 Confirm collapsed desktop, mobile slide-over, refresh, direct-link, and back/forward behavior.
+- [x] 4.8 Confirm the final scope is resumable persisted batches, not simultaneous multi-table editing or persistent local drafts.

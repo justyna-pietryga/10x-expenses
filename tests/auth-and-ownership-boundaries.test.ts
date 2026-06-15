@@ -424,6 +424,29 @@ function createOwnershipSupabaseStub(overrides: Partial<OwnershipState> = {}) {
             let idFilter: string | null = null;
             let userFilter: string | null = null;
             let monthFilter: string | null = null;
+            let completedFilter: boolean | null = null;
+            const orderBy: string[] = [];
+            const executeBatches = () => {
+              let filteredBatches = state.batches.filter(
+                (item) =>
+                  (!idFilter || item.id === idFilter) &&
+                  (!userFilter || item.user_id === userFilter) &&
+                  (!monthFilter || item.statement_month === monthFilter) &&
+                  (completedFilter === null ||
+                    (completedFilter ? Boolean(item.review_completed_at) : !item.review_completed_at)),
+              );
+
+              if (orderBy.includes("statement_month")) {
+                filteredBatches = filteredBatches.sort(
+                  (a, b) =>
+                    b.statement_month.localeCompare(a.statement_month) || b.imported_at.localeCompare(a.imported_at),
+                );
+              } else {
+                filteredBatches = filteredBatches.sort((a, b) => b.imported_at.localeCompare(a.imported_at));
+              }
+
+              return filteredBatches;
+            };
             const chain = {
               eq(field: string, value: string) {
                 if (field === "id") {
@@ -440,8 +463,20 @@ function createOwnershipSupabaseStub(overrides: Partial<OwnershipState> = {}) {
               lte() {
                 return chain;
               },
-              limit() {
+              is(field: string, value: string | null) {
+                if (field === "review_completed_at" && value === null) {
+                  completedFilter = false;
+                }
                 return chain;
+              },
+              not(field: string, operator: string, value: string | null) {
+                if (field === "review_completed_at" && operator === "is" && value === null) {
+                  completedFilter = true;
+                }
+                return chain;
+              },
+              limit(limitCount: number) {
+                return Promise.resolve(createSelectResult(executeBatches().slice(0, limitCount)));
               },
               maybeSingle() {
                 const batch =
@@ -453,24 +488,18 @@ function createOwnershipSupabaseStub(overrides: Partial<OwnershipState> = {}) {
                   ) ?? null;
                 return Promise.resolve(createSelectResult(batch));
               },
-              order: vi.fn(() =>
-                Promise.resolve(
-                  createSelectResult(
-                    state.batches.filter(
-                      (item) =>
-                        (!idFilter || item.id === idFilter) &&
-                        (!userFilter || item.user_id === userFilter) &&
-                        (!monthFilter || item.statement_month === monthFilter),
-                    ),
-                  ),
-                ),
-              ),
+              order: vi.fn((field: string) => {
+                orderBy.push(field);
+                return chain;
+              }),
               single() {
                 const batch = state.batches.find(
                   (item) =>
                     (!idFilter || item.id === idFilter) &&
                     (!userFilter || item.user_id === userFilter) &&
-                    (!monthFilter || item.statement_month === monthFilter),
+                    (!monthFilter || item.statement_month === monthFilter) &&
+                    (completedFilter === null ||
+                      (completedFilter ? Boolean(item.review_completed_at) : !item.review_completed_at)),
                 );
 
                 if (!batch) {
@@ -479,6 +508,8 @@ function createOwnershipSupabaseStub(overrides: Partial<OwnershipState> = {}) {
 
                 return Promise.resolve(createSelectResult(batch));
               },
+              then: (onfulfilled: (value: unknown) => unknown, onrejected?: (reason: unknown) => unknown) =>
+                Promise.resolve(createSelectResult(executeBatches())).then(onfulfilled, onrejected),
             };
             return chain;
           }),
@@ -539,6 +570,13 @@ function createOwnershipSupabaseStub(overrides: Partial<OwnershipState> = {}) {
             let batchFilter: string | null = null;
             let userFilter: string | null = null;
             let batchIds: string[] | null = null;
+            const executeTransactions = () =>
+              state.transactions.filter(
+                (item) =>
+                  (!batchFilter || item.import_batch_id === batchFilter) &&
+                  (!userFilter || item.user_id === userFilter) &&
+                  (!batchIds || batchIds.includes(item.import_batch_id)),
+              );
             const chain = {
               eq(field: string, value: string) {
                 if (field === "import_batch_id") {
@@ -555,18 +593,9 @@ function createOwnershipSupabaseStub(overrides: Partial<OwnershipState> = {}) {
                 }
                 return chain;
               },
-              order: vi.fn(() =>
-                Promise.resolve(
-                  createSelectResult(
-                    state.transactions.filter(
-                      (item) =>
-                        (!batchFilter || item.import_batch_id === batchFilter) &&
-                        (!userFilter || item.user_id === userFilter) &&
-                        (!batchIds || batchIds.includes(item.import_batch_id)),
-                    ),
-                  ),
-                ),
-              ),
+              order: vi.fn(() => chain),
+              then: (onfulfilled: (value: unknown) => unknown, onrejected?: (reason: unknown) => unknown) =>
+                Promise.resolve(createSelectResult(executeTransactions())).then(onfulfilled, onrejected),
             };
             return chain;
           }),

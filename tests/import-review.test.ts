@@ -9,7 +9,6 @@ import {
   buildImportHistorySummary,
   buildImportWorkspaceUrl,
   createImportReviewRule,
-  findDefaultImportHistoryBatchId,
   ImportWorkspace,
   loadImportBatchReviewFromApi,
   mergeImportedTransactions,
@@ -35,6 +34,7 @@ import {
 import { createClient } from "@/lib/supabase";
 import {
   commitImportBatch,
+  findDefaultImportBatchId,
   listImportBatchHistory,
   loadDefaultImportBatchReview,
   markBatchReviewComplete,
@@ -605,14 +605,39 @@ function buildImportHistorySupabaseStub(options?: {
       user_id: "user-1",
     },
   ];
+  const historyTransactionBatchFilters: string[][] = [];
 
   return {
+    __historyTransactionBatchFilters: historyTransactionBatchFilters,
     from: vi.fn((table: string) => {
       if (table === "statement_import_batches") {
         return {
           select: vi.fn(() => {
             let idFilter: string | null = null;
             let userFilter: string | null = null;
+            let completedFilter: boolean | null = null;
+            const orderBy: string[] = [];
+            let limitCount: number | null = null;
+            const executeBatches = () => {
+              let filteredBatches = batches.filter(
+                (batch) =>
+                  (!idFilter || batch.id === idFilter) &&
+                  (!userFilter || batch.user_id === userFilter) &&
+                  (completedFilter === null ||
+                    (completedFilter ? Boolean(batch.review_completed_at) : !batch.review_completed_at)),
+              );
+
+              if (orderBy.includes("statement_month")) {
+                filteredBatches = filteredBatches.sort(
+                  (a, b) =>
+                    b.statement_month.localeCompare(a.statement_month) || b.imported_at.localeCompare(a.imported_at),
+                );
+              } else {
+                filteredBatches = filteredBatches.sort((a, b) => b.imported_at.localeCompare(a.imported_at));
+              }
+
+              return limitCount === null ? filteredBatches : filteredBatches.slice(0, limitCount);
+            };
             const chain = {
               eq: vi.fn((field: string, value: string) => {
                 if (field === "id") {
@@ -625,18 +650,36 @@ function buildImportHistorySupabaseStub(options?: {
 
                 return chain;
               }),
-              order: vi.fn(() =>
-                Promise.resolve({
-                  data: batches.filter(
-                    (batch) => (!idFilter || batch.id === idFilter) && (!userFilter || batch.user_id === userFilter),
-                  ),
-                  error: null,
-                }),
-              ),
+              is: vi.fn((field: string) => {
+                if (field === "review_completed_at") {
+                  completedFilter = false;
+                }
+
+                return chain;
+              }),
+              not: vi.fn((field: string, operator: string) => {
+                if (field === "review_completed_at" && operator === "is") {
+                  completedFilter = true;
+                }
+
+                return chain;
+              }),
+              order: vi.fn((field: string) => {
+                orderBy.push(field);
+                return chain;
+              }),
+              limit: vi.fn((value: number) => {
+                limitCount = value;
+                return chain;
+              }),
               single: vi.fn(() => {
                 const batch =
                   batches.find(
-                    (item) => (!idFilter || item.id === idFilter) && (!userFilter || item.user_id === userFilter),
+                    (item) =>
+                      (!idFilter || item.id === idFilter) &&
+                      (!userFilter || item.user_id === userFilter) &&
+                      (completedFilter === null ||
+                        (completedFilter ? Boolean(item.review_completed_at) : !item.review_completed_at)),
                   ) ?? null;
 
                 return Promise.resolve(
@@ -645,6 +688,11 @@ function buildImportHistorySupabaseStub(options?: {
                     : { data: null, error: { code: "PGRST116", message: "not found" } },
                 );
               }),
+              then: (onfulfilled: (value: unknown) => unknown, onrejected?: (reason: unknown) => unknown) =>
+                Promise.resolve({
+                  data: executeBatches(),
+                  error: null,
+                }).then(onfulfilled, onrejected),
             };
 
             return chain;
@@ -656,7 +704,15 @@ function buildImportHistorySupabaseStub(options?: {
         return {
           select: vi.fn(() => {
             let batchFilter: string | null = null;
+            let batchFilters: string[] | null = null;
             let userFilter: string | null = null;
+            const executeTransactions = () =>
+              transactions.filter(
+                (transaction) =>
+                  (!batchFilter || transaction.import_batch_id === batchFilter) &&
+                  (!batchFilters || batchFilters.includes(transaction.import_batch_id)) &&
+                  (!userFilter || transaction.user_id === userFilter),
+              );
             const chain = {
               eq: vi.fn((field: string, value: string) => {
                 if (field === "import_batch_id") {
@@ -669,16 +725,20 @@ function buildImportHistorySupabaseStub(options?: {
 
                 return chain;
               }),
-              order: vi.fn(() =>
+              in: vi.fn((field: string, values: string[]) => {
+                if (field === "import_batch_id") {
+                  batchFilters = values;
+                  historyTransactionBatchFilters.push(values);
+                }
+
+                return chain;
+              }),
+              order: vi.fn(() => chain),
+              then: (onfulfilled: (value: unknown) => unknown, onrejected?: (reason: unknown) => unknown) =>
                 Promise.resolve({
-                  data: transactions.filter(
-                    (transaction) =>
-                      (!batchFilter || transaction.import_batch_id === batchFilter) &&
-                      (!userFilter || transaction.user_id === userFilter),
-                  ),
+                  data: executeTransactions(),
                   error: null,
-                }),
-              ),
+                }).then(onfulfilled, onrejected),
             };
 
             return chain;
@@ -1289,6 +1349,88 @@ describe("import data helpers", () => {
     const history = await listImportBatchHistory(supabase as never, "user-1");
 
     expect(history).toHaveLength(50);
+  });
+
+  it("counts transactions only for the selected history batch ids", async () => {
+    const supabase = buildImportHistorySupabaseStub({
+      batches: [
+        {
+          bank: "revolut",
+          id: "batch-pending-new-import",
+          imported_at: "2026-06-12T10:00:00.000Z",
+          review_completed_at: null,
+          source_filename: "pending.csv",
+          statement_month: "2026-05-01",
+          user_id: "user-1",
+        },
+        {
+          bank: "ing",
+          id: "batch-completed-current-month",
+          imported_at: "2026-06-11T10:00:00.000Z",
+          review_completed_at: "2026-06-11T11:00:00.000Z",
+          source_filename: "completed.csv",
+          statement_month: "2026-06-01",
+          user_id: "user-1",
+        },
+        {
+          bank: "revolut",
+          id: "batch-completed-older-month",
+          imported_at: "2026-06-10T10:00:00.000Z",
+          review_completed_at: "2026-06-10T11:00:00.000Z",
+          source_filename: "older.csv",
+          statement_month: "2026-04-01",
+          user_id: "user-1",
+        },
+      ],
+      transactions: [
+        {
+          amount: -10,
+          category_id: null,
+          categorized_by_rule_id: null,
+          created_at: "2026-06-12T10:00:00.000Z",
+          id: "tx-selected-1",
+          import_batch_id: "batch-pending-new-import",
+          recipient: "Selected 1",
+          title: "Selected 1",
+          transaction_date: "2026-06-12",
+          updated_at: "2026-06-12T10:00:00.000Z",
+          user_id: "user-1",
+        },
+        {
+          amount: -12,
+          category_id: null,
+          categorized_by_rule_id: null,
+          created_at: "2026-06-11T10:00:00.000Z",
+          id: "tx-selected-2",
+          import_batch_id: "batch-completed-current-month",
+          recipient: "Selected 2",
+          title: "Selected 2",
+          transaction_date: "2026-06-11",
+          updated_at: "2026-06-11T10:00:00.000Z",
+          user_id: "user-1",
+        },
+        {
+          amount: -15,
+          category_id: null,
+          categorized_by_rule_id: null,
+          created_at: "2026-06-10T10:00:00.000Z",
+          id: "tx-unselected",
+          import_batch_id: "batch-completed-older-month",
+          recipient: "Unselected",
+          title: "Unselected",
+          transaction_date: "2026-06-10",
+          updated_at: "2026-06-10T10:00:00.000Z",
+          user_id: "user-1",
+        },
+      ],
+    });
+
+    const history = await listImportBatchHistory(supabase as never, "user-1", { limit: 2 });
+
+    expect(history).toHaveLength(2);
+    expect(supabase.__historyTransactionBatchFilters).toEqual([
+      ["batch-pending-new-import", "batch-completed-current-month"],
+    ]);
   });
 
   it("defaults to the newest pending batch and falls back to the newest completed batch", async () => {
@@ -2172,9 +2314,23 @@ describe("import workspace helpers", () => {
     });
   });
 
-  it("finds the default batch from the first history item", () => {
-    expect(findDefaultImportHistoryBatchId(reviewBatchHistory)).toBe("batch-pending-latest-import");
-    expect(findDefaultImportHistoryBatchId([])).toBeNull();
+  it("finds the default batch from newest pending import recency, not visible ordering alone", () => {
+    expect(findDefaultImportBatchId(reviewBatchHistory)).toBe("batch-pending-latest-import");
+    expect(
+      findDefaultImportBatchId([
+        {
+          id: "batch-pending-newer-month-older-import",
+          imported_at: "2026-06-10T10:00:00.000Z",
+          review_completed_at: null,
+        },
+        {
+          id: "batch-pending-older-month-newer-import",
+          imported_at: "2026-06-12T10:00:00.000Z",
+          review_completed_at: null,
+        },
+      ]),
+    ).toBe("batch-pending-older-month-newer-import");
+    expect(findDefaultImportBatchId([])).toBeNull();
   });
 
   it("adds and removes the batch query parameter while preserving other URL parts", () => {
@@ -2462,6 +2618,38 @@ describe("import UI", () => {
     expect(markup).toContain("Close import history");
   });
 
+  it("disables import commit actions while unsaved review changes still need attention", () => {
+    const markup = renderToStaticMarkup(
+      createElement(ImportUploadForm, {
+        commitBlockedReason: "Save or discard unsaved review changes before saving another import batch.",
+        isCommitBlocked: true,
+        isCommitting: false,
+        onCommitRequested: vi.fn(() => Promise.resolve()),
+        onPreviewLoaded: vi.fn(),
+        preview: {
+          bank: "revolut",
+          existing_batch: null,
+          period_end: "2026-05-31",
+          period_start: "2026-05-01",
+          source_filename: "fresh.csv",
+          statement_month: "2026-05-01",
+          transactions: [
+            {
+              amount: -10,
+              recipient: "Merchant",
+              title: "Merchant",
+              transaction_date: "2026-05-03",
+            },
+          ],
+        },
+      }),
+    );
+
+    expect(markup).toContain("Save or discard unsaved review changes before saving another import batch.");
+    expect(markup).toContain("Save import batch");
+    expect(markup).toContain("disabled");
+  });
+
   it("renders workspace history controls alongside a no-active-review empty state", () => {
     const markup = renderToStaticMarkup(
       createElement(ImportWorkspace, {
@@ -2576,14 +2764,14 @@ describe("import UI", () => {
           updated_at: "2026-05-30T08:00:00.000Z",
           user_id: "user-1",
         },
-        completionBlockedReason: "Save or discard category changes before marking this review complete.",
+        completionBlockedReason: "Save or discard unsaved review changes before marking this review complete.",
         isCompletionBlocked: true,
         onComplete: vi.fn(() => Promise.resolve()),
         transactionCount: 2,
       }),
     );
 
-    expect(markup).toContain("Save or discard category changes before marking this review complete.");
+    expect(markup).toContain("Save or discard unsaved review changes before marking this review complete.");
     expect(markup).toContain("disabled");
     expect(markup).toContain("Mark review complete");
   });
