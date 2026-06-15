@@ -39,7 +39,7 @@ The main planning constraint is `time`: the PRD sets a 3-week after-hours MVP, s
 | UX-03 | management-surface-density        | user can scan and manage categories and rules in denser operational layouts without excessive scrolling                                       | UX-01, UX-02  | FR-007, FR-011                                              | proposed |
 | UX-04 | uncategorized-review-prioritization | user can prioritize uncategorized transactions during import review by surfacing them first and/or filtering the list to only those rows     | UX-01         | FR-006, FR-010                                              | proposed |
 | UX-05 | transaction-inclusion-control     | user can exclude specific imported rows from budget calculations without deleting the source statement record                                  | UX-01, S-03   | FR-006, FR-010, FR-012                                      | proposed |
-| UX-06 | import-history-and-parallel-review | user can see older imports, reopen or edit past batches, and review multiple bank-month imports in parallel without being forced to finish one first | S-02, S-04, UX-01 | FR-002, FR-005, FR-006, FR-010                          | proposed |
+| UX-06 | import-history-and-parallel-review | user can see older imports, reopen or edit past batches, and review multiple bank-month imports in parallel without being forced to finish one first | S-02, S-04, UX-01 | FR-002, FR-005, FR-006, FR-010                          | implemented |
 | S-05  | cashflow-type-separation          | user can separate expenses, income, reimbursements, and transfers so summaries do not force all rows into expense categorization              | UX-05, S-03   | FR-006, FR-010, FR-012                                      | proposed |
 
 ## Baseline
@@ -143,7 +143,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Blockers:** UX-01 must clarify the batch review save lifecycle before rules can safely mutate matching rows.
 - **Unknowns:** rule preview wording, field defaults, and current-batch application confirmation need a dedicated plan.
 - **Risk:** If rule creation remains opaque, users cannot tell why rows are categorized or confidently apply a rule to the rest of a batch.
-- **Status:** proposed
+- **Status:** implemented
 
 ### UX-03: Management surface density
 
@@ -219,7 +219,7 @@ Foundations below assume these are present and do NOT re-scaffold them.
 | UX-03      | management-surface-density        | Compact category and rule management surfaces                                  | no                    | Depends on UX-01 and UX-02                |
 | UX-04      | uncategorized-review-prioritization | Prioritize uncategorized rows in import review with sort and/or filter modes | no                    | Depends on UX-01                          |
 | UX-05      | transaction-inclusion-control     | Let users exclude imported rows from budget calculations without deleting them | no                    | Depends on UX-01 and S-03                 |
-| UX-06      | import-history-and-parallel-review | Add import history, reopening, and parallel review across bank-month batches | no                    | Depends on S-02, S-04, and UX-01         |
+| UX-06      | import-history-and-parallel-review | Add import history, reopening, and parallel review across bank-month batches | no                    | Implemented; archive pending             |
 | S-05       | cashflow-type-separation          | Separate expenses, income, reimbursements, and transfers in review and summary | no                    | Depends on UX-05 and S-03                 |
 
 This table is the clean handoff to Jira/Linear or any MCP-backed backlog. Include one row for every `F-NN` and `S-NN`. It should be compact enough to copy into issues, but it must not duplicate the detailed roadmap body.

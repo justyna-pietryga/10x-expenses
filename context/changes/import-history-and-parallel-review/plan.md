@@ -481,27 +481,27 @@ The transaction-inclusion change may land before or during UX-06. Implement the 
 
 #### Automated
 
-- [x] 3.1 `npm test -- tests/import-review.test.ts tests/review-persistence-and-rule-application.test.ts` passes with guarded-switching coverage.
-- [x] 3.2 `npm run check` passes.
-- [x] 3.3 `npm run build` passes.
-- [x] 3.4 Targeted ESLint passes for the Phase 3 review components and tests.
+- [x] 3.1 `npm test -- tests/import-review.test.ts tests/review-persistence-and-rule-application.test.ts` passes with guarded-switching coverage. — f2f616d
+- [x] 3.2 `npm run check` passes. — f2f616d
+- [x] 3.3 `npm run build` passes. — f2f616d
+- [x] 3.4 Targeted ESLint passes for the Phase 3 review components and tests. — f2f616d
 
 #### Manual
 
-- [x] 3.5 Confirm clean switching updates the review and URL without a full reload.
-- [x] 3.6 Confirm stay, discard-and-switch, save-and-switch, and save-failure outcomes.
-- [x] 3.7 Confirm completed historical edits persist without resetting completion status.
-- [x] 3.8 Confirm new and replacement imports reconcile and select the correct pending history item.
+- [x] 3.5 Confirm clean switching updates the review and URL without a full reload. — f2f616d
+- [x] 3.6 Confirm stay, discard-and-switch, save-and-switch, and save-failure outcomes. — f2f616d
+- [x] 3.7 Confirm completed historical edits persist without resetting completion status. — f2f616d
+- [x] 3.8 Confirm new and replacement imports reconcile and select the correct pending history item. — f2f616d
 
 ### Phase 4: Focused E2E Regression and Handoff
 
 #### Automated
 
-- [ ] 4.1 `npm run test:e2e -- tests/e2e/import-history-switching.spec.ts` passes.
-- [ ] 4.2 `npm test` passes.
-- [ ] 4.3 `npm run lint` passes.
-- [ ] 4.4 `npm run check` passes.
-- [ ] 4.5 `npm run build` passes.
+- [x] 4.1 `npm run test:e2e -- tests/e2e/import-history-switching.spec.ts` passes.
+- [x] 4.2 `npm test` passes.
+- [x] 4.3 `npm run lint` passes.
+- [x] 4.4 `npm run check` passes.
+- [x] 4.5 `npm run build` passes.
 
 #### Manual
 
