@@ -52,7 +52,7 @@ export function ReviewCompletionBar({
           <p className="mt-3 text-sm leading-6 text-slate-200/75">
             {isComplete
               ? `${transactionCount} imported transaction${transactionCount === 1 ? "" : "s"} in ${batch.statement_month}. Any correction you save here still flows through to summaries without reopening review.`
-              : `${transactionCount} imported transaction${transactionCount === 1 ? "" : "s"} in ${batch.statement_month}`}
+              : `${transactionCount} imported transaction${transactionCount === 1 ? "" : "s"} in ${batch.statement_month}. Save category or exclusion changes before you lock this review.`}
           </p>
           {isCompletionBlocked && completionBlockedReason && (
             <p className="mt-3 text-sm text-amber-200">{completionBlockedReason}</p>

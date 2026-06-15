@@ -9,14 +9,18 @@ import type {
 import { ruleMatchesTransaction } from "@/lib/rules/data";
 import type { RuleMatchField } from "@/lib/rules/validation";
 
-export interface ImportCategoryDraftUpdate {
+export interface ImportReviewDraft {
   category_id: string | null;
+  is_included: boolean;
+}
+
+export interface ImportReviewDraftUpdate extends ImportReviewDraft {
   transaction_id: string;
 }
 
-export interface ImportCategorySaveResult {
+export interface ImportReviewSaveResult {
   failed: ImportCategoryUpdateFailure[];
-  updated: { category_id: string | null; id: string }[];
+  updated: ImportedTransactionReviewRow[];
 }
 
 export interface ImportReviewRuleDraft {
@@ -49,9 +53,9 @@ interface Props {
   onCreateRuleFromReview: (payload: ImportReviewRuleActionPayload) => Promise<ImportReviewRuleActionResult>;
   onDirtyStateChange?: (hasDirtyChanges: boolean) => void;
   onReviewControlsReady?: (controls: ImportReviewPendingChangesControls | null) => void;
-  onSaveCategoryChanges: (updates: ImportCategoryDraftUpdate[]) => Promise<ImportCategorySaveResult>;
+  onSaveReviewChanges: (updates: ImportReviewDraftUpdate[]) => Promise<ImportReviewSaveResult>;
   transactions: ImportedTransactionReviewRow[];
-  initialDrafts?: Partial<Record<string, string>>;
+  initialDrafts?: Partial<Record<string, ImportReviewDraft>>;
   initialRowErrors?: Partial<Record<string, string>>;
   initialSuccessById?: Partial<Record<string, string>>;
 }
@@ -62,6 +66,17 @@ function formatAmount(amount: number) {
 
 function getCategorySelectValue(categoryId: string | null) {
   return categoryId ?? "";
+}
+
+function normalizeIncludedFlag(isIncluded: boolean | null | undefined) {
+  return isIncluded ?? true;
+}
+
+function getPersistedReviewState(transaction: ImportedTransactionReviewRow): ImportReviewDraft {
+  return {
+    category_id: transaction.category_id,
+    is_included: normalizeIncludedFlag(transaction.is_included),
+  };
 }
 
 function getRuleBadgeLabel(rule: ImportTransactionRuleSummary | null | undefined) {
@@ -80,23 +95,27 @@ function getRuleBadgeLabel(rule: ImportTransactionRuleSummary | null | undefined
   return `Rule: recipient + title contain "${rule.match_text}"`;
 }
 
-function getDraftCategoryId(
+function getDraftReviewState(
   transaction: ImportedTransactionReviewRow,
-  drafts: Partial<Record<string, string>>,
+  drafts: Partial<Record<string, ImportReviewDraft>>,
   transactionId: string,
 ) {
-  const draftValue = drafts[transactionId];
+  return drafts[transactionId] ?? getPersistedReviewState(transaction);
+}
 
-  if (draftValue === undefined) {
-    return transaction.category_id;
-  }
+function getDraftCategoryId(
+  transaction: ImportedTransactionReviewRow,
+  drafts: Partial<Record<string, ImportReviewDraft>>,
+  transactionId: string,
+) {
+  const draftValue = getDraftReviewState(transaction, drafts, transactionId);
 
-  return draftValue === "" ? null : draftValue;
+  return draftValue.category_id;
 }
 
 export function buildInitialReviewRuleDraft(
   transaction: ImportedTransactionReviewRow,
-  drafts: Partial<Record<string, string>> = {},
+  drafts: Partial<Record<string, ImportReviewDraft>> = {},
 ): ImportReviewRuleDraft {
   return {
     category_id: getDraftCategoryId(transaction, drafts, transaction.id),
@@ -110,7 +129,7 @@ export function buildReviewRulePreview(
   transactions: ImportedTransactionReviewRow[],
   anchorTransactionId: string,
   draft: ImportReviewRuleDraft | null,
-  dirtyUpdates: ImportCategoryDraftUpdate[],
+  dirtyUpdates: ImportReviewDraftUpdate[],
 ) {
   if (!draft?.category_id || !draft.match_text.trim()) {
     return {
@@ -126,6 +145,13 @@ export function buildReviewRulePreview(
 
   return transactions.reduce(
     (summary, transaction) => {
+      const dirtyUpdate = dirtyUpdates.find((update) => update.transaction_id === transaction.id);
+      const isIncluded = dirtyUpdate?.is_included ?? normalizeIncludedFlag(transaction.is_included);
+
+      if (!isIncluded) {
+        return summary;
+      }
+
       if (transaction.id === anchorTransactionId || !ruleMatchesTransaction(previewRule, transaction)) {
         return summary;
       }
@@ -147,8 +173,8 @@ export function buildReviewRulePreview(
 
 export function buildDirtyCategoryUpdates(
   transactions: ImportedTransactionReviewRow[],
-  drafts: Partial<Record<string, string>>,
-): ImportCategoryDraftUpdate[] {
+  drafts: Partial<Record<string, ImportReviewDraft>>,
+): ImportReviewDraftUpdate[] {
   return transactions.flatMap((transaction) => {
     const draftValue = drafts[transaction.id];
 
@@ -156,29 +182,35 @@ export function buildDirtyCategoryUpdates(
       return [];
     }
 
-    const nextCategoryId = draftValue === "" ? null : draftValue;
-
-    if (transaction.category_id === nextCategoryId) {
+    if (
+      transaction.category_id === draftValue.category_id &&
+      normalizeIncludedFlag(transaction.is_included) === draftValue.is_included
+    ) {
       return [];
     }
 
     return [
       {
-        category_id: nextCategoryId,
+        category_id: draftValue.category_id,
+        is_included: draftValue.is_included,
         transaction_id: transaction.id,
       },
     ];
   });
 }
 
-export function buildBulkSaveFeedback(drafts: Partial<Record<string, string>>, result: ImportCategorySaveResult) {
-  const nextDrafts = { ...drafts };
+export function buildBulkSaveFeedback(
+  drafts: Partial<Record<string, ImportReviewDraft>>,
+  result: ImportReviewSaveResult,
+) {
+  let nextDrafts = { ...drafts };
   const errorById: Partial<Record<string, string>> = {};
   const successById: Partial<Record<string, string>> = {};
 
   result.updated.forEach(({ id }) => {
-    nextDrafts[id] = undefined;
-    successById[id] = "Category saved.";
+    const { [id]: _removedDraft, ...remainingDrafts } = nextDrafts;
+    nextDrafts = remainingDrafts;
+    successById[id] = "Review changes saved.";
   });
 
   result.failed.forEach(({ error, transaction_id: transactionId }) => {
@@ -200,10 +232,10 @@ export function TransactionReviewTable({
   onCreateRuleFromReview,
   onDirtyStateChange,
   onReviewControlsReady,
-  onSaveCategoryChanges,
+  onSaveReviewChanges,
   transactions,
 }: Props) {
-  const [drafts, setDrafts] = useState<Partial<Record<string, string>>>(initialDrafts ?? {});
+  const [drafts, setDrafts] = useState<Partial<Record<string, ImportReviewDraft>>>(initialDrafts ?? {});
   const [ruleDraftById, setRuleDraftById] = useState<Partial<Record<string, ImportReviewRuleDraft>>>({});
   const [ruleBusyId, setRuleBusyId] = useState<string | null>(null);
   const [isSavingAll, setIsSavingAll] = useState(false);
@@ -212,6 +244,12 @@ export function TransactionReviewTable({
   const [successById, setSuccessById] = useState<Partial<Record<string, string>>>(initialSuccessById ?? {});
   const dirtyUpdates = buildDirtyCategoryUpdates(transactions, drafts);
   const dirtyCount = dirtyUpdates.length;
+  const includedTransactions = transactions.filter(
+    (transaction) => getDraftReviewState(transaction, drafts, transaction.id).is_included,
+  );
+  const excludedTransactions = transactions.filter(
+    (transaction) => !getDraftReviewState(transaction, drafts, transaction.id).is_included,
+  );
 
   useEffect(() => {
     onDirtyStateChange?.(dirtyCount > 0);
@@ -234,7 +272,7 @@ export function TransactionReviewTable({
     setError(null);
 
     try {
-      const result = await onSaveCategoryChanges(dirtyUpdates);
+      const result = await onSaveReviewChanges(dirtyUpdates);
       const nextFeedback = buildBulkSaveFeedback(drafts, result);
       const hasRemainingDirtyChanges = buildDirtyCategoryUpdates(transactions, nextFeedback.drafts).length > 0;
 
@@ -243,23 +281,23 @@ export function TransactionReviewTable({
       setSuccessById(nextFeedback.successById);
 
       if (result.failed.length > 0 && result.updated.length > 0) {
-        setError("Some category updates still need attention.");
+        setError("Some review changes still need attention.");
         return !hasRemainingDirtyChanges;
       }
 
       if (result.failed.length > 0) {
-        setError("No category changes were saved.");
+        setError("No review changes were saved.");
         return !hasRemainingDirtyChanges;
       }
 
       return !hasRemainingDirtyChanges;
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Could not save these category changes");
+      setError(saveError instanceof Error ? saveError.message : "Could not save these review changes");
       return false;
     } finally {
       setIsSavingAll(false);
     }
-  }, [dirtyUpdates, drafts, onSaveCategoryChanges, transactions]);
+  }, [dirtyUpdates, drafts, onSaveReviewChanges, transactions]);
 
   useEffect(() => {
     if (!onReviewControlsReady) {
@@ -358,15 +396,38 @@ export function TransactionReviewTable({
     }
   }
 
+  function stageReviewDraft(transaction: ImportedTransactionReviewRow, nextDraft: ImportReviewDraft) {
+    const persistedState = getPersistedReviewState(transaction);
+
+    setDrafts((current) => {
+      if (
+        persistedState.category_id === nextDraft.category_id &&
+        persistedState.is_included === nextDraft.is_included
+      ) {
+        const { [transaction.id]: _removedDraft, ...remainingDrafts } = current;
+        return remainingDrafts;
+      }
+
+      return {
+        ...current,
+        [transaction.id]: nextDraft,
+      };
+    });
+    setErrorById((current) => ({ ...current, [transaction.id]: undefined }));
+    setSuccessById((current) => ({ ...current, [transaction.id]: undefined }));
+  }
+
   return (
     <section className="rounded-[28px] border border-white/12 bg-white/8 p-6 shadow-[0_20px_70px_rgba(2,6,23,0.35)] backdrop-blur-xl">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-xs font-semibold tracking-[0.28em] text-cyan-200/70 uppercase">Transaction Review</p>
-          <h2 className="mt-2 text-2xl font-semibold text-white">Adjust categories without editing source values.</h2>
+          <h2 className="mt-2 text-2xl font-semibold text-white">
+            Adjust categories or exclude rows without editing source values.
+          </h2>
         </div>
         <div className="rounded-full border border-white/12 bg-slate-950/30 px-4 py-2 text-sm text-slate-200">
-          {transactions.length} row{transactions.length === 1 ? "" : "s"} ready for review
+          {includedTransactions.length} row{includedTransactions.length === 1 ? "" : "s"} ready for review
         </div>
       </div>
 
@@ -418,10 +479,15 @@ export function TransactionReviewTable({
             </tr>
           </thead>
           <tbody>
-            {transactions.map((transaction) => {
-              const currentDraft = drafts[transaction.id];
+            {includedTransactions.map((transaction) => {
+              const reviewDraft = drafts[transaction.id];
+              const draftState = getDraftReviewState(transaction, drafts, transaction.id);
+              const currentCategoryValue = getCategorySelectValue(draftState.category_id);
+              const persistedCategoryValue = getCategorySelectValue(transaction.category_id);
+              const persistedIncluded = normalizeIncludedFlag(transaction.is_included);
               const isDirty =
-                currentDraft !== undefined && getCategorySelectValue(transaction.category_id) !== currentDraft;
+                reviewDraft !== undefined &&
+                (persistedCategoryValue !== currentCategoryValue || persistedIncluded !== draftState.is_included);
               const currentRuleDraft = ruleDraftById[transaction.id];
               const ruleDraftCategoryId =
                 currentRuleDraft?.category_id ?? getDraftCategoryId(transaction, drafts, transaction.id);
@@ -438,17 +504,15 @@ export function TransactionReviewTable({
                   <td className="px-4 py-4 align-top font-medium text-white">{formatAmount(transaction.amount)}</td>
                   <td className="px-4 py-4 align-top">
                     <select
-                      value={currentDraft ?? getCategorySelectValue(transaction.category_id)}
+                      value={currentCategoryValue}
                       onChange={(event) => {
                         const { value } = event.target;
                         const nextCategoryId = value === "" ? null : value;
 
-                        setDrafts((current) => ({
-                          ...current,
-                          [transaction.id]: value,
-                        }));
-                        setErrorById((current) => ({ ...current, [transaction.id]: undefined }));
-                        setSuccessById((current) => ({ ...current, [transaction.id]: undefined }));
+                        stageReviewDraft(transaction, {
+                          category_id: nextCategoryId,
+                          is_included: true,
+                        });
                         setRuleDraftById((current) => {
                           const existingDraft = current[transaction.id];
 
@@ -474,7 +538,7 @@ export function TransactionReviewTable({
                         </option>
                       ))}
                     </select>
-                    {isDirty && <p className="mt-2 text-xs text-cyan-200">Unsaved category change.</p>}
+                    {isDirty && <p className="mt-2 text-xs text-cyan-200">Unsaved review change.</p>}
                     {errorById[transaction.id] && (
                       <p className="mt-2 text-xs text-rose-300">{errorById[transaction.id]}</p>
                     )}
@@ -586,7 +650,20 @@ export function TransactionReviewTable({
                         </button>
                       </div>
                     ) : (
-                      <span className="text-xs text-slate-500">Bulk save stays category-only</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="rounded-2xl border border-amber-300/25 text-amber-100 hover:bg-amber-300/10"
+                        onClick={() => {
+                          stageReviewDraft(transaction, {
+                            category_id: null,
+                            is_included: false,
+                          });
+                          closeRuleDraft(transaction.id);
+                        }}
+                      >
+                        Exclude
+                      </Button>
                     )}
                   </td>
                 </tr>
@@ -594,7 +671,83 @@ export function TransactionReviewTable({
             })}
           </tbody>
         </table>
+        {includedTransactions.length === 0 && (
+          <p className="mt-4 text-sm text-slate-300">
+            All current rows are excluded from budget calculations. Restore one below to bring it back into review.
+          </p>
+        )}
       </div>
+
+      {excludedTransactions.length > 0 && (
+        <details className="mt-6 rounded-3xl border border-white/12 bg-slate-950/28 p-4">
+          <summary className="cursor-pointer list-none text-sm font-medium text-slate-100">
+            Excluded transactions ({excludedTransactions.length})
+          </summary>
+          <p className="mt-3 text-sm text-slate-300">
+            Excluded rows stay in import history but no longer affect budget calculations until you restore them.
+          </p>
+          <div className="mt-4 overflow-x-auto">
+            <table className="min-w-full border-separate border-spacing-y-3 text-left text-sm text-slate-100">
+              <thead className="text-xs tracking-[0.22em] text-slate-400 uppercase">
+                <tr>
+                  <th className="px-4">Date</th>
+                  <th className="px-4">Title</th>
+                  <th className="px-4">Recipient</th>
+                  <th className="px-4">Amount</th>
+                  <th className="px-4">Status</th>
+                  <th className="px-4 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {excludedTransactions.map((transaction) => {
+                  const isDirty = drafts[transaction.id] !== undefined;
+
+                  return (
+                    <tr key={transaction.id} className="rounded-3xl bg-slate-950/28">
+                      <td className="rounded-l-3xl px-4 py-4 align-top">{transaction.transaction_date}</td>
+                      <td className="px-4 py-4 align-top">{transaction.title}</td>
+                      <td className="px-4 py-4 align-top">{transaction.recipient}</td>
+                      <td className="px-4 py-4 align-top font-medium text-white">{formatAmount(transaction.amount)}</td>
+                      <td className="px-4 py-4 align-top">
+                        <p className="text-sm text-slate-200">
+                          {normalizeIncludedFlag(transaction.is_included)
+                            ? "Will be excluded after save."
+                            : "Excluded from budget math."}
+                        </p>
+                        <p className="mt-2 text-xs text-slate-400">
+                          Restore returns this row as included and uncategorized.
+                        </p>
+                        {isDirty && <p className="mt-2 text-xs text-cyan-200">Unsaved review change.</p>}
+                        {errorById[transaction.id] && (
+                          <p className="mt-2 text-xs text-rose-300">{errorById[transaction.id]}</p>
+                        )}
+                        {successById[transaction.id] && (
+                          <p className="mt-2 text-xs text-emerald-200">{successById[transaction.id]}</p>
+                        )}
+                      </td>
+                      <td className="rounded-r-3xl px-4 py-4 text-right align-top">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="rounded-2xl border border-cyan-200/25 text-cyan-100 hover:bg-cyan-200/10"
+                          onClick={() => {
+                            stageReviewDraft(transaction, {
+                              category_id: null,
+                              is_included: true,
+                            });
+                          }}
+                        >
+                          Restore to review
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      )}
     </section>
   );
 }

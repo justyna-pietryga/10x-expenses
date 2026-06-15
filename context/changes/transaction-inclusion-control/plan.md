@@ -444,9 +444,9 @@ Because "Imported spend" changes to budget-relevant imported spend, UI copy and 
 
 #### Automated
 
-- [x] 2.1 `npm test -- tests/import-review.test.ts` passes with inclusion-contract coverage.
-- [x] 2.2 `npx astro check` passes.
-- [x] 2.3 Targeted `npx eslint src/lib/imports/validation.ts src/lib/imports/data.ts src/pages/api/imports/transactions/[id].ts src/pages/api/imports/transactions/bulk.ts tests/import-review.test.ts` passes.
+- [x] 2.1 `npm test -- tests/import-review.test.ts` passes with inclusion-contract coverage. — 2ff7b1a
+- [x] 2.2 `npx astro check` passes. — 2ff7b1a
+- [x] 2.3 Targeted `npx eslint src/lib/imports/validation.ts src/lib/imports/data.ts src/pages/api/imports/transactions/[id].ts src/pages/api/imports/transactions/bulk.ts tests/import-review.test.ts` passes. — 2ff7b1a
 
 #### Manual
 
@@ -458,16 +458,16 @@ Because "Imported spend" changes to budget-relevant imported spend, UI copy and 
 
 #### Automated
 
-- [ ] 3.1 `npm test -- tests/import-review.test.ts` passes with inclusion UI coverage.
-- [ ] 3.2 `npx astro check` passes.
-- [ ] 3.3 Targeted `npx eslint src/components/imports/TransactionReviewTable.tsx src/components/imports/ImportWorkspace.tsx src/components/imports/ReviewCompletionBar.tsx tests/import-review.test.ts` passes.
+- [x] 3.1 `npm test -- tests/import-review.test.ts` passes with inclusion UI coverage.
+- [x] 3.2 `npx astro check` passes.
+- [x] 3.3 Targeted `npx eslint src/components/imports/TransactionReviewTable.tsx src/components/imports/ImportWorkspace.tsx src/components/imports/ReviewCompletionBar.tsx tests/import-review.test.ts` passes.
 
 #### Manual
 
-- [ ] 3.4 A user can exclude multiple included rows and save those changes through the existing bulk-save workflow.
-- [ ] 3.5 Excluded rows disappear from the default review list after persistence.
-- [ ] 3.6 A user can reveal excluded rows and restore one intentionally through a dedicated restore action.
-- [ ] 3.7 `Mark review complete` remains blocked while any category or inclusion changes are unsaved.
+- [x] 3.4 A user can exclude multiple included rows and save those changes through the existing bulk-save workflow.
+- [x] 3.5 Excluded rows disappear from the default review list after persistence.
+- [x] 3.6 A user can reveal excluded rows and restore one intentionally through a dedicated restore action.
+- [x] 3.7 `Mark review complete` remains blocked while any category or inclusion changes are unsaved.
 
 ### Phase 4: Dashboard Reconciliation
 

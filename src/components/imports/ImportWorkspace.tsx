@@ -12,11 +12,11 @@ import { ImportUploadForm, type ImportPreviewPayload } from "@/components/import
 import { ReviewCompletionBar } from "@/components/imports/ReviewCompletionBar";
 import {
   TransactionReviewTable,
-  type ImportCategoryDraftUpdate,
-  type ImportCategorySaveResult,
+  type ImportReviewDraftUpdate,
   type ImportReviewPendingChangesControls,
   type ImportReviewRuleActionPayload,
   type ImportReviewRuleActionResult,
+  type ImportReviewSaveResult,
 } from "@/components/imports/TransactionReviewTable";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -37,7 +37,7 @@ interface CommitPayload {
   transactions: ImportedTransactionReviewRow[];
 }
 
-interface BulkCategorySaveResponse extends ImportCategorySaveResult {
+interface BulkReviewSaveResponse extends ImportReviewSaveResult {
   error?: string;
 }
 
@@ -53,10 +53,10 @@ interface ImportBatchReviewResponse {
 
 type HistorySyncMode = "none" | "push" | "replace";
 
-export async function saveImportCategoryChanges(
-  updates: ImportCategoryDraftUpdate[],
+export async function saveImportReviewChanges(
+  updates: ImportReviewDraftUpdate[],
   fetchFn: typeof fetch = fetch,
-): Promise<ImportCategorySaveResult> {
+): Promise<ImportReviewSaveResult> {
   const response = await fetchFn("/api/imports/transactions/bulk", {
     method: "PATCH",
     headers: {
@@ -64,10 +64,10 @@ export async function saveImportCategoryChanges(
     },
     body: JSON.stringify({ updates }),
   });
-  const payload = (await response.json()) as BulkCategorySaveResponse;
+  const payload = (await response.json()) as BulkReviewSaveResponse;
 
   if (!response.ok) {
-    throw new Error(payload.error ?? "Could not save these category changes");
+    throw new Error(payload.error ?? "Could not save these review changes");
   }
 
   return {
@@ -116,24 +116,23 @@ export function mergeImportedTransactions(
   });
 }
 
-export function mergeImportedTransactionCategoryUpdates(
+export function mergeImportedTransactionReviewUpdates(
   transactions: ImportedTransactionReviewRow[],
-  updates: ImportCategorySaveResult["updated"],
+  updates: ImportReviewSaveResult["updated"],
 ) {
-  const categoryById = new Map(updates.map((update) => [update.id, update.category_id]));
+  const updateById = new Map(updates.map((update) => [update.id, update]));
 
   return transactions.map((transaction) => {
-    const nextCategoryId = categoryById.get(transaction.id);
+    const nextTransaction = updateById.get(transaction.id);
 
-    if (nextCategoryId === undefined) {
+    if (!nextTransaction) {
       return transaction;
     }
 
     return {
       ...transaction,
-      category_id: nextCategoryId,
-      category_rule: null,
-      categorized_by_rule_id: null,
+      ...nextTransaction,
+      category_rule: nextTransaction.categorized_by_rule_id ? transaction.category_rule : null,
     };
   });
 }
@@ -385,16 +384,16 @@ export function ImportWorkspace({
     }
   }
 
-  async function handleSaveCategoryChanges(updates: ImportCategoryDraftUpdate[]): Promise<ImportCategorySaveResult> {
-    const result = await saveImportCategoryChanges(updates);
+  async function handleSaveReviewChanges(updates: ImportReviewDraftUpdate[]): Promise<ImportReviewSaveResult> {
+    const result = await saveImportReviewChanges(updates);
 
     if (result.updated.length > 0) {
       startTransition(() => {
-        setTransactions((current) => mergeImportedTransactionCategoryUpdates(current, result.updated));
+        setTransactions((current) => mergeImportedTransactionReviewUpdates(current, result.updated));
         setNotice(
           result.failed.length > 0
-            ? "Some category changes were saved, and some still need attention."
-            : "Category changes saved.",
+            ? "Some review changes were saved, and some still need attention."
+            : "Review changes saved.",
         );
       });
     }
@@ -563,13 +562,13 @@ export function ImportWorkspace({
         </div>
       )}
 
-      <div className="lg:hidden">
+      <div className="xl:hidden">
         <ImportHistory activeBatchId={activeBatchId} history={history} onSelectBatch={historySelectionHandler} />
       </div>
 
       <div className="space-y-6">
         {history.length > 0 && (
-          <div className="hidden justify-end lg:flex">
+          <div className="hidden justify-end xl:flex">
             <ImportHistoryCollapseButton
               collapsed={isDesktopHistoryCollapsed}
               onToggle={() => {
@@ -592,11 +591,11 @@ export function ImportWorkspace({
             "space-y-6",
             history.length > 0 &&
               !isDesktopHistoryCollapsed &&
-              "lg:grid lg:grid-cols-[20rem_minmax(0,1fr)] lg:items-start lg:gap-6 lg:space-y-0",
+              "xl:grid xl:grid-cols-[18rem_minmax(0,1fr)] xl:items-start xl:gap-6 xl:space-y-0",
           )}
         >
           {history.length > 0 && !isDesktopHistoryCollapsed && (
-            <div className="hidden min-w-0 lg:block">
+            <div className="hidden min-w-0 xl:block">
               <ImportHistory activeBatchId={activeBatchId} history={history} onSelectBatch={historySelectionHandler} />
             </div>
           )}
@@ -623,7 +622,7 @@ export function ImportWorkspace({
                   onReviewControlsReady={(controls) => {
                     reviewControlsRef.current = controls;
                   }}
-                  onSaveCategoryChanges={handleSaveCategoryChanges}
+                  onSaveReviewChanges={handleSaveReviewChanges}
                   transactions={transactions}
                 />
               </>

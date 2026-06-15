@@ -151,7 +151,7 @@ export function ImportHistory({ activeBatchId, history, initialMobileOpen = fals
 
   return (
     <>
-      <div className="lg:hidden">
+      <div className="xl:hidden">
         <button
           ref={triggerButtonRef}
           type="button"
@@ -178,7 +178,7 @@ export function ImportHistory({ activeBatchId, history, initialMobileOpen = fals
       </div>
 
       {isMobileOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
+        <div className="fixed inset-0 z-50 xl:hidden">
           <button
             type="button"
             aria-label="Close import history"
@@ -224,7 +224,7 @@ export function ImportHistory({ activeBatchId, history, initialMobileOpen = fals
         </div>
       )}
 
-      <section className="hidden lg:block">
+      <section className="hidden xl:block">
         <div className="rounded-[32px] border border-white/12 bg-white/7 p-5 shadow-[0_20px_70px_rgba(2,6,23,0.28)] backdrop-blur-xl">
           <div className="flex items-start gap-3">
             <div className="rounded-2xl border border-emerald-300/20 bg-emerald-300/10 p-3">
@@ -252,7 +252,7 @@ export function ImportHistoryCollapseButton({ collapsed, onToggle }: { collapsed
     <Button
       type="button"
       variant="ghost"
-      className="hidden rounded-full border border-white/12 bg-slate-950/35 px-4 text-slate-100 hover:bg-white/8 lg:inline-flex"
+      className="hidden rounded-full border border-white/12 bg-slate-950/35 px-4 text-slate-100 hover:bg-white/8 xl:inline-flex"
       onClick={onToggle}
     >
       {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}

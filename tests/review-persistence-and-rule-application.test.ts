@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { mergeImportedTransactionCategoryUpdates } from "@/components/imports/ImportWorkspace";
+import { mergeImportedTransactionReviewUpdates } from "@/components/imports/ImportWorkspace";
 import { ReviewCompletionBar } from "@/components/imports/ReviewCompletionBar";
 import { buildBulkSaveFeedback, buildDirtyCategoryUpdates } from "@/components/imports/TransactionReviewTable";
 import type { BudgetCategory } from "@/lib/budget/data";
@@ -745,8 +745,14 @@ describe("review persistence truthfulness", () => {
 
   it("clears only successful drafts and merges only updated rows after a mixed save", () => {
     const drafts = {
-      "tx-1": "cat-travel",
-      "tx-2": "cat-housing",
+      "tx-1": {
+        category_id: "cat-travel",
+        is_included: true,
+      },
+      "tx-2": {
+        category_id: "cat-housing",
+        is_included: true,
+      },
     };
 
     const feedback = buildBulkSaveFeedback(drafts, {
@@ -758,31 +764,32 @@ describe("review persistence truthfulness", () => {
       ],
       updated: [
         {
-          category_id: "cat-travel",
-          id: "tx-1",
+          ...makeTransaction("tx-1", { category_id: "cat-travel" }),
         },
       ],
     });
 
     expect(feedback).toEqual({
       drafts: {
-        "tx-2": "cat-housing",
+        "tx-2": {
+          category_id: "cat-housing",
+          is_included: true,
+        },
       },
       errorById: {
         "tx-2": "Imported transaction was not found",
       },
       successById: {
-        "tx-1": "Category saved.",
+        "tx-1": "Review changes saved.",
       },
     });
 
     expect(
-      mergeImportedTransactionCategoryUpdates(
+      mergeImportedTransactionReviewUpdates(
         [makeTransaction("tx-1", { category_id: "cat-food" }), makeTransaction("tx-2", { category_id: null })],
         [
           {
-            category_id: "cat-travel",
-            id: "tx-1",
+            ...makeTransaction("tx-1", { category_id: "cat-travel" }),
           },
         ],
       ),
@@ -799,6 +806,7 @@ describe("review persistence truthfulness", () => {
     ).toEqual([
       {
         category_id: "cat-housing",
+        is_included: true,
         transaction_id: "tx-2",
       },
     ]);

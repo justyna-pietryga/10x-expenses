@@ -12,9 +12,9 @@ import {
   ImportWorkspace,
   loadImportBatchReviewFromApi,
   mergeImportedTransactions,
-  mergeImportedTransactionCategoryUpdates,
+  mergeImportedTransactionReviewUpdates,
   reconcileImportHistory,
-  saveImportCategoryChanges,
+  saveImportReviewChanges,
 } from "@/components/imports/ImportWorkspace";
 import { ReviewCompletionBar } from "@/components/imports/ReviewCompletionBar";
 import {
@@ -2415,15 +2415,22 @@ describe("import API routes", () => {
 });
 
 describe("transaction review table", () => {
-  it("derives only changed category drafts as bulk updates", () => {
+  it("derives only changed review drafts as bulk updates", () => {
     expect(
       buildDirtyCategoryUpdates(reviewTransactions, {
-        "tx-1": "cat-food",
-        "tx-2": "cat-travel",
+        "tx-1": {
+          category_id: "cat-food",
+          is_included: true,
+        },
+        "tx-2": {
+          category_id: "cat-travel",
+          is_included: true,
+        },
       }),
     ).toEqual([
       {
         category_id: "cat-travel",
+        is_included: true,
         transaction_id: "tx-2",
       },
     ]);
@@ -2433,8 +2440,14 @@ describe("transaction review table", () => {
     expect(
       buildBulkSaveFeedback(
         {
-          "tx-1": "cat-travel",
-          "tx-2": "cat-food",
+          "tx-1": {
+            category_id: "cat-travel",
+            is_included: true,
+          },
+          "tx-2": {
+            category_id: "cat-food",
+            is_included: true,
+          },
         },
         {
           failed: [
@@ -2445,21 +2458,24 @@ describe("transaction review table", () => {
           ],
           updated: [
             {
+              ...reviewTransactions[0],
               category_id: "cat-travel",
-              id: "tx-1",
             },
           ],
         },
       ),
     ).toEqual({
       drafts: {
-        "tx-2": "cat-food",
+        "tx-2": {
+          category_id: "cat-food",
+          is_included: true,
+        },
       },
       errorById: {
         "tx-2": "Selected category was not found",
       },
       successById: {
-        "tx-1": "Category saved.",
+        "tx-1": "Review changes saved.",
       },
     });
   });
@@ -2468,7 +2484,7 @@ describe("transaction review table", () => {
     const markup = renderToStaticMarkup(
       createElement(TransactionReviewTable, {
         categories: reviewCategories,
-        onSaveCategoryChanges: vi.fn(() =>
+        onSaveReviewChanges: vi.fn(() =>
           Promise.resolve({
             failed: [],
             updated: [],
@@ -2502,10 +2518,16 @@ describe("transaction review table", () => {
       createElement(TransactionReviewTable, {
         categories: reviewCategories,
         initialDrafts: {
-          "tx-1": "cat-travel",
-          "tx-2": "cat-food",
+          "tx-1": {
+            category_id: "cat-travel",
+            is_included: true,
+          },
+          "tx-2": {
+            category_id: "cat-food",
+            is_included: true,
+          },
         },
-        onSaveCategoryChanges: vi.fn(() =>
+        onSaveReviewChanges: vi.fn(() =>
           Promise.resolve({
             failed: [],
             updated: [],
@@ -2539,12 +2561,15 @@ describe("transaction review table", () => {
       createElement(TransactionReviewTable, {
         categories: reviewCategories,
         initialDrafts: {
-          "tx-2": "cat-food",
+          "tx-2": {
+            category_id: "cat-food",
+            is_included: true,
+          },
         },
         initialRowErrors: {
           "tx-2": "Selected category was not found",
         },
-        onSaveCategoryChanges: vi.fn(() =>
+        onSaveReviewChanges: vi.fn(() =>
           Promise.resolve({
             failed: [],
             updated: [],
@@ -2568,8 +2593,130 @@ describe("transaction review table", () => {
       }),
     );
 
-    expect(markup).toContain("Unsaved category change.");
+    expect(markup).toContain("Unsaved review change.");
     expect(markup).toContain("Selected category was not found");
+  });
+
+  it("moves drafted exclusions into a dedicated excluded section with a restore action", () => {
+    const markup = renderToStaticMarkup(
+      createElement(TransactionReviewTable, {
+        categories: reviewCategories,
+        initialDrafts: {
+          "tx-1": {
+            category_id: null,
+            is_included: false,
+          },
+        },
+        onSaveReviewChanges: vi.fn(() =>
+          Promise.resolve({
+            failed: [],
+            updated: [],
+          }),
+        ),
+        onCreateRuleFromReview: vi.fn(() =>
+          Promise.resolve({
+            anchor_transaction: reviewTransactions[0],
+            applied_transactions: [],
+            match_count: 0,
+            rule: {
+              id: "rule-1",
+              match_field: "recipient",
+              match_text: "Lidl Warszawa",
+              target_category_id: "cat-food",
+            },
+            skipped_rows: [],
+          }),
+        ),
+        transactions: reviewTransactions,
+      }),
+    );
+
+    expect(markup).toContain("1 unsaved change");
+    expect(markup).toContain("1 row ready for review");
+    expect(markup).toContain("Excluded transactions (1)");
+    expect(markup).toContain("Restore to review");
+    expect(markup).toContain("Will be excluded after save.");
+  });
+
+  it("renders exclude actions for included positive rows as well as outflows", () => {
+    const markup = renderToStaticMarkup(
+      createElement(TransactionReviewTable, {
+        categories: reviewCategories,
+        onSaveReviewChanges: vi.fn(() =>
+          Promise.resolve({
+            failed: [],
+            updated: [],
+          }),
+        ),
+        onCreateRuleFromReview: vi.fn(() =>
+          Promise.resolve({
+            anchor_transaction: reviewTransactions[0],
+            applied_transactions: [],
+            match_count: 0,
+            rule: {
+              id: "rule-1",
+              match_field: "recipient",
+              match_text: "Lidl Warszawa",
+              target_category_id: "cat-food",
+            },
+            skipped_rows: [],
+          }),
+        ),
+        transactions: [
+          ...reviewTransactions,
+          {
+            ...reviewTransactions[0],
+            amount: 250,
+            id: "tx-3",
+            recipient: "Salary Transfer",
+            title: "Salary Transfer",
+          },
+        ],
+      }),
+    );
+
+    expect(markup).toContain("3 rows ready for review");
+    expect(markup).toContain("Exclude");
+    expect(markup).toContain("250.00 PLN");
+  });
+
+  it("treats rows with missing inclusion flags as included by default", () => {
+    const markup = renderToStaticMarkup(
+      createElement(TransactionReviewTable, {
+        categories: reviewCategories,
+        onSaveReviewChanges: vi.fn(() =>
+          Promise.resolve({
+            failed: [],
+            updated: [],
+          }),
+        ),
+        onCreateRuleFromReview: vi.fn(() =>
+          Promise.resolve({
+            anchor_transaction: reviewTransactions[0],
+            applied_transactions: [],
+            match_count: 0,
+            rule: {
+              id: "rule-1",
+              match_field: "recipient",
+              match_text: "Lidl Warszawa",
+              target_category_id: "cat-food",
+            },
+            skipped_rows: [],
+          }),
+        ),
+        transactions: [
+          {
+            ...reviewTransactions[0],
+            id: "tx-legacy",
+            is_included: undefined as unknown as boolean,
+          },
+        ],
+      }),
+    );
+
+    expect(markup).toContain("1 row ready for review");
+    expect(markup).toContain("Exclude");
+    expect(markup).not.toContain("Excluded transactions (1)");
   });
 
   it("builds review rule drafts with recipient as the default field and anchor text", () => {
@@ -2601,7 +2748,13 @@ describe("transaction review table", () => {
           match_text: "PKP",
           transaction_id: "tx-2",
         },
-        [{ category_id: "cat-food", transaction_id: "tx-3" }],
+        [
+          {
+            category_id: "cat-food",
+            is_included: true,
+            transaction_id: "tx-3",
+          },
+        ],
       ),
     ).toEqual({
       matchingRowCount: 1,
@@ -2627,7 +2780,7 @@ describe("transaction review table", () => {
             skipped_rows: [],
           }),
         ),
-        onSaveCategoryChanges: vi.fn(() =>
+        onSaveReviewChanges: vi.fn(() =>
           Promise.resolve({
             failed: [],
             updated: [],
@@ -2781,7 +2934,7 @@ describe("import workspace helpers", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/imports/batches/batch-pending-latest-import");
   });
 
-  it("sends bulk category drafts to the bulk review endpoint", async () => {
+  it("sends bulk review drafts to the bulk review endpoint", async () => {
     const fetchMock = vi.fn(() =>
       Promise.resolve({
         json: () =>
@@ -2804,14 +2957,16 @@ describe("import workspace helpers", () => {
     ) as unknown as typeof fetch;
 
     await expect(
-      saveImportCategoryChanges(
+      saveImportReviewChanges(
         [
           {
             category_id: "cat-travel",
+            is_included: true,
             transaction_id: "tx-1",
           },
           {
             category_id: "cat-food",
+            is_included: false,
             transaction_id: "tx-2",
           },
         ],
@@ -2837,10 +2992,12 @@ describe("import workspace helpers", () => {
         updates: [
           {
             category_id: "cat-travel",
+            is_included: true,
             transaction_id: "tx-1",
           },
           {
             category_id: "cat-food",
+            is_included: false,
             transaction_id: "tx-2",
           },
         ],
@@ -2907,12 +3064,13 @@ describe("import workspace helpers", () => {
     });
   });
 
-  it("merges successful bulk category saves into local transactions only for updated rows", () => {
+  it("merges successful bulk review saves into local transactions only for updated rows", () => {
     expect(
-      mergeImportedTransactionCategoryUpdates(reviewTransactions, [
+      mergeImportedTransactionReviewUpdates(reviewTransactions, [
         {
+          ...reviewTransactions[0],
           category_id: "cat-travel",
-          id: "tx-1",
+          categorized_by_rule_id: null,
         },
       ]),
     ).toEqual([
@@ -3168,6 +3326,7 @@ describe("import UI", () => {
     );
 
     expect(markup).toContain("Save or discard unsaved review changes before marking this review complete.");
+    expect(markup).toContain("Save category or exclusion changes before you lock this review.");
     expect(markup).toContain("disabled");
     expect(markup).toContain("Mark review complete");
   });
