@@ -41,6 +41,8 @@ The main planning constraint is `time`: the PRD sets a 3-week after-hours MVP, s
 | UX-05 | transaction-inclusion-control     | user can exclude specific imported rows from budget calculations without deleting the source statement record                                  | UX-01, S-03   | FR-006, FR-010, FR-012                                      | proposed |
 | UX-06 | import-history-and-parallel-review | user can see older imports, reopen or edit past batches, and review multiple bank-month imports in parallel without being forced to finish one first | S-02, S-04, UX-01 | FR-002, FR-005, FR-006, FR-010                          | implemented |
 | UX-07 | dashboard-category-usage-chart    | user can see category usage visualized on the dashboard as a chart instead of reading summary values only                                     | S-03          | FR-012                                                      | proposed |
+| UX-08 | full-width-dashboard-panels       | user can use dashboard and management panels that expand to the available screen width instead of leaving large unused horizontal space       | S-03          | FR-012                                                      | proposed |
+| UX-09 | post-login-dashboard-redirect     | user lands on the dashboard immediately after signing in instead of stopping on an intermediate auth surface                                  | F-01          | Access Control, FR-001                                      | proposed |
 | S-05  | cashflow-type-separation          | user can separate expenses, income, reimbursements, and transfers so summaries do not force all rows into expense categorization              | UX-05, S-03   | FR-006, FR-010, FR-012                                      | proposed |
 | S-06  | fixed-expense-obligations         | user can model fixed bill-like expenses as required amount targets instead of percentage-based limits only                                     | S-01, S-03    | FR-008, FR-009, FR-012                                      | proposed |
 
@@ -207,6 +209,30 @@ Foundations below assume these are present and do NOT re-scaffold them.
 - **Risk:** If the dashboard remains table- or card-only, users must scan raw numbers to understand where spending concentrates, which weakens the value of the summary surface.
 - **Status:** proposed
 
+### UX-08: Full-width dashboard panels
+
+- **Outcome:** user can use dashboard and management panels that expand to the available screen width instead of leaving large unused horizontal space.
+- **Change ID:** full-width-dashboard-panels
+- **PRD refs:** FR-012
+- **Prerequisites:** S-03
+- **Parallel with:** UX-07, S-05
+- **Blockers:** S-03 must already expose the dashboard and summary surfaces that need layout expansion.
+- **Unknowns:** which routes should adopt the wider container first, what maximum width still preserves readability on large screens, and how the wider layout should collapse on tablet breakpoints.
+- **Risk:** If key panels stay artificially narrow on desktop, users waste screen real estate, review less data at once, and the management/dashboard surfaces feel more cramped than the workflow requires.
+- **Status:** proposed
+
+### UX-09: Post-login dashboard redirect
+
+- **Outcome:** user lands on the dashboard immediately after signing in instead of stopping on an intermediate auth surface.
+- **Change ID:** post-login-dashboard-redirect
+- **PRD refs:** Access Control, FR-001
+- **Prerequisites:** F-01
+- **Parallel with:** UX-08
+- **Blockers:** Existing auth guard and session bootstrap behavior must stay consistent so unauthenticated users still reach `/auth/signin` and authenticated users reliably resolve to the dashboard.
+- **Unknowns:** whether the app should always prefer `/dashboard` after login or preserve an intended destination when the user was originally redirected from a protected route.
+- **Risk:** If successful sign-in does not hand users directly into the main product surface, the first-run flow feels incomplete and adds friction right after authentication succeeds.
+- **Status:** proposed
+
 ### S-05: Cashflow type separation
 
 - **Outcome:** user can separate expenses, income, reimbursements, and transfers so summaries do not force all rows into expense categorization.
@@ -247,6 +273,8 @@ Foundations below assume these are present and do NOT re-scaffold them.
 | UX-05      | transaction-inclusion-control     | Let users exclude imported rows from budget calculations without deleting them | no                    | Depends on UX-01 and S-03                 |
 | UX-06      | import-history-and-parallel-review | Add import history, reopening, and parallel review across bank-month batches | no                    | Implemented; archive pending             |
 | UX-07      | dashboard-category-usage-chart    | Add a dashboard chart to visualize monthly category usage                     | no                    | Depends on S-03                           |
+| UX-08      | full-width-dashboard-panels       | Expand dashboard and management panels to better use available screen width   | no                    | Depends on S-03                           |
+| UX-09      | post-login-dashboard-redirect     | Redirect users to the dashboard immediately after successful sign-in          | no                    | Review auth redirect behavior first       |
 | S-05       | cashflow-type-separation          | Separate expenses, income, reimbursements, and transfers in review and summary | no                    | Depends on UX-05 and S-03                 |
 | S-06       | fixed-expense-obligations         | Support fixed bill-like categories with required amount targets               | no                    | Depends on S-01 and S-03                  |
 
