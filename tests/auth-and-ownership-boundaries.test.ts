@@ -959,7 +959,7 @@ describe("adapted ownership contract under anon-key plus RLS", () => {
       request: new Request("http://localhost/api/imports/transactions/tx-2", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ category_id: "cat-1", save_rule: false }),
+        body: JSON.stringify({ category_id: "cat-1", is_included: true, save_rule: false }),
       }),
     } as never);
 
@@ -975,7 +975,7 @@ describe("adapted ownership contract under anon-key plus RLS", () => {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          updates: [{ category_id: "cat-1", transaction_id: "tx-2" }],
+          updates: [{ category_id: "cat-1", is_included: true, transaction_id: "tx-2" }],
         }),
       }),
     } as never);

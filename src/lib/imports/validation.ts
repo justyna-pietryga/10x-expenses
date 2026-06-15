@@ -12,12 +12,21 @@ export interface ImportCommitPayload {
   transactions: ImportedTransactionDraft[];
 }
 
-export interface ImportCategoryUpdatePayload {
+export interface ImportReviewUpdate {
+  category_id: string | null;
+  is_included: boolean;
+  transaction_id: string;
+}
+
+export interface ImportReviewUpdatesPayload {
   updates: {
     category_id: string | null;
+    is_included: boolean;
     transaction_id: string;
   }[];
 }
+
+export type ImportCategoryUpdatePayload = ImportReviewUpdatesPayload;
 
 export interface ImportReviewRulePayload {
   apply_now: boolean;
@@ -143,25 +152,41 @@ export function validateImportCategoryId(value: unknown) {
   return validateText(value, "category_id");
 }
 
-export function validateImportCategoryUpdatesPayload(payload: unknown): ImportCategoryUpdatePayload {
+export function validateImportReviewUpdatePayload(
+  payload: unknown,
+  options?: { defaultTransactionId?: string },
+): ImportReviewUpdate {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-    throw new ImportError("Bulk category update payload must be an object", { field: "payload" });
+    throw new ImportError("Review update payload must be an object", { field: "payload" });
+  }
+
+  return validateImportReviewUpdate(payload, undefined, {
+    allowSaveRule: true,
+    defaultTransactionId: options?.defaultTransactionId,
+  });
+}
+
+export function validateImportReviewUpdatesPayload(payload: unknown): ImportReviewUpdatesPayload {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new ImportError("Bulk review update payload must be an object", { field: "payload" });
   }
 
   const record = payload as Record<string, unknown>;
 
   if ("save_rule" in record) {
-    throw new ImportError("Bulk category updates cannot create rules", { field: "save_rule" });
+    throw new ImportError("Bulk review updates cannot create rules", { field: "save_rule" });
   }
 
   if (!Array.isArray(record.updates) || record.updates.length === 0) {
-    throw new ImportError("updates must contain at least one transaction category change", { field: "updates" });
+    throw new ImportError("updates must contain at least one transaction review change", { field: "updates" });
   }
 
   return {
-    updates: record.updates.map((update, index) => validateImportCategoryUpdate(update, index)),
+    updates: record.updates.map((update, index) => validateImportReviewUpdate(update, index)),
   };
 }
+
+export const validateImportCategoryUpdatesPayload = validateImportReviewUpdatesPayload;
 
 function validateBoolean(value: unknown, field: string) {
   if (typeof value !== "boolean") {
@@ -169,6 +194,14 @@ function validateBoolean(value: unknown, field: string) {
   }
 
   return value;
+}
+
+function validateIncludedFlag(value: unknown, field: string) {
+  if (value === undefined) {
+    return true;
+  }
+
+  return validateBoolean(value, field);
 }
 
 function validateMatchField(value: unknown): RuleMatchField {
@@ -210,23 +243,35 @@ export function validateImportReviewRulePayload(payload: unknown): ImportReviewR
   };
 }
 
-function validateImportCategoryUpdate(update: unknown, index: number) {
+function validateImportReviewUpdate(
+  update: unknown,
+  index?: number,
+  options?: { allowSaveRule?: boolean; defaultTransactionId?: string },
+): ImportReviewUpdate {
   if (!update || typeof update !== "object" || Array.isArray(update)) {
+    if (index === undefined) {
+      throw new ImportError("Review update payload must be an object", { field: "payload" });
+    }
+
     throw new ImportError(`updates[${index}] must be an object`, { field: "updates" });
   }
 
   const record = update as Record<string, unknown>;
+  const prefix = index === undefined ? "" : `updates[${index}].`;
 
-  if ("save_rule" in record) {
-    throw new ImportError("Bulk category updates cannot create rules", { field: `updates[${index}].save_rule` });
+  if ("save_rule" in record && !options?.allowSaveRule) {
+    throw new ImportError("Bulk review updates cannot create rules", {
+      field: index === undefined ? "save_rule" : `updates[${index}].save_rule`,
+    });
   }
 
   return {
     category_id:
       record.category_id == null || record.category_id === ""
         ? null
-        : validateText(record.category_id, `updates[${index}].category_id`),
-    transaction_id: validateText(record.transaction_id, `updates[${index}].transaction_id`),
+        : validateText(record.category_id, `${prefix}category_id`),
+    is_included: validateIncludedFlag(record.is_included, `${prefix}is_included`),
+    transaction_id: validateText(record.transaction_id ?? options?.defaultTransactionId, `${prefix}transaction_id`),
   };
 }
 

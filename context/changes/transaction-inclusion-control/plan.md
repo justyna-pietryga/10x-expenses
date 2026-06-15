@@ -430,9 +430,9 @@ Because "Imported spend" changes to budget-relevant imported spend, UI copy and 
 
 #### Automated
 
-- [x] 1.1 `npm test -- tests/monthly-summary-and-rules.test.ts` passes with split excluded-flow coverage.
-- [x] 1.2 `npx astro check` passes after the type refresh and summary contract changes.
-- [x] 1.3 Targeted `npx eslint src/lib/summary/data.ts tests/monthly-summary-and-rules.test.ts` passes.
+- [x] 1.1 `npm test -- tests/monthly-summary-and-rules.test.ts` passes with split excluded-flow coverage. — 884851b
+- [x] 1.2 `npx astro check` passes after the type refresh and summary contract changes. — 884851b
+- [x] 1.3 Targeted `npx eslint src/lib/summary/data.ts tests/monthly-summary-and-rules.test.ts` passes. — 884851b
 
 #### Manual
 
@@ -444,9 +444,9 @@ Because "Imported spend" changes to budget-relevant imported spend, UI copy and 
 
 #### Automated
 
-- [ ] 2.1 `npm test -- tests/import-review.test.ts` passes with inclusion-contract coverage.
-- [ ] 2.2 `npx astro check` passes.
-- [ ] 2.3 Targeted `npx eslint src/lib/imports/validation.ts src/lib/imports/data.ts src/pages/api/imports/transactions/[id].ts src/pages/api/imports/transactions/bulk.ts tests/import-review.test.ts` passes.
+- [x] 2.1 `npm test -- tests/import-review.test.ts` passes with inclusion-contract coverage.
+- [x] 2.2 `npx astro check` passes.
+- [x] 2.3 Targeted `npx eslint src/lib/imports/validation.ts src/lib/imports/data.ts src/pages/api/imports/transactions/[id].ts src/pages/api/imports/transactions/bulk.ts tests/import-review.test.ts` passes.
 
 #### Manual
 

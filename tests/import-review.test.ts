@@ -26,6 +26,8 @@ import {
 } from "@/components/imports/TransactionReviewTable";
 import type { BudgetCategory } from "@/lib/budget/data";
 import {
+  validateImportReviewUpdatePayload,
+  validateImportReviewUpdatesPayload,
   validateImportCategoryUpdatesPayload,
   validateImportCommitPayload,
   validateImportReviewRulePayload,
@@ -34,11 +36,14 @@ import {
 import { createClient } from "@/lib/supabase";
 import {
   commitImportBatch,
+  createImportReviewRule as persistImportReviewRule,
   findDefaultImportBatchId,
   listImportBatchHistory,
   loadDefaultImportBatchReview,
   markBatchReviewComplete,
   type ImportedTransaction,
+  updateImportTransactionReviews,
+  updateTransactionReviewAndMaybeRule,
   updateImportTransactionCategories,
   updateTransactionCategoryAndMaybeRule,
 } from "@/lib/imports/data";
@@ -366,7 +371,14 @@ function buildImportSupabaseStub(options?: {
 
             return chain;
           }),
-          update: vi.fn().mockReturnValue(createUpdateSingleChain(updatedTransaction)),
+          update: vi.fn((values: Partial<ImportedTransaction>) => {
+            const nextTransaction = {
+              ...updatedTransaction,
+              ...values,
+            };
+
+            return createUpdateSingleChain(nextTransaction);
+          }),
         };
       }
 
@@ -406,7 +418,7 @@ function buildImportSupabaseStub(options?: {
 
 function buildBulkImportSupabaseStub(options?: {
   categories?: { archived_at: string | null; id: string; name: string; user_id: string }[];
-  transactions?: Record<string, { category_id: string | null; id: string; user_id: string }>;
+  transactions?: Record<string, { category_id: string | null; id: string; is_included?: boolean; user_id: string }>;
 }) {
   const categories = options?.categories ?? [
     {
@@ -426,11 +438,13 @@ function buildBulkImportSupabaseStub(options?: {
     "tx-empty": {
       category_id: null,
       id: "tx-empty",
+      is_included: true,
       user_id: "user-1",
     },
     "tx-food": {
       category_id: "cat-food",
       id: "tx-food",
+      is_included: true,
       user_id: "user-1",
     },
   };
@@ -446,42 +460,46 @@ function buildBulkImportSupabaseStub(options?: {
 
       if (table === "transactions") {
         return {
-          update: vi.fn((values: { category_id: string | null }) => {
-            transactionUpdates.push(values);
-            const filters = new Map<string, string>();
-            const chain = {
-              eq: vi.fn((field: string, value: string) => {
-                filters.set(field, value);
-                return chain;
-              }),
-              select: vi.fn(() => chain),
-              single: vi.fn(() => {
-                const transactionId = filters.get("id");
-                const userId = filters.get("user_id");
-                const transaction = transactionId ? transactions[transactionId] : null;
+          update: vi.fn(
+            (values: { category_id: string | null; categorized_by_rule_id: string | null; is_included: boolean }) => {
+              transactionUpdates.push(values);
+              const filters = new Map<string, string>();
+              const chain = {
+                eq: vi.fn((field: string, value: string) => {
+                  filters.set(field, value);
+                  return chain;
+                }),
+                select: vi.fn(() => chain),
+                single: vi.fn(() => {
+                  const transactionId = filters.get("id");
+                  const userId = filters.get("user_id");
+                  const transaction = transactionId ? transactions[transactionId] : null;
 
-                if (!transaction || transaction.user_id !== userId) {
+                  if (!transaction || transaction.user_id !== userId) {
+                    return {
+                      data: null,
+                      error: {
+                        code: "PGRST116",
+                        message: "not found",
+                      },
+                    };
+                  }
+
                   return {
-                    data: null,
-                    error: {
-                      code: "PGRST116",
-                      message: "not found",
+                    data: {
+                      ...transaction,
+                      category_id: values.category_id,
+                      categorized_by_rule_id: values.categorized_by_rule_id,
+                      is_included: values.is_included,
                     },
+                    error: null,
                   };
-                }
+                }),
+              };
 
-                return {
-                  data: {
-                    ...transaction,
-                    category_id: values.category_id,
-                  },
-                  error: null,
-                };
-              }),
-            };
-
-            return chain;
-          }),
+              return chain;
+            },
+          ),
         };
       }
 
@@ -496,6 +514,168 @@ function buildBulkImportSupabaseStub(options?: {
   return {
     supabase,
     transactionUpdates,
+  };
+}
+
+function buildImportReviewRuleSupabaseStub() {
+  const transactions: ImportedTransaction[] = [
+    {
+      amount: -12.34,
+      category_id: "cat-food",
+      categorized_by_rule_id: null,
+      created_at: "2026-05-30T08:00:00.000Z",
+      id: "tx-1",
+      import_batch_id: "batch-1",
+      is_included: true,
+      recipient: "Lidl Warszawa",
+      title: "Lidl Warszawa",
+      transaction_date: "2026-05-03",
+      updated_at: "2026-05-30T08:00:00.000Z",
+      user_id: "user-1",
+    },
+    {
+      amount: -8.55,
+      category_id: null,
+      categorized_by_rule_id: null,
+      created_at: "2026-05-30T08:00:00.000Z",
+      id: "tx-2",
+      import_batch_id: "batch-1",
+      is_included: false,
+      recipient: "Lidl Warszawa",
+      title: "Lidl Warszawa",
+      transaction_date: "2026-05-04",
+      updated_at: "2026-05-30T08:00:00.000Z",
+      user_id: "user-1",
+    },
+    {
+      amount: -5.25,
+      category_id: null,
+      categorized_by_rule_id: null,
+      created_at: "2026-05-30T08:00:00.000Z",
+      id: "tx-3",
+      import_batch_id: "batch-1",
+      is_included: true,
+      recipient: "Lidl Warszawa",
+      title: "Lidl Warszawa",
+      transaction_date: "2026-05-05",
+      updated_at: "2026-05-30T08:00:00.000Z",
+      user_id: "user-1",
+    },
+  ];
+  const appliedUpdateIds: string[] = [];
+  const createdRule = {
+    id: "rule-1",
+    match_field: "recipient" as const,
+    match_text: "Lidl",
+    target_category_id: "cat-food",
+    created_at: "2026-05-30T08:00:00.000Z",
+    updated_at: "2026-05-30T08:00:00.000Z",
+    user_id: "user-1",
+  };
+
+  return {
+    appliedUpdateIds,
+    supabase: {
+      from: vi.fn((table: string) => {
+        if (table === "budget_categories") {
+          return {
+            select: vi.fn().mockReturnValue(
+              createSelectChain([
+                {
+                  id: "cat-food",
+                  user_id: "user-1",
+                  name: "Food",
+                  percentage_limit: 30,
+                  carryover_enabled: false,
+                  archived_at: null,
+                  created_at: "2026-05-01T00:00:00.000Z",
+                  updated_at: "2026-05-01T00:00:00.000Z",
+                },
+              ]),
+            ),
+          };
+        }
+
+        if (table === "categorization_rules") {
+          return {
+            upsert: vi.fn().mockReturnValue(createInsertSingleChain(createdRule)),
+          };
+        }
+
+        if (table === "transactions") {
+          return {
+            select: vi.fn(() => {
+              const filters = new Map<string, string>();
+              const chain = {
+                eq: vi.fn((field: string, value: string) => {
+                  filters.set(field, value);
+                  return chain;
+                }),
+                order: vi.fn(() =>
+                  Promise.resolve({
+                    data: transactions.filter((transaction) => {
+                      const batchId = filters.get("import_batch_id");
+                      const userId = filters.get("user_id");
+
+                      return (
+                        (!batchId || transaction.import_batch_id === batchId) &&
+                        (!userId || transaction.user_id === userId)
+                      );
+                    }),
+                    error: null,
+                  }),
+                ),
+                single: vi.fn(() => ({
+                  data:
+                    transactions.find((transaction) => {
+                      const id = filters.get("id");
+                      const userId = filters.get("user_id");
+                      return transaction.id === id && transaction.user_id === userId;
+                    }) ?? null,
+                  error: null,
+                })),
+              };
+
+              return chain;
+            }),
+            update: vi.fn((values: Partial<ImportedTransaction>) => {
+              const filters = new Map<string, string>();
+              const chain = {
+                eq: vi.fn((field: string, value: string) => {
+                  filters.set(field, value);
+                  return chain;
+                }),
+                select: vi.fn(() => chain),
+                single: vi.fn(() => {
+                  const id = filters.get("id");
+                  const userId = filters.get("user_id");
+                  const transaction = transactions.find((item) => item.id === id && item.user_id === userId);
+
+                  if (!transaction) {
+                    return {
+                      data: null,
+                      error: { code: "PGRST116", message: "not found" },
+                    };
+                  }
+
+                  Object.assign(transaction, values);
+                  appliedUpdateIds.push(transaction.id);
+
+                  return {
+                    data: transaction,
+                    error: null,
+                  };
+                }),
+              };
+
+              return chain;
+            }),
+          };
+        }
+
+        throw new Error(`Unexpected table ${table}`);
+      }),
+    },
   };
 }
 
@@ -897,13 +1077,83 @@ describe("import validation", () => {
       updates: [
         {
           category_id: "cat-food",
+          is_included: true,
           transaction_id: "tx-1",
         },
         {
           category_id: null,
+          is_included: true,
           transaction_id: "tx-2",
         },
       ],
+    });
+  });
+
+  it("accepts explicit inclusion flags in review update payloads", () => {
+    expect(
+      validateImportReviewUpdatesPayload({
+        updates: [
+          {
+            category_id: "cat-food",
+            is_included: true,
+            transaction_id: "tx-1",
+          },
+          {
+            category_id: "cat-travel",
+            is_included: false,
+            transaction_id: "tx-2",
+          },
+        ],
+      }),
+    ).toEqual({
+      updates: [
+        {
+          category_id: "cat-food",
+          is_included: true,
+          transaction_id: "tx-1",
+        },
+        {
+          category_id: "cat-travel",
+          is_included: false,
+          transaction_id: "tx-2",
+        },
+      ],
+    });
+  });
+
+  it("defaults missing inclusion flags to included for backward-compatible review saves", () => {
+    expect(
+      validateImportReviewUpdatesPayload({
+        updates: [
+          {
+            category_id: "cat-food",
+            transaction_id: "tx-1",
+          },
+        ],
+      }),
+    ).toEqual({
+      updates: [
+        {
+          category_id: "cat-food",
+          is_included: true,
+          transaction_id: "tx-1",
+        },
+      ],
+    });
+
+    expect(
+      validateImportReviewUpdatePayload(
+        {
+          category_id: null,
+        },
+        {
+          defaultTransactionId: "tx-1",
+        },
+      ),
+    ).toEqual({
+      category_id: null,
+      is_included: true,
+      transaction_id: "tx-1",
     });
   });
 
@@ -1165,6 +1415,75 @@ describe("import data helpers", () => {
     });
   });
 
+  it("excludes a transaction by clearing category and rule provenance atomically", async () => {
+    const supabase = buildImportSupabaseStub();
+
+    await expect(
+      updateTransactionReviewAndMaybeRule(
+        supabase as never,
+        "user-1",
+        {
+          category_id: "cat-travel",
+          is_included: false,
+          transaction_id: "tx-1",
+        },
+        {
+          saveRule: false,
+        },
+      ),
+    ).resolves.toMatchObject({
+      rule: null,
+      transaction: {
+        category_id: null,
+        is_included: false,
+      },
+    });
+  });
+
+  it("rejects rule creation for excluded transactions", async () => {
+    const supabase = buildImportSupabaseStub();
+
+    await expect(
+      updateTransactionReviewAndMaybeRule(
+        supabase as never,
+        "user-1",
+        {
+          category_id: "cat-travel",
+          is_included: false,
+          transaction_id: "tx-1",
+        },
+        {
+          saveRule: true,
+        },
+      ),
+    ).rejects.toThrow(/cannot create rules/i);
+  });
+
+  it("skips excluded matching rows when applying a review rule now", async () => {
+    const { appliedUpdateIds, supabase } = buildImportReviewRuleSupabaseStub();
+
+    await expect(
+      persistImportReviewRule(supabase as never, "user-1", {
+        apply_now: true,
+        category_id: "cat-food",
+        dirty_transaction_ids: [],
+        match_field: "recipient",
+        match_text: "Lidl",
+        transaction_id: "tx-1",
+      }),
+    ).resolves.toMatchObject({
+      applied_transactions: [
+        {
+          id: "tx-3",
+        },
+      ],
+      match_count: 1,
+      skipped_rows: [],
+    });
+
+    expect(appliedUpdateIds).toEqual(["tx-1", "tx-3"]);
+  });
+
   it("updates multiple imported transaction categories without creating rules", async () => {
     const { supabase, transactionUpdates } = buildBulkImportSupabaseStub();
 
@@ -1193,9 +1512,34 @@ describe("import data helpers", () => {
       ],
     });
     expect(transactionUpdates).toEqual([
-      { categorized_by_rule_id: null, category_id: "cat-travel" },
-      { categorized_by_rule_id: null, category_id: "cat-food" },
+      { categorized_by_rule_id: null, category_id: "cat-travel", is_included: true },
+      { categorized_by_rule_id: null, category_id: "cat-food", is_included: true },
     ]);
+  });
+
+  it("lets bulk review updates exclude rows even when category input is present", async () => {
+    const { supabase, transactionUpdates } = buildBulkImportSupabaseStub();
+
+    await expect(
+      updateImportTransactionReviews(supabase as never, "user-1", [
+        {
+          category_id: "cat-travel",
+          is_included: false,
+          transaction_id: "tx-food",
+        },
+      ]),
+    ).resolves.toMatchObject({
+      failed: [],
+      updated: [
+        {
+          category_id: null,
+          id: "tx-food",
+          is_included: false,
+        },
+      ],
+    });
+
+    expect(transactionUpdates).toEqual([{ categorized_by_rule_id: null, category_id: null, is_included: false }]);
   });
 
   it("allows bulk updates to clear a category", async () => {
@@ -1214,6 +1558,7 @@ describe("import data helpers", () => {
         {
           category_id: null,
           id: "tx-food",
+          is_included: true,
         },
       ],
     });
@@ -1903,6 +2248,7 @@ describe("import API routes", () => {
         },
         body: JSON.stringify({
           category_id: "cat-travel",
+          is_included: true,
           save_rule: true,
         }),
       }),
@@ -1944,10 +2290,12 @@ describe("import API routes", () => {
           updates: [
             {
               category_id: "cat-travel",
+              is_included: true,
               transaction_id: "tx-food",
             },
             {
               category_id: "cat-travel",
+              is_included: true,
               transaction_id: "tx-missing",
             },
           ],
@@ -2003,6 +2351,7 @@ describe("import API routes", () => {
           updates: [
             {
               category_id: "cat-travel",
+              is_included: false,
               transaction_id: "tx-missing",
             },
           ],
@@ -2024,6 +2373,43 @@ describe("import API routes", () => {
         },
       ],
       updated: [],
+    });
+  });
+
+  it("rejects single-row rule creation when the review update excludes the transaction", async () => {
+    const transactionRoute: typeof import("@/pages/api/imports/transactions/[id]") =
+      await import("@/pages/api/imports/transactions/[id]");
+    const supabase = buildImportSupabaseStub();
+
+    vi.mocked(createClient).mockReturnValue(supabase as never);
+
+    const response = await transactionRoute.PATCH({
+      cookies: {} as never,
+      locals: {
+        user: {
+          id: "user-1",
+          email: "user@example.com",
+        },
+      },
+      params: { id: "tx-1" },
+      redirect: vi.fn(),
+      request: new Request("http://localhost/api/imports/transactions/tx-1", {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          category_id: "cat-travel",
+          is_included: false,
+          save_rule: true,
+        }),
+      }),
+    } as never);
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "Excluded transactions cannot create rules",
+      field: "save_rule",
     });
   });
 });

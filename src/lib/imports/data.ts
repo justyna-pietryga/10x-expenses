@@ -3,9 +3,10 @@ import { listActiveCategories } from "@/lib/budget/data";
 import type { Database, Tables } from "@/lib/database.types";
 import { ImportError } from "@/lib/imports/errors";
 import type {
-  ImportCategoryUpdatePayload,
   ImportCommitPayload,
   ImportReviewRulePayload,
+  ImportReviewUpdate,
+  ImportReviewUpdatesPayload,
 } from "@/lib/imports/validation";
 import { findMatchingRule, listRules, ruleMatchesTransaction } from "@/lib/rules/data";
 
@@ -46,10 +47,12 @@ export type ImportBatchHistorySummary = Pick<
   transaction_count: number;
 };
 
-export interface ImportCategoryUpdateFailure {
+export interface ImportReviewUpdateFailure {
   error: string;
   transaction_id: string;
 }
+
+export type ImportCategoryUpdateFailure = ImportReviewUpdateFailure;
 
 export interface ImportReviewRuleSkippedRow {
   reason: "dirty_draft";
@@ -513,24 +516,43 @@ export async function loadLatestImportBatchReview(supabase: ImportClient, userId
   return loadDefaultImportBatchReview(supabase, userId);
 }
 
-export async function updateTransactionCategoryAndMaybeRule(
+function buildReviewUpdateValues(update: Pick<ImportReviewUpdate, "category_id" | "is_included">) {
+  if (!update.is_included) {
+    return {
+      category_id: null,
+      categorized_by_rule_id: null,
+      is_included: false,
+    };
+  }
+
+  return {
+    category_id: update.category_id,
+    categorized_by_rule_id: null,
+    is_included: true,
+  };
+}
+
+export async function updateTransactionReviewAndMaybeRule(
   supabase: ImportClient,
   userId: string,
-  transactionId: string,
-  categoryId: string | null,
+  reviewUpdate: ImportReviewUpdate,
   options?: { saveRule?: boolean },
 ) {
-  if (categoryId) {
-    await ensureOwnedImportCategory(supabase, userId, categoryId);
+  if (reviewUpdate.is_included && reviewUpdate.category_id) {
+    await ensureOwnedImportCategory(supabase, userId, reviewUpdate.category_id);
+  }
+
+  if (options?.saveRule && !reviewUpdate.is_included) {
+    throw new ImportError("Excluded transactions cannot create rules", {
+      status: 400,
+      field: "save_rule",
+    });
   }
 
   const { data: transaction, error } = await supabase
     .from("transactions")
-    .update({
-      category_id: categoryId,
-      categorized_by_rule_id: null,
-    })
-    .eq("id", transactionId)
+    .update(buildReviewUpdateValues(reviewUpdate))
+    .eq("id", reviewUpdate.transaction_id)
     .eq("user_id", userId)
     .select()
     .single();
@@ -544,7 +566,7 @@ export async function updateTransactionCategoryAndMaybeRule(
   let rule: CategorizationRule | null = null;
 
   if (options?.saveRule) {
-    if (!categoryId) {
+    if (!reviewUpdate.category_id) {
       throw new ImportError("A category is required before saving a rule", {
         status: 400,
         field: "category_id",
@@ -557,7 +579,7 @@ export async function updateTransactionCategoryAndMaybeRule(
         {
           match_field: "recipient",
           match_text: transaction.recipient,
-          target_category_id: categoryId,
+          target_category_id: reviewUpdate.category_id,
           user_id: userId,
         },
         {
@@ -580,7 +602,7 @@ export async function updateTransactionCategoryAndMaybeRule(
       .update({
         categorized_by_rule_id: rule.id,
       })
-      .eq("id", transactionId)
+      .eq("id", reviewUpdate.transaction_id)
       .eq("user_id", userId)
       .select()
       .single();
@@ -598,18 +620,18 @@ export async function updateTransactionCategoryAndMaybeRule(
   };
 }
 
-export async function updateImportTransactionCategories(
+export async function updateImportTransactionReviews(
   supabase: ImportClient,
   userId: string,
-  updates: ImportCategoryUpdatePayload["updates"],
+  updates: ImportReviewUpdatesPayload["updates"],
 ) {
   const activeCategories = await listActiveCategories(supabase, userId);
   const activeCategoryIds = new Set(activeCategories.map((category) => category.id));
   const updated: ImportedTransaction[] = [];
-  const failed: ImportCategoryUpdateFailure[] = [];
+  const failed: ImportReviewUpdateFailure[] = [];
 
   for (const update of updates) {
-    if (update.category_id && !activeCategoryIds.has(update.category_id)) {
+    if (update.is_included && update.category_id && !activeCategoryIds.has(update.category_id)) {
       failed.push({
         error: "Selected category was not found",
         transaction_id: update.transaction_id,
@@ -619,10 +641,7 @@ export async function updateImportTransactionCategories(
 
     const { data: transaction, error } = await supabase
       .from("transactions")
-      .update({
-        category_id: update.category_id,
-        categorized_by_rule_id: null,
-      })
+      .update(buildReviewUpdateValues(update))
       .eq("id", update.transaction_id)
       .eq("user_id", userId)
       .select()
@@ -643,6 +662,40 @@ export async function updateImportTransactionCategories(
     failed,
     updated,
   };
+}
+
+export async function updateTransactionCategoryAndMaybeRule(
+  supabase: ImportClient,
+  userId: string,
+  transactionId: string,
+  categoryId: string | null,
+  options?: { saveRule?: boolean },
+) {
+  return updateTransactionReviewAndMaybeRule(
+    supabase,
+    userId,
+    {
+      category_id: categoryId,
+      is_included: true,
+      transaction_id: transactionId,
+    },
+    options,
+  );
+}
+
+export async function updateImportTransactionCategories(
+  supabase: ImportClient,
+  userId: string,
+  updates: Pick<ImportReviewUpdate, "category_id" | "transaction_id">[],
+) {
+  return updateImportTransactionReviews(
+    supabase,
+    userId,
+    updates.map((update) => ({
+      ...update,
+      is_included: true,
+    })),
+  );
 }
 
 async function loadOwnedTransaction(supabase: ImportClient, userId: string, transactionId: string) {
@@ -746,7 +799,8 @@ export async function createImportReviewRule(
 
   const dirtyIds = new Set(payload.dirty_transaction_ids.filter((transactionId) => transactionId !== savedAnchor.id));
   const matchingTransactions = (batchTransactions ?? []).filter(
-    (transaction) => transaction.id !== savedAnchor.id && ruleMatchesTransaction(rule, transaction),
+    (transaction) =>
+      transaction.id !== savedAnchor.id && transaction.is_included && ruleMatchesTransaction(rule, transaction),
   );
   const appliedTransactions: ImportedTransaction[] = [];
   const skippedRows: ImportReviewRuleSkippedRow[] = [];

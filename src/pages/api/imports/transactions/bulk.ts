@@ -1,13 +1,13 @@
 import type { APIRoute } from "astro";
-import { updateImportTransactionCategories } from "@/lib/imports/data";
+import { updateImportTransactionReviews } from "@/lib/imports/data";
 import { importErrorResponse, importJson, readImportJsonPayload, requireImportAuth } from "@/lib/imports/http";
-import { validateImportCategoryUpdatesPayload } from "@/lib/imports/validation";
+import { validateImportReviewUpdatesPayload } from "@/lib/imports/validation";
 
 export const PATCH: APIRoute = async (context) => {
   try {
     const { supabase, user } = requireImportAuth(context);
-    const payload = validateImportCategoryUpdatesPayload(await readImportJsonPayload(context.request));
-    const result = await updateImportTransactionCategories(supabase, user.id, payload.updates);
+    const payload = validateImportReviewUpdatesPayload(await readImportJsonPayload(context.request));
+    const result = await updateImportTransactionReviews(supabase, user.id, payload.updates);
 
     return importJson(
       {
