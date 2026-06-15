@@ -436,9 +436,9 @@ Because "Imported spend" changes to budget-relevant imported spend, UI copy and 
 
 #### Manual
 
-- [ ] 1.4 Review the migration and confirm all existing transactions default to included behavior after rollout.
-- [ ] 1.5 Confirm an excluded transaction no longer contributes to trusted spend, uncategorized spend, incomplete-review spend, or carry-over math.
-- [ ] 1.6 Confirm the summary contract exposes separate excluded outflow and inflow values without netting them.
+- [x] 1.4 Review the migration and confirm all existing transactions default to included behavior after rollout.
+- [x] 1.5 Confirm an excluded transaction no longer contributes to trusted spend, uncategorized spend, incomplete-review spend, or carry-over math.
+- [x] 1.6 Confirm the summary contract exposes separate excluded outflow and inflow values without netting them.
 
 ### Phase 2: Review Persistence Contracts
 
@@ -450,9 +450,9 @@ Because "Imported spend" changes to budget-relevant imported spend, UI copy and 
 
 #### Manual
 
-- [ ] 2.4 Confirm both single-row and bulk routes can persist inclusion changes for owned transactions.
-- [ ] 2.5 Confirm excluded rows are allowed to stay uncategorized.
-- [ ] 2.6 Confirm bulk inclusion changes do not create or mutate categorization rules.
+- [x] 2.4 Confirm both single-row and bulk routes can persist inclusion changes for owned transactions.
+- [x] 2.5 Confirm excluded rows are allowed to stay uncategorized.
+- [x] 2.6 Confirm bulk inclusion changes do not create or mutate categorization rules.
 
 ### Phase 3: Import Review UI
 
@@ -488,10 +488,10 @@ Because "Imported spend" changes to budget-relevant imported spend, UI copy and 
 
 #### Automated
 
-- [x] 5.1 `npm run test:e2e -- tests/e2e/transaction-inclusion-control.spec.ts` passes.
-- [x] 5.2 The E2E test uses no CSS/XPath locators and no `page.waitForTimeout()`.
-- [x] 5.3 `npm run lint`, `npm run check`, and `npm run build` pass.
+- [x] 5.1 `npm run test:e2e -- tests/e2e/transaction-inclusion-control.spec.ts` passes. — 303c1ab
+- [x] 5.2 The E2E test uses no CSS/XPath locators and no `page.waitForTimeout()`. — 303c1ab
+- [x] 5.3 `npm run lint`, `npm run check`, and `npm run build` pass. — 303c1ab
 
 #### Manual
 
-- [x] 5.4 Review the browser flow and confirm it covers the user-visible risk without duplicating lower-level Vitest coverage.
+- [x] 5.4 Review the browser flow and confirm it covers the user-visible risk without duplicating lower-level Vitest coverage. — 303c1ab
