@@ -16,8 +16,10 @@ export function BudgetSetup({ initialCategories, initialIncome, selectedMonth }:
   const totalPercentage = calculateActiveTotalPercentage(categories);
 
   return (
-    <div className="space-y-6">
-      <IncomeForm initialIncome={income} selectedMonth={selectedMonth} onSaved={setIncome} />
+    <div className="grid gap-6 xl:grid-cols-[minmax(20rem,0.8fr)_minmax(0,1.2fr)] xl:items-start">
+      <div className="xl:sticky xl:top-6">
+        <IncomeForm initialIncome={income} selectedMonth={selectedMonth} onSaved={setIncome} />
+      </div>
       <CategoryManager categories={categories} totalPercentage={totalPercentage} onChange={setCategories} />
     </div>
   );

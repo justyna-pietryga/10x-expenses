@@ -146,9 +146,12 @@ export function CategoryManager({ categories, totalPercentage, onChange }: Props
   return (
     <section className="rounded-[28px] border border-white/12 bg-slate-950/35 p-6 shadow-[0_24px_80px_rgba(2,6,23,0.4)] backdrop-blur-xl">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
+        <div className="max-w-2xl">
           <p className="text-xs font-semibold tracking-[0.28em] text-amber-200/70 uppercase">Category Limits</p>
           <h2 className="mt-2 text-2xl font-semibold text-white">Shape the active budget mix.</h2>
+          <p className="mt-2 max-w-xl text-sm leading-6 text-slate-300/80">
+            Keep the operational setup compact while still leaving enough room to tune limits and carry-over settings.
+          </p>
         </div>
         <div
           className={`rounded-full border px-4 py-2 text-sm ${
@@ -162,7 +165,7 @@ export function CategoryManager({ categories, totalPercentage, onChange }: Props
       </div>
 
       <form className="mt-6 space-y-3 rounded-3xl border border-white/10 bg-white/6 p-4" onSubmit={handleCreate}>
-        <div className="grid gap-3 md:grid-cols-[1.3fr_.8fr_auto]">
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,1.4fr)_minmax(12rem,0.75fr)_auto]">
           <input
             type="text"
             aria-label="Category name"
@@ -223,21 +226,39 @@ export function CategoryManager({ categories, totalPercentage, onChange }: Props
 
             return (
               <div key={category.id} className="rounded-3xl border border-white/10 bg-white/4 p-4">
-                <div className="grid gap-3 md:grid-cols-[1.3fr_.8fr_auto]">
-                  <input
-                    type="text"
-                    aria-label="Category name"
-                    value={isEditing ? editingDraft.name : category.name}
-                    onChange={(event) => {
-                      if (!isEditing) {
-                        return;
-                      }
+                <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(12rem,0.75fr)_auto] xl:items-start">
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      aria-label="Category name"
+                      value={isEditing ? editingDraft.name : category.name}
+                      onChange={(event) => {
+                        if (!isEditing) {
+                          return;
+                        }
 
-                      setEditingDraft((prev) => ({ ...prev, name: event.target.value }));
-                    }}
-                    disabled={!isEditing}
-                    className="rounded-2xl border border-white/12 bg-slate-950/25 px-4 py-3 text-white outline-none disabled:opacity-80"
-                  />
+                        setEditingDraft((prev) => ({ ...prev, name: event.target.value }));
+                      }}
+                      disabled={!isEditing}
+                      className="w-full rounded-2xl border border-white/12 bg-slate-950/25 px-4 py-3 text-white outline-none disabled:opacity-80"
+                    />
+                    <label className="flex items-center gap-3 rounded-2xl border border-white/12 bg-slate-950/20 px-4 py-3 text-sm text-slate-100">
+                      <input
+                        type="checkbox"
+                        checked={isEditing ? editingDraft.carryover_enabled : category.carryover_enabled}
+                        onChange={(event) => {
+                          if (!isEditing) {
+                            return;
+                          }
+
+                          setEditingDraft((prev) => ({ ...prev, carryover_enabled: event.target.checked }));
+                        }}
+                        disabled={!isEditing}
+                        className="size-4 rounded border-white/20 bg-slate-950/60 disabled:opacity-80"
+                      />
+                      Savings category with carry-over
+                    </label>
+                  </div>
                   <div className="space-y-2">
                     <input
                       type="number"
@@ -256,11 +277,14 @@ export function CategoryManager({ categories, totalPercentage, onChange }: Props
                       disabled={!isEditing}
                       className="w-full rounded-2xl border border-white/12 bg-slate-950/25 px-4 py-3 text-white outline-none disabled:opacity-80"
                     />
+                    <p className="text-xs tracking-[0.18em] text-slate-400 uppercase">
+                      {category.carryover_enabled ? "Carry-over enabled" : "Month-only category"}
+                    </p>
                     {isEditing && projectedTotal > 100 && (
                       <p className="text-xs text-rose-300">This change would push the active total above 100%.</p>
                     )}
                   </div>
-                  <div className="flex flex-wrap items-center justify-end gap-2">
+                  <div className="flex flex-wrap items-center justify-start gap-2 xl:justify-end">
                     {isEditing ? (
                       <>
                         <Button
@@ -317,22 +341,6 @@ export function CategoryManager({ categories, totalPercentage, onChange }: Props
                     )}
                   </div>
                 </div>
-                <label className="mt-3 flex items-center gap-3 rounded-2xl border border-white/12 bg-slate-950/20 px-4 py-3 text-sm text-slate-100">
-                  <input
-                    type="checkbox"
-                    checked={isEditing ? editingDraft.carryover_enabled : category.carryover_enabled}
-                    onChange={(event) => {
-                      if (!isEditing) {
-                        return;
-                      }
-
-                      setEditingDraft((prev) => ({ ...prev, carryover_enabled: event.target.checked }));
-                    }}
-                    disabled={!isEditing}
-                    className="size-4 rounded border-white/20 bg-slate-950/60 disabled:opacity-80"
-                  />
-                  Savings category with carry-over
-                </label>
               </div>
             );
           })

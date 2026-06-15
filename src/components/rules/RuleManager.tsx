@@ -41,9 +41,12 @@ export function RuleManager({ categories, isBusy, onCreateRule, onDeleteRule, on
   return (
     <section className="rounded-[28px] border border-white/12 bg-white/8 p-6 shadow-[0_20px_70px_rgba(2,6,23,0.35)] backdrop-blur-xl">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <div>
+        <div className="max-w-2xl">
           <p className="text-xs font-semibold tracking-[0.28em] text-cyan-200/70 uppercase">Reusable Rules</p>
           <h2 className="mt-2 text-2xl font-semibold text-white">Make future imports easier to categorize.</h2>
+          <p className="mt-2 max-w-xl text-sm leading-6 text-slate-300/80">
+            Keep rule descriptions readable even when the dashboard can show more operational detail side by side.
+          </p>
         </div>
         <div className="rounded-full border border-white/12 bg-slate-950/30 px-4 py-2 text-sm text-slate-200">
           {rules.length} rule{rules.length === 1 ? "" : "s"} saved
@@ -95,8 +98,8 @@ export function RuleManager({ categories, isBusy, onCreateRule, onDeleteRule, on
                     value={editingDraft}
                   />
                 ) : (
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="space-y-2">
+                  <div className="flex flex-col gap-4 xl:grid xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
+                    <div className="max-w-2xl space-y-2">
                       <p className="text-sm text-slate-200">
                         Match{" "}
                         <span className="font-semibold text-white">
@@ -111,7 +114,7 @@ export function RuleManager({ categories, isBusy, onCreateRule, onDeleteRule, on
                         Created {new Date(rule.created_at).toLocaleString()}
                       </p>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2 xl:justify-end">
                       <Button
                         type="button"
                         variant="secondary"

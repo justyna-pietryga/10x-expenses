@@ -42,6 +42,8 @@ export function SummaryWorkspace({ categories, initialRules, initialSummary }: P
   const [notice, setNotice] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSavingRule, setIsSavingRule] = useState(false);
+  const hasExcludedTransactions = summary.excluded_inflow > 0 || summary.excluded_outflow > 0;
+  const hasIncompleteReview = summary.incomplete_review_spend > 0;
 
   async function refreshSummary(month: string) {
     setIsRefreshing(true);
@@ -162,7 +164,7 @@ export function SummaryWorkspace({ categories, initialRules, initialSummary }: P
     <div className="space-y-6">
       <MonthlySummaryHeader
         availableMonths={summary.available_months}
-        hasIncompleteReview={summary.incomplete_review_spend > 0}
+        hasIncompleteReview={hasIncompleteReview}
         isRefreshing={isRefreshing}
         onMonthChange={(month) => {
           void refreshSummary(month);
@@ -186,21 +188,28 @@ export function SummaryWorkspace({ categories, initialRules, initialSummary }: P
         warningBatches={summary.warning_batches}
       />
 
-      <ExcludedTransactionsPanel excludedInflow={summary.excluded_inflow} excludedOutflow={summary.excluded_outflow} />
+      {hasExcludedTransactions && (
+        <ExcludedTransactionsPanel
+          excludedInflow={summary.excluded_inflow}
+          excludedOutflow={summary.excluded_outflow}
+        />
+      )}
 
-      <CategoryUsageTable
-        categoryRows={summary.category_rows}
-        reviewedUncategorizedSpend={summary.reviewed_uncategorized_spend}
-      />
+      <div className="grid gap-6 2xl:grid-cols-[minmax(0,1.55fr)_minmax(22rem,0.95fr)] 2xl:items-start">
+        <CategoryUsageTable
+          categoryRows={summary.category_rows}
+          reviewedUncategorizedSpend={summary.reviewed_uncategorized_spend}
+        />
 
-      <RuleManager
-        categories={categories}
-        isBusy={isSavingRule}
-        onCreateRule={createRule}
-        onDeleteRule={deleteRule}
-        onUpdateRule={updateRule}
-        rules={rules}
-      />
+        <RuleManager
+          categories={categories}
+          isBusy={isSavingRule}
+          onCreateRule={createRule}
+          onDeleteRule={deleteRule}
+          onUpdateRule={updateRule}
+          rules={rules}
+        />
+      </div>
     </div>
   );
 }

@@ -23,13 +23,13 @@ export function MonthlySummaryHeader({
 }: Props) {
   return (
     <section className="rounded-[28px] border border-white/12 bg-slate-950/40 p-6 shadow-[0_22px_75px_rgba(2,6,23,0.38)] backdrop-blur-xl">
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-        <div className="max-w-2xl">
+      <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between xl:gap-8">
+        <div className="max-w-2xl xl:flex-1">
           <p className="text-xs font-semibold tracking-[0.3em] text-cyan-200/70 uppercase">Monthly Summary</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">
             Dashboard for <span className="text-cyan-200">{formatMonthLabel(selectedMonth)}</span>
           </h1>
-          <p className="mt-3 text-sm leading-6 text-slate-200/75">
+          <p className="mt-3 max-w-xl text-sm leading-6 text-slate-200/75">
             Track trusted category usage, spot incomplete import review, and shape reusable categorization rules in one
             place.
           </p>
@@ -38,7 +38,7 @@ export function MonthlySummaryHeader({
           </p>
         </div>
 
-        <div className="flex flex-col gap-3 rounded-[26px] border border-white/10 bg-white/7 p-4 sm:flex-row sm:items-end">
+        <div className="flex flex-col gap-3 rounded-[26px] border border-white/10 bg-white/7 p-4 sm:flex-row sm:items-end xl:max-w-[34rem] xl:min-w-[25rem] xl:justify-end">
           <label className="space-y-2">
             <span className="text-xs font-medium tracking-[0.22em] text-slate-300 uppercase">Selected month</span>
             <input
@@ -50,7 +50,7 @@ export function MonthlySummaryHeader({
               className="rounded-2xl border border-white/12 bg-slate-950/35 px-4 py-3 text-white transition outline-none focus:border-cyan-300/60"
             />
           </label>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 xl:justify-end">
             {availableMonths.slice(0, 4).map((month) => (
               <button
                 key={month.month}

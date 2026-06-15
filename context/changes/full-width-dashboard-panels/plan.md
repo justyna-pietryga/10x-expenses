@@ -252,27 +252,27 @@ No data migration is required. If a new shared shell helper or wrapper is introd
 
 #### Automated
 
-- [x] 1.1 Type and Astro checks pass: `npm run check`
-- [x] 1.2 Linting passes: `npm run lint`
-- [x] 1.3 Production build passes: `npm run build`
+- [x] 1.1 Type and Astro checks pass: `npm run check` — 042ba4d
+- [x] 1.2 Linting passes: `npm run lint` — 042ba4d
+- [x] 1.3 Production build passes: `npm run build` — 042ba4d
 
 #### Manual
 
-- [x] 1.4 On a large desktop viewport, `/dashboard`, `/budget`, and `/imports` all visibly use a wider shared shell than before.
-- [x] 1.5 On mobile and tablet widths, the page shell still collapses cleanly without horizontal scrolling.
+- [x] 1.4 On a large desktop viewport, `/dashboard`, `/budget`, and `/imports` all visibly use a wider shared shell than before. — 042ba4d
+- [x] 1.5 On mobile and tablet widths, the page shell still collapses cleanly without horizontal scrolling. — 042ba4d
 
 ### Phase 2: Dashboard And Budget Panel Width Behavior
 
 #### Automated
 
-- [ ] 2.1 Type and Astro checks pass: `npm run check`
-- [ ] 2.2 Linting passes: `npm run lint`
-- [ ] 2.3 Production build passes: `npm run build`
+- [x] 2.1 Type and Astro checks pass: `npm run check`
+- [x] 2.2 Linting passes: `npm run lint`
+- [x] 2.3 Production build passes: `npm run build`
 
 #### Manual
 
-- [ ] 2.4 Dashboard summary panels and cards show more usable horizontal density on desktop without turning descriptive copy into very long lines.
-- [ ] 2.5 Budget category and rule management surfaces feel wider and less cramped on desktop while retaining the existing single-column behavior on tablet/mobile.
+- [x] 2.4 Dashboard summary panels and cards show more usable horizontal density on desktop without turning descriptive copy into very long lines.
+- [x] 2.5 Budget category and rule management surfaces feel wider and less cramped on desktop while retaining the existing single-column behavior on tablet/mobile.
 
 ### Phase 3: Import Workspace Adoption And Regression Guardrails
 
