@@ -3120,6 +3120,7 @@ describe("transaction review table", () => {
           {
             ...reviewTransactions[0],
             amount: 250,
+            cashflow_type: "income",
             id: "tx-3",
             recipient: "Salary Transfer",
             title: "Salary Transfer",
@@ -3131,6 +3132,50 @@ describe("transaction review table", () => {
     expect(markup).toContain("3 rows ready for review");
     expect(markup).toContain("Exclude");
     expect(markup).toContain("250.00 PLN");
+  });
+
+  it("renders income rows as non-categorizable review rows without rule actions", () => {
+    const markup = renderToStaticMarkup(
+      createElement(TransactionReviewTable, {
+        categories: reviewCategories,
+        onSaveReviewChanges: vi.fn(() =>
+          Promise.resolve({
+            failed: [],
+            updated: [],
+          }),
+        ),
+        onCreateRuleFromReview: vi.fn(() =>
+          Promise.resolve({
+            anchor_transaction: reviewTransactions[0],
+            applied_transactions: [],
+            match_count: 0,
+            rule: {
+              id: "rule-1",
+              match_field: "recipient",
+              match_text: "Lidl Warszawa",
+              target_category_id: "cat-food",
+            },
+            skipped_rows: [],
+          }),
+        ),
+        transactions: [
+          reviewTransactions[0],
+          {
+            ...reviewTransactions[1],
+            amount: 250,
+            cashflow_type: "income",
+            id: "tx-income",
+            recipient: "Employer",
+            title: "Salary",
+          },
+        ],
+      }),
+    );
+
+    expect(markup).toContain("Income row; no expense category needed.");
+    expect(markup).toContain("Reviewed imported income feeds the dashboard income basis automatically.");
+    expect(markup).toContain("No categorization rule for income rows.");
+    expect(markup.match(/Create rule/g)?.length ?? 0).toBe(1);
   });
 
   it("treats rows with missing inclusion flags as included by default", () => {
@@ -3256,6 +3301,26 @@ describe("transaction review table", () => {
 
     expect(markup).toContain("Rule: recipient contains");
     expect(markup).toContain("&quot;Lidl&quot;");
+  });
+
+  it("keeps cashflow type out of review dirty-state comparisons", () => {
+    expect(
+      buildDirtyCategoryUpdates(
+        [
+          {
+            ...reviewTransactions[0],
+            cashflow_type: "income",
+            category_id: null,
+          },
+        ],
+        {
+          "tx-1": {
+            category_id: null,
+            is_included: true,
+          },
+        },
+      ),
+    ).toEqual([]);
   });
 });
 
@@ -3448,6 +3513,7 @@ describe("import workspace helpers", () => {
   });
 
   it("sends bulk review drafts to the bulk review endpoint", async () => {
+    let capturedInit: RequestInit | undefined;
     const fetchMock = vi.fn(() =>
       Promise.resolve({
         json: () =>
@@ -3468,6 +3534,10 @@ describe("import workspace helpers", () => {
         ok: true,
       } satisfies Pick<Response, "json" | "ok">),
     ) as unknown as typeof fetch;
+    const fetchWithCapture = ((input: RequestInfo | URL, init?: RequestInit) => {
+      capturedInit = init;
+      return fetchMock(input, init);
+    }) as typeof fetch;
 
     await expect(
       saveImportReviewChanges(
@@ -3483,7 +3553,7 @@ describe("import workspace helpers", () => {
             transaction_id: "tx-2",
           },
         ],
-        fetchMock,
+        fetchWithCapture,
       ),
     ).resolves.toEqual({
       failed: [
@@ -3520,6 +3590,7 @@ describe("import workspace helpers", () => {
       },
       method: "PATCH",
     });
+    expect(JSON.stringify(capturedInit)).not.toContain("cashflow_type");
   });
 
   it("sends review-rule payloads to the dedicated review-rule endpoint", async () => {
@@ -3839,6 +3910,8 @@ describe("import UI", () => {
 
     expect(markup).toContain("ING CSV");
     expect(markup).toContain("1 imported rows");
+    expect(markup).toContain("negatives stay expenses");
+    expect(markup).toContain("zero or positive amounts stay income");
   });
 
   it("renders completion-blocked copy and disables review completion while drafts are unsaved", () => {

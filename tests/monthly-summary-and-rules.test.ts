@@ -1,10 +1,12 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+import { IncomeForm } from "@/components/budget/IncomeForm";
 import { CategoryUsageTable } from "@/components/dashboard/CategoryUsageTable";
 import { ExcludedTransactionsPanel } from "@/components/dashboard/ExcludedTransactionsPanel";
 import { IncompleteReviewNotice } from "@/components/dashboard/IncompleteReviewNotice";
 import { MonthlySummaryHeader } from "@/components/dashboard/MonthlySummaryHeader";
+import { SummaryCards } from "@/components/dashboard/SummaryCards";
 import { SummaryWorkspace } from "@/components/dashboard/SummaryWorkspace";
 import { RuleManager } from "@/components/rules/RuleManager";
 import { createClient } from "@/lib/supabase";
@@ -1229,7 +1231,7 @@ describe("summary UI", () => {
       }),
     );
 
-    expect(markup).toContain("Incomplete imported spend stays separate");
+    expect(markup).toContain("Incomplete imported expense review stays separate");
     expect(markup).toContain("/imports");
     expect(markup).toContain("excluded transactions panel");
     expect(markup).toContain("pending.csv");
@@ -1304,8 +1306,9 @@ describe("summary UI", () => {
       }),
     );
 
-    expect(markup).toContain("Trusted reviewed category totals only");
-    expect(markup).toContain("Reviewed uncategorized included spend");
+    expect(markup).toContain("Trusted reviewed expense category totals only");
+    expect(markup).toContain("Reviewed uncategorized expense spend");
+    expect(markup).toContain("Reviewed imported income feeds the income basis separately");
     expect(markup).toContain("excluded transactions are reconciled outside this table");
   });
 
@@ -1339,11 +1342,42 @@ describe("summary UI", () => {
       }),
     );
 
-    expect(markup).toContain("Imported spend");
+    expect(markup).toContain("Imported expense spend");
     expect(markup).toContain("280.00 PLN");
     expect(markup).toContain("Excluded transactions");
     expect(markup).toContain("75.00 PLN");
     expect(markup).toContain("45.00 PLN");
+  });
+
+  it("labels summary cards around income basis and imported expense spend", () => {
+    const markup = renderToStaticMarkup(
+      createElement(SummaryCards, {
+        incompleteReviewSpend: 30,
+        reviewedCategorizedSpend: 200,
+        totalImportedSpend: 230,
+        totalIncome: 3250,
+      }),
+    );
+
+    expect(markup).toContain("Income basis");
+    expect(markup).toContain("Imported expense spend");
+    expect(markup).toContain("3250.00 PLN");
+    expect(markup).toContain("230.00 PLN");
+  });
+
+  it("explains manual income as a supplement to imported income", () => {
+    const markup = renderToStaticMarkup(
+      createElement(IncomeForm, {
+        initialIncome: null,
+        onSaved: vi.fn(),
+        selectedMonth: "2026-05-01",
+      }),
+    );
+
+    expect(markup).toContain("Set manual income only for what imports do not cover.");
+    expect(markup).toContain("Enter");
+    expect(markup).toContain("if your salary or other income is already imported");
+    expect(markup).toContain("Save income");
   });
 
   it("renders saved rules in user language with create and delete actions", () => {

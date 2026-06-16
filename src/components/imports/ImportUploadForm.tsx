@@ -34,14 +34,14 @@ const BANK_COPY: Record<
   ing: {
     badge: "Bank: ING",
     description:
-      "The ING parser scans the export preamble, supports the exact sample format, and keeps same-month replacement explicit.",
+      "The ING parser scans the export preamble, supports the exact sample format, and keeps same-month replacement explicit. Negative rows stay expenses, while zero or positive rows stay income automatically.",
     headline: "Preview the supported ING CSV before saving.",
     label: "ING CSV",
   },
   revolut: {
     badge: "Bank: Revolut",
     description:
-      "The Revolut parser imports completed rows only, derives the statement month from completion dates, and blocks replacement until you confirm it.",
+      "The Revolut parser imports completed rows only, derives the statement month from completion dates, and blocks replacement until you confirm it. Negative rows stay expenses, while zero or positive rows stay income automatically.",
     headline: "Preview the supported Revolut CSV before saving.",
     label: "Revolut CSV",
   },
@@ -199,6 +199,10 @@ export function ImportUploadForm({
               </p>
             </div>
           </div>
+          <p className="mt-4 text-sm text-slate-300/85">
+            Imported cashflow type is inferred from the amount sign during review: negatives stay expenses, and zero or
+            positive amounts stay income.
+          </p>
 
           {preview.existing_batch ? (
             <div

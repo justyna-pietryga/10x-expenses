@@ -87,7 +87,13 @@ export function IncomeForm({ initialIncome, selectedMonth, onSaved }: Props) {
       <div className="mb-5 flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold tracking-[0.28em] text-cyan-200/70 uppercase">Monthly Income</p>
-          <h2 className="mt-2 text-2xl font-semibold text-white">Plan this month&apos;s available cash.</h2>
+          <h2 className="mt-2 text-2xl font-semibold text-white">
+            Set manual income only for what imports do not cover.
+          </h2>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300/80">
+            Enter <span className="font-semibold text-white">0</span> if your salary or other income is already
+            imported, or add only the extra manual income you still want counted this month.
+          </p>
         </div>
         <span className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-xs text-cyan-100">
           {selectedMonth.slice(0, 7)}

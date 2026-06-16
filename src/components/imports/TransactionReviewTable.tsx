@@ -113,6 +113,10 @@ function getDraftCategoryId(
   return draftValue.category_id;
 }
 
+function isIncomeTransaction(transaction: ImportedTransactionReviewRow) {
+  return transaction.cashflow_type === "income";
+}
+
 export function buildInitialReviewRuleDraft(
   transaction: ImportedTransactionReviewRow,
   drafts: Partial<Record<string, ImportReviewDraft>> = {},
@@ -423,7 +427,7 @@ export function TransactionReviewTable({
         <div>
           <p className="text-xs font-semibold tracking-[0.28em] text-cyan-200/70 uppercase">Transaction Review</p>
           <h2 className="mt-2 text-2xl font-semibold text-white">
-            Adjust categories or exclude rows without editing source values.
+            Adjust expense categories or exclude rows without editing source values.
           </h2>
         </div>
         <div className="rounded-full border border-white/12 bg-slate-950/30 px-4 py-2 text-sm text-slate-200">
@@ -482,6 +486,7 @@ export function TransactionReviewTable({
             {includedTransactions.map((transaction) => {
               const reviewDraft = drafts[transaction.id];
               const draftState = getDraftReviewState(transaction, drafts, transaction.id);
+              const isIncome = isIncomeTransaction(transaction);
               const currentCategoryValue = getCategorySelectValue(draftState.category_id);
               const persistedCategoryValue = getCategorySelectValue(transaction.category_id);
               const persistedIncluded = normalizeIncludedFlag(transaction.is_included);
@@ -501,43 +506,63 @@ export function TransactionReviewTable({
                   <td className="rounded-l-3xl px-4 py-4 align-top">{transaction.transaction_date}</td>
                   <td className="px-4 py-4 align-top">{transaction.title}</td>
                   <td className="px-4 py-4 align-top">{transaction.recipient}</td>
-                  <td className="px-4 py-4 align-top font-medium text-white">{formatAmount(transaction.amount)}</td>
-                  <td className="px-4 py-4 align-top">
-                    <select
-                      value={currentCategoryValue}
-                      onChange={(event) => {
-                        const { value } = event.target;
-                        const nextCategoryId = value === "" ? null : value;
-
-                        stageReviewDraft(transaction, {
-                          category_id: nextCategoryId,
-                          is_included: true,
-                        });
-                        setRuleDraftById((current) => {
-                          const existingDraft = current[transaction.id];
-
-                          if (!existingDraft) {
-                            return current;
-                          }
-
-                          return {
-                            ...current,
-                            [transaction.id]: {
-                              ...existingDraft,
-                              category_id: nextCategoryId,
-                            },
-                          };
-                        });
-                      }}
-                      className="w-full rounded-2xl border border-white/12 bg-slate-900/50 px-3 py-2 text-white outline-none focus:border-cyan-300/60"
+                  <td className="px-4 py-4 align-top font-medium text-white">
+                    <div>{formatAmount(transaction.amount)}</div>
+                    <p
+                      className={`mt-2 inline-flex rounded-full border px-2 py-1 text-[11px] ${
+                        isIncome
+                          ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"
+                          : "border-cyan-300/25 bg-cyan-300/10 text-cyan-100"
+                      }`}
                     >
-                      <option value="">Uncategorized</option>
-                      {categories.map((category) => (
-                        <option key={category.id} value={category.id}>
-                          {category.name}
-                        </option>
-                      ))}
-                    </select>
+                      {isIncome ? "Income" : "Expense"}
+                    </p>
+                  </td>
+                  <td className="px-4 py-4 align-top">
+                    {isIncome ? (
+                      <div className="space-y-2 rounded-3xl border border-emerald-300/15 bg-emerald-300/10 p-3 text-sm text-emerald-50">
+                        <p className="font-medium">Income row; no expense category needed.</p>
+                        <p className="text-emerald-100/80">
+                          Reviewed imported income feeds the dashboard income basis automatically.
+                        </p>
+                      </div>
+                    ) : (
+                      <select
+                        value={currentCategoryValue}
+                        onChange={(event) => {
+                          const { value } = event.target;
+                          const nextCategoryId = value === "" ? null : value;
+
+                          stageReviewDraft(transaction, {
+                            category_id: nextCategoryId,
+                            is_included: true,
+                          });
+                          setRuleDraftById((current) => {
+                            const existingDraft = current[transaction.id];
+
+                            if (!existingDraft) {
+                              return current;
+                            }
+
+                            return {
+                              ...current,
+                              [transaction.id]: {
+                                ...existingDraft,
+                                category_id: nextCategoryId,
+                              },
+                            };
+                          });
+                        }}
+                        className="w-full rounded-2xl border border-white/12 bg-slate-900/50 px-3 py-2 text-white outline-none focus:border-cyan-300/60"
+                      >
+                        <option value="">Uncategorized</option>
+                        {categories.map((category) => (
+                          <option key={category.id} value={category.id}>
+                            {category.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                     {isDirty && <p className="mt-2 text-xs text-cyan-200">Unsaved review change.</p>}
                     {errorById[transaction.id] && (
                       <p className="mt-2 text-xs text-rose-300">{errorById[transaction.id]}</p>
@@ -552,7 +577,14 @@ export function TransactionReviewTable({
                     )}
                   </td>
                   <td className="px-4 py-4 align-top">
-                    {currentRuleDraft ? (
+                    {isIncome ? (
+                      <div className="space-y-2 rounded-3xl border border-white/12 bg-slate-950/45 p-3">
+                        <p className="text-sm text-slate-200">No categorization rule for income rows.</p>
+                        <p className="text-xs text-slate-400">
+                          Save the review state as-is or exclude this row if it should stay out of budget math.
+                        </p>
+                      </div>
+                    ) : currentRuleDraft ? (
                       <div className="space-y-3 rounded-3xl border border-white/12 bg-slate-950/45 p-3">
                         <div className="space-y-2">
                           <label className="text-[11px] tracking-[0.18em] text-slate-400 uppercase">Match field</label>

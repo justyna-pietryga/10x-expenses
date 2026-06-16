@@ -16,8 +16,8 @@ export function SummaryCards({
   totalIncome,
 }: Props) {
   const cards = [
-    { label: "Income", value: formatAmount(totalIncome) },
-    { label: "Imported spend", value: formatAmount(totalImportedSpend) },
+    { label: "Income basis", value: formatAmount(totalIncome) },
+    { label: "Imported expense spend", value: formatAmount(totalImportedSpend) },
     { label: "Trusted categorized spend", value: formatAmount(reviewedCategorizedSpend) },
     { label: "Incomplete review spend", value: formatAmount(incompleteReviewSpend) },
   ];

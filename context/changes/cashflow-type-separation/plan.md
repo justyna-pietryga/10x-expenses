@@ -387,14 +387,14 @@ Because this plan corrects a not-yet-finalized MVP migration that currently allo
 
 #### Automated
 
-  - [x] 2.1 Summary tests cover manual plus reviewed imported income aggregation
-  - [x] 2.2 Summary tests prove positive imported income is excluded from expense category usage
-  - [x] 2.3 Summary tests prove pending imported income does not change trusted limits
-  - [x] 2.4 Summary tests preserve excluded-row precedence
-  - [x] 2.5 Summary snapshot tests match API response values
-  - [x] 2.6 npm run test passes
-  - [x] 2.7 npm run lint passes
-  - [x] 2.8 npm run check passes
+  - [x] 2.1 Summary tests cover manual plus reviewed imported income aggregation — 071bdc4
+  - [x] 2.2 Summary tests prove positive imported income is excluded from expense category usage — 071bdc4
+  - [x] 2.3 Summary tests prove pending imported income does not change trusted limits — 071bdc4
+  - [x] 2.4 Summary tests preserve excluded-row precedence — 071bdc4
+  - [x] 2.5 Summary snapshot tests match API response values — 071bdc4
+  - [x] 2.6 npm run test passes — 071bdc4
+  - [x] 2.7 npm run lint passes — 071bdc4
+  - [x] 2.8 npm run check passes — 071bdc4
 
 #### Manual
 
@@ -406,12 +406,12 @@ Because this plan corrects a not-yet-finalized MVP migration that currently allo
 
 #### Automated
 
-- [ ] 3.1 Component/helper tests cover income rows being non-categorizable without type editing
-- [ ] 3.2 Dashboard and import review tests are updated for changed copy
-- [ ] 3.3 Tests prove cashflow_type is not review dirty-state or review update payload
-- [ ] 3.4 npm run test passes
-- [ ] 3.5 npm run lint passes
-- [ ] 3.6 npm run check passes
+- [x] 3.1 Component/helper tests cover income rows being non-categorizable without type editing
+- [x] 3.2 Dashboard and import review tests are updated for changed copy
+- [x] 3.3 Tests prove cashflow_type is not review dirty-state or review update payload
+- [x] 3.4 npm run test passes
+- [x] 3.5 npm run lint passes
+- [x] 3.6 npm run check passes
 
 #### Manual
 
