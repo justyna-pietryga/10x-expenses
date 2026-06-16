@@ -204,7 +204,7 @@ export interface Database {
       transactions: {
         Row: {
           amount: number;
-          cashflow_type: "expense" | "income" | "reimbursement" | "transfer";
+          cashflow_type: "expense" | "income";
           category_id: string | null;
           categorized_by_rule_id: string | null;
           created_at: string;
@@ -219,7 +219,7 @@ export interface Database {
         };
         Insert: {
           amount: number;
-          cashflow_type?: "expense" | "income" | "reimbursement" | "transfer";
+          cashflow_type?: "expense" | "income";
           category_id?: string | null;
           categorized_by_rule_id?: string | null;
           created_at?: string;
@@ -234,7 +234,7 @@ export interface Database {
         };
         Update: {
           amount?: number;
-          cashflow_type?: "expense" | "income" | "reimbursement" | "transfer";
+          cashflow_type?: "expense" | "income";
           category_id?: string | null;
           categorized_by_rule_id?: string | null;
           created_at?: string;

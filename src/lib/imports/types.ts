@@ -1,5 +1,5 @@
 export type SupportedBank = "revolut" | "ing";
-export type CashflowType = "expense" | "income" | "reimbursement" | "transfer";
+export type CashflowType = "expense" | "income";
 
 export function inferCashflowTypeFromAmount(amount: number): CashflowType {
   return amount < 0 ? "expense" : "income";

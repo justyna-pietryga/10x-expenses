@@ -70,21 +70,16 @@ function validateAmount(value: unknown) {
 
 function validateCashflowType(value: unknown, field: string): CashflowType {
   if (typeof value !== "string") {
-    throw new ImportError(`${field} must be expense, income, reimbursement, or transfer`, { field });
+    throw new ImportError(`${field} must be expense or income`, { field });
   }
 
   const normalized = value.trim().toLowerCase();
 
-  if (
-    normalized === "expense" ||
-    normalized === "income" ||
-    normalized === "reimbursement" ||
-    normalized === "transfer"
-  ) {
+  if (normalized === "expense" || normalized === "income") {
     return normalized;
   }
 
-  throw new ImportError(`${field} must be expense, income, reimbursement, or transfer`, { field });
+  throw new ImportError(`${field} must be expense or income`, { field });
 }
 
 export function validateSupportedBank(value: unknown): SupportedBank {

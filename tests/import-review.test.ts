@@ -1138,7 +1138,49 @@ describe("import validation", () => {
           },
         ],
       }),
-    ).toThrow(/cashflow_type must be expense, income, reimbursement, or transfer/);
+    ).toThrow(/cashflow_type must be expense or income/);
+  });
+
+  it("rejects deferred cashflow types in import commit payloads", () => {
+    expect(() =>
+      validateImportCommitPayload({
+        bank: "revolut",
+        confirm_replace: false,
+        period_end: "2026-05-31",
+        period_start: "2026-05-01",
+        source_filename: "revolut.csv",
+        statement_month: "2026-05-01",
+        transactions: [
+          {
+            amount: -12.34,
+            cashflow_type: "reimbursement",
+            recipient: "Employer",
+            title: "Salary",
+            transaction_date: "2026-05-03",
+          },
+        ],
+      }),
+    ).toThrow(/cashflow_type must be expense or income/);
+
+    expect(() =>
+      validateImportCommitPayload({
+        bank: "revolut",
+        confirm_replace: false,
+        period_end: "2026-05-31",
+        period_start: "2026-05-01",
+        source_filename: "revolut.csv",
+        statement_month: "2026-05-01",
+        transactions: [
+          {
+            amount: 0,
+            cashflow_type: "transfer",
+            recipient: "Savings",
+            title: "Move money",
+            transaction_date: "2026-05-03",
+          },
+        ],
+      }),
+    ).toThrow(/cashflow_type must be expense or income/);
   });
 
   it("accepts bulk category update payloads", () => {
