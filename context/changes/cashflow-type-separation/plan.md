@@ -379,9 +379,9 @@ Because this plan corrects a not-yet-finalized MVP migration that currently allo
 
 #### Manual
 
-- [x] 1.7 Inspect imported rows for negative expense defaults
-- [x] 1.8 Inspect imported rows for zero/positive income defaults
-- [x] 1.9 Confirm migrated rows preserve original signed amounts
+- [x] 1.7 Inspect imported rows for negative expense defaults — 4105dec
+- [x] 1.8 Inspect imported rows for zero/positive income defaults — 4105dec
+- [x] 1.9 Confirm migrated rows preserve original signed amounts — 4105dec
 
 ### Phase 2: Type-Aware Summary Math
 
@@ -398,9 +398,9 @@ Because this plan corrects a not-yet-finalized MVP migration that currently allo
 
 #### Manual
 
-- [x] 2.9 Verify imported salary drives limits when manual income is zero
-- [x] 2.10 Verify manual income and imported salary are additive
-- [x] 2.11 Verify positive imported rows stay visible without category usage
+- [x] 2.9 Verify imported salary drives limits when manual income is zero — 4105dec
+- [x] 2.10 Verify manual income and imported salary are additive — 4105dec
+- [x] 2.11 Verify positive imported rows stay visible without category usage — 4105dec
 
 ### Phase 3: Review and UI Alignment
 
@@ -424,15 +424,15 @@ Because this plan corrects a not-yet-finalized MVP migration that currently allo
 
 #### Automated
 
-- [x] 4.1 npm run test passes
-- [x] 4.2 npm run test:e2e passes for focused browser coverage if added
-- [x] 4.3 npm run lint passes
-- [x] 4.4 npm run check passes
-- [x] 4.5 npm run build passes
+- [x] 4.1 npm run test passes — 4105dec
+- [x] 4.2 npm run test:e2e passes for focused browser coverage if added — 4105dec
+- [x] 4.3 npm run lint passes — 4105dec
+- [x] 4.4 npm run check passes — 4105dec
+- [x] 4.5 npm run build passes — 4105dec
 
 #### Manual
 
-- [x] 4.6 Execute full import-review-summary smoke test with one expense and one income row
-- [x] 4.7 Confirm positive rows do not require category assignment during review
-- [x] 4.8 Confirm dashboard income includes the reviewed positive row and category usage excludes it
-- [x] 4.9 Confirm progress entries are actionable phase by phase
+- [x] 4.6 Execute full import-review-summary smoke test with one expense and one income row — 4105dec
+- [x] 4.7 Confirm positive rows do not require category assignment during review — 4105dec
+- [x] 4.8 Confirm dashboard income includes the reviewed positive row and category usage excludes it — 4105dec
+- [x] 4.9 Confirm progress entries are actionable phase by phase — 4105dec
