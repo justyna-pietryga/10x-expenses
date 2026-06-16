@@ -370,12 +370,12 @@ Because this plan corrects a not-yet-finalized MVP migration that currently allo
 
 #### Automated
 
-- [x] 1.1 Migration check constraint allows only expense and income
-- [x] 1.2 Database and import types expose only expense and income
-- [x] 1.3 Parser and validation tests cover negative, zero, and positive amount inference
-- [x] 1.4 Validation tests reject reimbursement, transfer, and arbitrary invalid strings
-- [x] 1.5 npm run lint passes
-- [x] 1.6 npm run check passes
+- [x] 1.1 Migration check constraint allows only expense and income — da9b2a7
+- [x] 1.2 Database and import types expose only expense and income — da9b2a7
+- [x] 1.3 Parser and validation tests cover negative, zero, and positive amount inference — da9b2a7
+- [x] 1.4 Validation tests reject reimbursement, transfer, and arbitrary invalid strings — da9b2a7
+- [x] 1.5 npm run lint passes — da9b2a7
+- [x] 1.6 npm run check passes — da9b2a7
 
 #### Manual
 
@@ -387,14 +387,14 @@ Because this plan corrects a not-yet-finalized MVP migration that currently allo
 
 #### Automated
 
-- [ ] 2.1 Summary tests cover manual plus reviewed imported income aggregation
-- [ ] 2.2 Summary tests prove positive imported income is excluded from expense category usage
-- [ ] 2.3 Summary tests prove pending imported income does not change trusted limits
-- [ ] 2.4 Summary tests preserve excluded-row precedence
-- [ ] 2.5 Summary snapshot tests match API response values
-- [ ] 2.6 npm run test passes
-- [ ] 2.7 npm run lint passes
-- [ ] 2.8 npm run check passes
+  - [x] 2.1 Summary tests cover manual plus reviewed imported income aggregation
+  - [x] 2.2 Summary tests prove positive imported income is excluded from expense category usage
+  - [x] 2.3 Summary tests prove pending imported income does not change trusted limits
+  - [x] 2.4 Summary tests preserve excluded-row precedence
+  - [x] 2.5 Summary snapshot tests match API response values
+  - [x] 2.6 npm run test passes
+  - [x] 2.7 npm run lint passes
+  - [x] 2.8 npm run check passes
 
 #### Manual
 

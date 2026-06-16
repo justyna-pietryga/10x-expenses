@@ -7,7 +7,6 @@ type SummaryClient = SupabaseClient<Database>;
 
 type ImportBatch = Tables<"statement_import_batches">;
 type ImportedTransaction = Tables<"transactions">;
-type MonthlyIncome = Tables<"monthly_incomes">;
 type MonthlySummary = Tables<"monthly_summaries">;
 
 export interface SummaryMonthOption {
@@ -47,6 +46,7 @@ export interface MonthlySummaryResult {
 }
 
 type HistoricalSpendByMonth = Partial<Record<string, Map<string, number>>>;
+type HistoricalIncomeByMonth = Map<string, number>;
 
 function mapPostgrestError(error: PostgrestError | null, fallbackMessage: string) {
   if (!error) {
@@ -68,6 +68,14 @@ function toSpendAmount(amount: number) {
   return amount < 0 ? Number(Math.abs(amount).toFixed(2)) : 0;
 }
 
+function resolveCashflowType(transaction: ImportedTransaction) {
+  return transaction.cashflow_type;
+}
+
+function toIncomeAmount(amount: number) {
+  return amount > 0 ? toCurrency(amount) : 0;
+}
+
 function toPercentage(numerator: number, denominator: number) {
   if (denominator <= 0) {
     return 0;
@@ -83,7 +91,7 @@ function toCurrency(value: number) {
 function buildCarryoverTimeline(
   carryoverCategories: BudgetCategory[],
   months: string[],
-  incomeByMonth: Map<string, MonthlyIncome | null>,
+  incomeByMonth: Map<string, number>,
   reviewedSpendByMonth: HistoricalSpendByMonth,
 ) {
   const carryoverState = new Map<string, { closing: number; opening: number }>();
@@ -94,7 +102,7 @@ function buildCarryoverTimeline(
   }
 
   for (const month of months) {
-    const monthIncome = incomeByMonth.get(month)?.amount ?? 0;
+    const monthIncome = incomeByMonth.get(month) ?? 0;
     const monthState = new Map<string, { closing: number; opening: number }>();
 
     for (const category of carryoverCategories) {
@@ -247,25 +255,34 @@ export async function loadDashboardSummary(supabase: SummaryClient, userId: stri
   let incompleteReviewSpend = 0;
   let excludedOutflow = 0;
   let excludedInflow = 0;
+  let reviewedImportedIncome = 0;
   const reviewedSpendByCategory = new Map<string, number>();
 
   for (const transaction of selectedTransactions) {
     const batch = selectedBatchById.get(transaction.import_batch_id);
-    const spendAmount = toSpendAmount(transaction.amount);
+    const cashflowType = resolveCashflowType(transaction);
 
     if (!batch) {
       continue;
     }
 
     if (!transaction.is_included) {
-      if (transaction.amount < 0) {
-        excludedOutflow += spendAmount;
-      } else if (transaction.amount > 0) {
-        excludedInflow += toCurrency(transaction.amount);
+      if (cashflowType === "expense") {
+        excludedOutflow += toSpendAmount(transaction.amount);
+      } else {
+        excludedInflow += toIncomeAmount(transaction.amount);
       }
       continue;
     }
 
+    if (cashflowType === "income") {
+      if (batch.review_completed_at) {
+        reviewedImportedIncome += toIncomeAmount(transaction.amount);
+      }
+      continue;
+    }
+
+    const spendAmount = toSpendAmount(transaction.amount);
     if (spendAmount === 0) {
       continue;
     }
@@ -288,16 +305,32 @@ export async function loadDashboardSummary(supabase: SummaryClient, userId: stri
   }
 
   const reviewedSpendByMonth: HistoricalSpendByMonth = {};
+  const reviewedIncomeByMonth: HistoricalIncomeByMonth = new Map();
 
   for (const transaction of historicalTransactions) {
     const batch = historicalBatchById.get(transaction.import_batch_id);
-    const spendAmount = toSpendAmount(transaction.amount);
+    const cashflowType = resolveCashflowType(transaction);
 
-    if (!transaction.is_included || !batch?.review_completed_at || !transaction.category_id || spendAmount === 0) {
+    if (!transaction.is_included || !batch?.review_completed_at) {
       continue;
     }
 
     const month = batch.statement_month;
+
+    if (cashflowType === "income") {
+      const incomeAmount = toIncomeAmount(transaction.amount);
+
+      if (incomeAmount > 0) {
+        reviewedIncomeByMonth.set(month, toCurrency((reviewedIncomeByMonth.get(month) ?? 0) + incomeAmount));
+      }
+      continue;
+    }
+
+    const spendAmount = toSpendAmount(transaction.amount);
+    if (!transaction.category_id || spendAmount === 0) {
+      continue;
+    }
+
     reviewedSpendByMonth[month] ??= new Map<string, number>();
     reviewedSpendByMonth[month].set(
       transaction.category_id,
@@ -309,10 +342,12 @@ export async function loadDashboardSummary(supabase: SummaryClient, userId: stri
   const monthsForCarryover = Array.from(
     new Set([...availableMonths.map((month) => month.month), selectedMonth].filter((month) => month <= selectedMonth)),
   ).sort();
-  const incomesForCarryover = new Map<string, MonthlyIncome | null>();
+  const incomesForCarryover = new Map<string, number>();
 
   for (const month of monthsForCarryover) {
-    incomesForCarryover.set(month, month === selectedMonth ? income : await loadMonthlyIncome(supabase, userId, month));
+    const monthlyIncomeRecord = month === selectedMonth ? income : await loadMonthlyIncome(supabase, userId, month);
+    const totalMonthIncome = toCurrency((monthlyIncomeRecord?.amount ?? 0) + (reviewedIncomeByMonth.get(month) ?? 0));
+    incomesForCarryover.set(month, totalMonthIncome);
   }
 
   const carryoverTimeline = buildCarryoverTimeline(
@@ -323,7 +358,7 @@ export async function loadDashboardSummary(supabase: SummaryClient, userId: stri
   );
   const selectedCarryoverState =
     carryoverTimeline.get(selectedMonth) ?? new Map<string, { closing: number; opening: number }>();
-  const totalIncome = income?.amount ?? 0;
+  const totalIncome = toCurrency((income?.amount ?? 0) + reviewedImportedIncome);
 
   const categoryRows: CategorySummaryRow[] = categories.map((category) => {
     const reviewedSpend = toCurrency(reviewedSpendByCategory.get(category.id) ?? 0);
