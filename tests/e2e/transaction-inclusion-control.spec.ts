@@ -94,7 +94,7 @@ test.describe("transaction inclusion control", () => {
 
     await page.goto(`/imports?batch=${batch.id}`);
     await expect(page.getByRole("heading", { name: "This batch still needs review confirmation." })).toBeVisible();
-    await expect(page.getByRole("combobox")).toHaveCount(3);
+    await expect(page.getByRole("combobox")).toHaveCount(2);
 
     // Exclude one outflow and one inflow, then save them together through the normal review workflow.
     await getTransactionRow(page, outflowRecipient).getByRole("button", { name: "Exclude" }).click();
@@ -161,6 +161,7 @@ test.describe("transaction inclusion control", () => {
     await expect(page.getByRole("button", { name: "Mark review complete" })).toHaveCount(0);
 
     const restoredRow = getTransactionRow(page, inflowRecipient);
-    await expect(restoredRow.getByRole("combobox")).toHaveValue("");
+    await expect(restoredRow.getByRole("combobox")).toHaveCount(0);
+    await expect(restoredRow).toContainText("Income row; no expense category needed.");
   });
 });

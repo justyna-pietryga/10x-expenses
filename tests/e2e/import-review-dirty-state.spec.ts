@@ -114,11 +114,12 @@ test("import review does not allow completion while category drafts are unsaved 
     );
     await page.getByRole("button", { name: "Save all changes" }).click();
     await saveReviewResponse;
+    await expect(page.getByText("Review changes saved.").first()).toBeVisible();
 
-    await expect(page.getByText("1 unsaved change")).not.toBeVisible();
+    await expect(page.getByText("1 unsaved change")).toHaveCount(0);
     await expect(
       page.getByText("Save or discard unsaved review changes before marking this review complete."),
-    ).not.toBeVisible();
+    ).toHaveCount(0);
     await expect(completeReviewButton).toBeEnabled();
   } finally {
     if (categoryId) {

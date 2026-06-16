@@ -1,15 +1,4 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
-
-const ingCsvContent = readFileSync(
-  path.resolve(process.cwd(), "context/foundation/resources/ing-statement-example.csv"),
-  "utf8",
-);
-const revolutCsvContent = readFileSync(
-  path.resolve(process.cwd(), "context/foundation/resources/revolut-statement-example.csv"),
-  "utf8",
-);
 
 function escapeForRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -60,75 +49,49 @@ async function deleteCategory(request: APIRequestContext, categoryId: string | n
   }
 }
 
-async function commitImportBatchFromPage(
-  page: Page,
-  options: {
+async function commitImportBatch(
+  request: APIRequestContext,
+  payload: {
     bank: "ing" | "revolut";
-    csvContent: string;
+    period_end: string;
+    period_start: string;
     sourceFilename: string;
+    statement_month: string;
+    transactions: {
+      amount: number;
+      recipient: string;
+      title: string;
+      transaction_date: string;
+    }[];
   },
 ) {
-  return page.evaluate(async ({ bank, csvContent, sourceFilename }) => {
-    const formData = new FormData();
-    formData.set("bank", bank);
-    formData.set("file", new File([csvContent], sourceFilename, { type: "text/csv" }));
-
-    const previewResponse = await fetch("/api/imports/preview", {
-      method: "POST",
-      body: formData,
-    });
-    const previewPayload = (await previewResponse.json()) as {
-      bank: "ing" | "revolut";
-      existing_batch: { id: string } | null;
-      error?: string;
-      period_end: string;
-      period_start: string;
+  const commitResponse = await request.post("/api/imports/commit", {
+    data: {
+      bank: payload.bank,
+      confirm_replace: true,
+      period_end: payload.period_end,
+      period_start: payload.period_start,
+      source_filename: payload.sourceFilename,
+      statement_month: payload.statement_month,
+      transactions: payload.transactions,
+    },
+  });
+  const commitPayload = (await commitResponse.json()) as {
+    batch?: {
+      id: string;
       source_filename: string | null;
-      statement_month: string;
-      transactions: {
-        amount: number;
-        recipient: string;
-        title: string;
-        transaction_date: string;
-      }[];
     };
+    error?: string;
+  };
 
-    if (!previewResponse.ok || previewPayload.transactions.length === 0) {
-      throw new Error(previewPayload.error ?? "Could not preview the E2E import");
-    }
+  if (!commitResponse.ok() || !commitPayload.batch) {
+    throw new Error(commitPayload.error ?? "Could not commit the E2E import");
+  }
 
-    const commitResponse = await fetch("/api/imports/commit", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        bank: previewPayload.bank,
-        confirm_replace: Boolean(previewPayload.existing_batch),
-        period_end: previewPayload.period_end,
-        period_start: previewPayload.period_start,
-        source_filename: previewPayload.source_filename,
-        statement_month: previewPayload.statement_month,
-        transactions: previewPayload.transactions,
-      }),
-    });
-    const commitPayload = (await commitResponse.json()) as {
-      batch?: {
-        id: string;
-        source_filename: string | null;
-      };
-      error?: string;
-    };
-
-    if (!commitResponse.ok || !commitPayload.batch) {
-      throw new Error(commitPayload.error ?? "Could not commit the E2E import");
-    }
-
-    return {
-      id: commitPayload.batch.id,
-      sourceFilename: commitPayload.batch.source_filename ?? sourceFilename,
-    };
-  }, options);
+  return {
+    id: commitPayload.batch.id,
+    sourceFilename: commitPayload.batch.source_filename ?? payload.sourceFilename,
+  };
 }
 
 // risk: test-plan.md #3 - import history switching keeps persisted review state truthful
@@ -138,9 +101,14 @@ test.describe("risk #3 - import history switching preserves review changes", () 
     test.setTimeout(90_000);
 
     const timestamp = Date.now();
+    const uniqueYear = 6000 + Math.floor(Math.random() * 3000);
+    const revolutMonthPrefix = `${uniqueYear}-05`;
+    const ingMonthPrefix = `${uniqueYear}-06`;
     const categoryName = `E2E Import History ${timestamp}`;
     const revolutFilename = `revolut-history-${timestamp}.csv`;
     const ingFilename = `ing-history-${timestamp}.csv`;
+    const revolutRecipient = `E2E History Revolut ${timestamp}`;
+    const ingRecipient = `E2E History ING ${timestamp}`;
     let categoryId: string | null = null;
 
     try {
@@ -151,15 +119,35 @@ test.describe("risk #3 - import history switching preserves review changes", () 
       await page.goto("/imports");
       await expect(page.getByRole("heading", { name: /import and review your bank statement/i })).toBeVisible();
 
-      const revolutBatch = await commitImportBatchFromPage(page, {
+      const revolutBatch = await commitImportBatch(request, {
         bank: "revolut",
-        csvContent: revolutCsvContent,
+        period_end: `${revolutMonthPrefix}-31`,
+        period_start: `${revolutMonthPrefix}-01`,
         sourceFilename: revolutFilename,
+        statement_month: `${revolutMonthPrefix}-01`,
+        transactions: [
+          {
+            amount: -40,
+            recipient: revolutRecipient,
+            title: "Revolut groceries",
+            transaction_date: `${revolutMonthPrefix}-05`,
+          },
+        ],
       });
-      const ingBatch = await commitImportBatchFromPage(page, {
+      const ingBatch = await commitImportBatch(request, {
         bank: "ing",
-        csvContent: ingCsvContent,
+        period_end: `${ingMonthPrefix}-30`,
+        period_start: `${ingMonthPrefix}-01`,
         sourceFilename: ingFilename,
+        statement_month: `${ingMonthPrefix}-01`,
+        transactions: [
+          {
+            amount: -55,
+            recipient: ingRecipient,
+            title: "ING groceries",
+            transaction_date: `${ingMonthPrefix}-06`,
+          },
+        ],
       });
 
       // Open the seeded ING batch directly so the switch flow is isolated from older history rows.
