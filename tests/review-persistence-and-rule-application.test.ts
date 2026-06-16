@@ -80,6 +80,7 @@ function makeTransaction(id: string, overrides: Partial<ImportedTransaction> = {
 
   return {
     amount: -10,
+    cashflow_type: "expense",
     category_id: null,
     categorized_by_rule_id,
     created_at: createdAt,
@@ -1078,12 +1079,14 @@ describe("dashboard rule lifecycle and downstream mutation scope", () => {
       transactions: [
         {
           amount: -21.5,
+          cashflow_type: "expense",
           recipient: "Corner Grocer",
           title: "Card payment",
           transaction_date: "2026-07-04",
         },
         {
           amount: -99,
+          cashflow_type: "expense",
           recipient: "Different Merchant",
           title: "Monthly rent",
           transaction_date: "2026-07-06",
@@ -1125,12 +1128,14 @@ describe("dashboard rule lifecycle and downstream mutation scope", () => {
       transactions: [
         {
           amount: -1200,
+          cashflow_type: "expense",
           recipient: "Different Merchant",
           title: "August rent invoice",
           transaction_date: "2026-08-02",
         },
         {
           amount: -15,
+          cashflow_type: "expense",
           recipient: "Corner Grocer",
           title: "Card payment",
           transaction_date: "2026-08-03",
@@ -1172,12 +1177,14 @@ describe("dashboard rule lifecycle and downstream mutation scope", () => {
       transactions: [
         {
           amount: -55,
+          cashflow_type: "expense",
           recipient: "ACME Utility",
           title: "Monthly statement",
           transaction_date: "2026-09-04",
         },
         {
           amount: -55,
+          cashflow_type: "expense",
           recipient: "ACME Services",
           title: "Monthly statement",
           transaction_date: "2026-09-05",
@@ -1211,6 +1218,7 @@ describe("dashboard rule lifecycle and downstream mutation scope", () => {
       transactions: [
         {
           amount: -44,
+          cashflow_type: "expense",
           recipient: "ACME Utility",
           title: "Monthly statement",
           transaction_date: "2026-10-03",

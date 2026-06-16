@@ -87,6 +87,7 @@ function makeTransaction(
 
   return {
     amount: -12.34,
+    cashflow_type: "expense",
     category_id: null,
     categorized_by_rule_id,
     created_at: CREATED_AT,

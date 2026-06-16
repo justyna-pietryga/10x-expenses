@@ -82,6 +82,7 @@ const reviewCategories: BudgetCategory[] = [
 const reviewTransactions: ImportedTransaction[] = [
   {
     amount: -12.34,
+    cashflow_type: "expense",
     category_id: "cat-food",
     categorized_by_rule_id: null,
     created_at: "2026-05-30T08:00:00.000Z",
@@ -96,6 +97,7 @@ const reviewTransactions: ImportedTransaction[] = [
   },
   {
     amount: -64.2,
+    cashflow_type: "expense",
     category_id: null,
     categorized_by_rule_id: null,
     created_at: "2026-05-30T08:00:00.000Z",
@@ -210,6 +212,7 @@ function buildImportSupabaseStub(options?: {
     {
       id: "tx-1",
       amount: -12.34,
+      cashflow_type: "expense" as const,
       category_id: "cat-food",
       categorized_by_rule_id: "rule-food",
       created_at: "2026-05-30T08:00:00.000Z",
@@ -227,6 +230,7 @@ function buildImportSupabaseStub(options?: {
         {
           id: "tx-existing-1",
           amount: -88.12,
+          cashflow_type: "expense",
           category_id: "cat-food",
           categorized_by_rule_id: null,
           created_at: "2026-05-01T08:00:00.000Z",
@@ -333,6 +337,7 @@ function buildImportSupabaseStub(options?: {
             const inserted: ImportedTransaction[] = rows.map((row, index) => ({
               ...row,
               amount: row.amount,
+              cashflow_type: row.cashflow_type ?? (row.amount < 0 ? "expense" : "income"),
               category_id: row.category_id ?? null,
               categorized_by_rule_id: row.categorized_by_rule_id ?? null,
               created_at: row.created_at ?? "2026-05-30T08:00:00.000Z",
@@ -536,6 +541,7 @@ function buildImportReviewRuleSupabaseStub() {
   const transactions: ImportedTransaction[] = [
     {
       amount: -12.34,
+      cashflow_type: "expense",
       category_id: "cat-food",
       categorized_by_rule_id: null,
       created_at: "2026-05-30T08:00:00.000Z",
@@ -550,6 +556,7 @@ function buildImportReviewRuleSupabaseStub() {
     },
     {
       amount: -8.55,
+      cashflow_type: "expense",
       category_id: null,
       categorized_by_rule_id: null,
       created_at: "2026-05-30T08:00:00.000Z",
@@ -564,6 +571,7 @@ function buildImportReviewRuleSupabaseStub() {
     },
     {
       amount: -5.25,
+      cashflow_type: "expense",
       category_id: null,
       categorized_by_rule_id: null,
       created_at: "2026-05-30T08:00:00.000Z",
@@ -745,6 +753,7 @@ function buildImportHistorySupabaseStub(options?: {
   const transactions = options?.transactions ?? [
     {
       amount: -12.34,
+      cashflow_type: "expense",
       category_id: null,
       categorized_by_rule_id: null,
       created_at: "2026-06-12T10:00:00.000Z",
@@ -758,6 +767,7 @@ function buildImportHistorySupabaseStub(options?: {
     },
     {
       amount: -6.5,
+      cashflow_type: "expense",
       category_id: null,
       categorized_by_rule_id: null,
       created_at: "2026-06-12T10:00:00.000Z",
@@ -771,6 +781,7 @@ function buildImportHistorySupabaseStub(options?: {
     },
     {
       amount: -18,
+      cashflow_type: "expense",
       category_id: null,
       categorized_by_rule_id: null,
       created_at: "2026-06-10T10:00:00.000Z",
@@ -784,6 +795,7 @@ function buildImportHistorySupabaseStub(options?: {
     },
     {
       amount: -40,
+      cashflow_type: "expense",
       category_id: null,
       categorized_by_rule_id: null,
       created_at: "2026-06-13T10:00:00.000Z",
@@ -1000,12 +1012,14 @@ describe("revolut csv parser", () => {
     expect(parsed.statement_month).toBe("2026-05-01");
     expect(parsed.transactions[0]).toMatchObject({
       amount: -36.97,
+      cashflow_type: "expense",
       recipient: "ROSSMANN",
       title: "Płatność kartą",
       transaction_date: "2026-05-01",
     });
     expect(parsed.transactions).toContainEqual({
       amount: -151.45,
+      cashflow_type: "expense",
       recipient: "Espresso House",
       title: "Płatność kartą",
       transaction_date: "2026-05-04",
@@ -1041,6 +1055,14 @@ Płatność kartą,Bieżące,2026-05-27 22:55:31,,Uber,-19.94,0.00,PLN,COFNIĘTO
 
     expect(() => parseRevolutCsv(noCompletedCsv)).toThrow(/at least one completed transaction/);
   });
+
+  it("defaults positive Revolut net amounts to income cashflow type", () => {
+    const incomingTransferCsv = `Rodzaj,Produkt,Data rozpoczecia,Data zrealizowania,Opis,Kwota,Oplata,Waluta,State,Saldo
+Przelew przychodzacy,Biezace,2026-05-10 10:00:00,2026-05-10 10:00:00,Salary,1200.00,0.00,PLN,ZAKONCZONO,1200.00
+`;
+
+    expect(parseRevolutCsv(incomingTransferCsv).transactions[0]?.cashflow_type).toBe("income");
+  });
 });
 
 describe("import validation", () => {
@@ -1064,6 +1086,7 @@ describe("import validation", () => {
       transactions: [
         {
           amount: -12.34,
+          cashflow_type: "expense",
           recipient: "ING recipient",
           title: "Card payment",
           transaction_date: "2026-05-03",
@@ -1072,6 +1095,50 @@ describe("import validation", () => {
     });
 
     expect(payload.bank).toBe("ing");
+    expect(payload.transactions[0]?.cashflow_type).toBe("expense");
+  });
+
+  it("infers cashflow type from amount when older import commit payloads omit it", () => {
+    const payload = validateImportCommitPayload({
+      bank: "revolut",
+      confirm_replace: false,
+      period_end: "2026-05-31",
+      period_start: "2026-05-01",
+      source_filename: "revolut.csv",
+      statement_month: "2026-05-01",
+      transactions: [
+        {
+          amount: 2500,
+          recipient: "Employer",
+          title: "Salary",
+          transaction_date: "2026-05-03",
+        },
+      ],
+    });
+
+    expect(payload.transactions[0]?.cashflow_type).toBe("income");
+  });
+
+  it("rejects invalid cashflow types in import commit payloads", () => {
+    expect(() =>
+      validateImportCommitPayload({
+        bank: "revolut",
+        confirm_replace: false,
+        period_end: "2026-05-31",
+        period_start: "2026-05-01",
+        source_filename: "revolut.csv",
+        statement_month: "2026-05-01",
+        transactions: [
+          {
+            amount: -12.34,
+            cashflow_type: "bonus",
+            recipient: "Employer",
+            title: "Salary",
+            transaction_date: "2026-05-03",
+          },
+        ],
+      }),
+    ).toThrow(/cashflow_type must be expense, income, reimbursement, or transfer/);
   });
 
   it("accepts bulk category update payloads", () => {
@@ -1236,12 +1303,14 @@ describe("ing csv parser", () => {
     expect(parsed.statement_month).toBe("2026-05-01");
     expect(parsed.transactions[0]).toMatchObject({
       amount: -10,
+      cashflow_type: "expense",
       recipient: "sts.pl ul. Porcelanowa 8 KATOWICE",
       title: "TR.BLIK",
       transaction_date: "2026-05-30",
     });
     expect(parsed.transactions[1]).toMatchObject({
       amount: -6000,
+      cashflow_type: "expense",
       recipient: "Revolut**7362*  Dublin D02 R296 IRL",
       transaction_date: "2026-05-30",
     });
@@ -1264,6 +1333,15 @@ describe("ing csv parser", () => {
 
     expect(() => parseIngCsv(multiMonthCsv)).toThrow(/exactly one calendar month/);
   });
+
+  it("defaults positive ING amounts to income cashflow type", () => {
+    const incomingTransferCsv = `"Lista transakcji"
+"Data transakcji";"Data księgowania";"Dane kontrahenta";"Tytuł";"Nr rachunku";"Nazwa banku";"Szczegóły";"Nr transakcji";"Kwota transakcji (waluta rachunku)";"Waluta";"Kwota blokady/zwolnienie blokady";"Waluta";"Kwota płatności w walucie";"Waluta";"Konto"
+2026-05-31;2026-05-31;"Employer";"Salary";;;"TR.PRZELEW";"1";1200,00;PLN;;;;;"KONTO Komfort"
+`;
+
+    expect(parseIngCsv(incomingTransferCsv).transactions[0]?.cashflow_type).toBe("income");
+  });
 });
 
 describe("import data helpers", () => {
@@ -1281,6 +1359,7 @@ describe("import data helpers", () => {
         transactions: [
           {
             amount: -12.34,
+            cashflow_type: "expense",
             recipient: "Lidl Warszawa",
             title: "Lidl Warszawa",
             transaction_date: "2026-05-03",
@@ -1304,6 +1383,7 @@ describe("import data helpers", () => {
         transactions: [
           {
             amount: -12.34,
+            cashflow_type: "expense",
             recipient: "Lidl Warszawa",
             title: "Lidl Warszawa",
             transaction_date: "2026-05-03",
@@ -1317,6 +1397,7 @@ describe("import data helpers", () => {
       },
       transactions: [
         {
+          cashflow_type: "expense",
           category_id: "cat-food",
         },
       ],
@@ -1337,6 +1418,7 @@ describe("import data helpers", () => {
         transactions: [
           {
             amount: -12.34,
+            cashflow_type: "expense",
             recipient: "Lidl Warszawa",
             title: "Lidl Warszawa",
             transaction_date: "2026-05-03",
@@ -1347,6 +1429,7 @@ describe("import data helpers", () => {
 
     expect(supabase.__getBatchTransactions()).toMatchObject([
       {
+        cashflow_type: "expense",
         id: "tx-existing-1",
         import_batch_id: "batch-existing",
         recipient: "Old Merchant",
@@ -1368,6 +1451,7 @@ describe("import data helpers", () => {
         transactions: [
           {
             amount: -59.94,
+            cashflow_type: "expense",
             recipient: "Lidl Warszawa",
             title: "TR.KART",
             transaction_date: "2026-05-28",
@@ -1382,6 +1466,7 @@ describe("import data helpers", () => {
       },
       transactions: [
         {
+          cashflow_type: "expense",
           category_id: "cat-food",
         },
       ],
@@ -1402,6 +1487,7 @@ describe("import data helpers", () => {
         transactions: [
           {
             amount: -59.94,
+            cashflow_type: "expense",
             recipient: "Lidl Warszawa",
             title: "TR.KART",
             transaction_date: "2026-05-28",
@@ -1871,6 +1957,7 @@ describe("import data helpers", () => {
       transactions: [
         {
           amount: -10,
+          cashflow_type: "expense",
           category_id: null,
           categorized_by_rule_id: null,
           created_at: "2026-06-15T10:00:00.000Z",
@@ -1885,6 +1972,7 @@ describe("import data helpers", () => {
         },
         {
           amount: -12,
+          cashflow_type: "expense",
           category_id: null,
           categorized_by_rule_id: null,
           created_at: "2026-06-14T10:00:00.000Z",
@@ -1924,6 +2012,7 @@ describe("import data helpers", () => {
       batches,
       transactions: batches.map((batch, index) => ({
         amount: -10,
+        cashflow_type: "expense",
         category_id: null,
         categorized_by_rule_id: null,
         created_at: "2026-06-01T10:00:00.000Z",
@@ -1977,6 +2066,7 @@ describe("import data helpers", () => {
       transactions: [
         {
           amount: -10,
+          cashflow_type: "expense",
           category_id: null,
           categorized_by_rule_id: null,
           created_at: "2026-06-12T10:00:00.000Z",
@@ -1991,6 +2081,7 @@ describe("import data helpers", () => {
         },
         {
           amount: -12,
+          cashflow_type: "expense",
           category_id: null,
           categorized_by_rule_id: null,
           created_at: "2026-06-11T10:00:00.000Z",
@@ -2005,6 +2096,7 @@ describe("import data helpers", () => {
         },
         {
           amount: -15,
+          cashflow_type: "expense",
           category_id: null,
           categorized_by_rule_id: null,
           created_at: "2026-06-10T10:00:00.000Z",
@@ -2054,6 +2146,7 @@ describe("import data helpers", () => {
       transactions: [
         {
           amount: -10,
+          cashflow_type: "expense",
           category_id: null,
           categorized_by_rule_id: null,
           created_at: "2026-06-13T10:00:00.000Z",
@@ -3591,6 +3684,7 @@ describe("import UI", () => {
           transactions: [
             {
               amount: -10,
+              cashflow_type: "expense",
               recipient: "Merchant",
               title: "Merchant",
               transaction_date: "2026-05-03",
@@ -3659,6 +3753,7 @@ describe("import UI", () => {
           transactions: [
             {
               amount: -36.97,
+              cashflow_type: "expense",
               recipient: "ROSSMANN",
               title: "Płatność kartą",
               transaction_date: "2026-05-01",
@@ -3688,6 +3783,7 @@ describe("import UI", () => {
           transactions: [
             {
               amount: -10,
+              cashflow_type: "expense",
               recipient: "sts.pl ul. Porcelanowa 8 KATOWICE",
               title: "TR.BLIK",
               transaction_date: "2026-05-30",

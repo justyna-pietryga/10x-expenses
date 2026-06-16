@@ -1,5 +1,10 @@
 import { ImportError } from "@/lib/imports/errors";
-import type { ImportedTransactionDraft, SupportedBank } from "@/lib/imports/types";
+import {
+  inferCashflowTypeFromAmount,
+  type CashflowType,
+  type ImportedTransactionDraft,
+  type SupportedBank,
+} from "@/lib/imports/types";
 import type { RuleMatchField } from "@/lib/rules/validation";
 
 export interface ImportCommitPayload {
@@ -61,6 +66,25 @@ function validateAmount(value: unknown) {
   }
 
   return amount;
+}
+
+function validateCashflowType(value: unknown, field: string): CashflowType {
+  if (typeof value !== "string") {
+    throw new ImportError(`${field} must be expense, income, reimbursement, or transfer`, { field });
+  }
+
+  const normalized = value.trim().toLowerCase();
+
+  if (
+    normalized === "expense" ||
+    normalized === "income" ||
+    normalized === "reimbursement" ||
+    normalized === "transfer"
+  ) {
+    return normalized;
+  }
+
+  throw new ImportError(`${field} must be expense, income, reimbursement, or transfer`, { field });
 }
 
 export function validateSupportedBank(value: unknown): SupportedBank {
@@ -127,9 +151,14 @@ function validateImportedTransactionDraft(transaction: unknown, index: number): 
   }
 
   const record = transaction as Record<string, unknown>;
+  const amount = validateAmount(record.amount);
 
   return {
-    amount: validateAmount(record.amount),
+    amount,
+    cashflow_type:
+      record.cashflow_type == null
+        ? inferCashflowTypeFromAmount(amount)
+        : validateCashflowType(record.cashflow_type, `transactions[${index}].cashflow_type`),
     recipient: validateText(record.recipient, `transactions[${index}].recipient`),
     title: validateText(record.title, `transactions[${index}].title`),
     transaction_date: validateDate(record.transaction_date, `transactions[${index}].transaction_date`),

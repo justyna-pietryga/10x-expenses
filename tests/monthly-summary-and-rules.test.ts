@@ -67,6 +67,7 @@ interface SummaryBatchRow {
 
 interface SummaryTransactionRow {
   amount: number;
+  cashflow_type?: "expense" | "income" | "reimbursement" | "transfer";
   category_id: string | null;
   created_at: string;
   id: string;

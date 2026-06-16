@@ -1,5 +1,5 @@
 import { ImportError } from "@/lib/imports/errors";
-import type { ParsedImportCsv } from "@/lib/imports/types";
+import { inferCashflowTypeFromAmount, type ParsedImportCsv } from "@/lib/imports/types";
 
 const HEADER_INDEXES = {
   amount: 8,
@@ -189,9 +189,12 @@ export function parseIngCsv(text: string): ParsedImportCsv {
       throw new ImportError(`Row ${currentRowNumber}: transaction title cannot be blank`, { field: "file" });
     }
 
+    const amount = parseAmount(amountRaw, currentRowNumber);
+
     return [
       {
-        amount: parseAmount(amountRaw, currentRowNumber),
+        amount,
+        cashflow_type: inferCashflowTypeFromAmount(amount),
         recipient: recipientValue,
         title: titleValue,
         transaction_date: effectiveDate,

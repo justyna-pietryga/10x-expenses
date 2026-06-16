@@ -1,5 +1,5 @@
 import { ImportError } from "@/lib/imports/errors";
-import type { ParsedImportCsv } from "@/lib/imports/types";
+import { inferCashflowTypeFromAmount, type ParsedImportCsv } from "@/lib/imports/types";
 
 const EXPECTED_HEADERS = [
   "Rodzaj",
@@ -183,9 +183,12 @@ export function parseRevolutCsv(text: string): ParsedImportCsv {
 
     const transactionDate = parseDateOnly(values["Data zrealizowania"], currentRowNumber);
 
+    const amount = parseNetAmount(values.Kwota, values.Oplata, currentRowNumber);
+
     return [
       {
-        amount: parseNetAmount(values.Kwota, values.Oplata, currentRowNumber),
+        amount,
+        cashflow_type: inferCashflowTypeFromAmount(amount),
         recipient: description,
         title: values.Rodzaj || description,
         transaction_date: transactionDate,

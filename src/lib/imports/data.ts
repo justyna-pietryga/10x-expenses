@@ -256,6 +256,7 @@ function buildImportedTransactionRows(
 
     return {
       amount: transaction.amount,
+      cashflow_type: transaction.cashflow_type,
       category_id: ruleDrivenCategory.category_id,
       categorized_by_rule_id: ruleDrivenCategory.categorized_by_rule_id,
       import_batch_id: batchId,
@@ -278,6 +279,7 @@ async function restoreImportTransactions(
 
   const restoreRows: Database["public"]["Tables"]["transactions"]["Insert"][] = transactions.map((transaction) => ({
     amount: transaction.amount,
+    cashflow_type: transaction.cashflow_type,
     category_id: transaction.category_id,
     categorized_by_rule_id: transaction.categorized_by_rule_id,
     created_at: transaction.created_at,
