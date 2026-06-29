@@ -301,16 +301,16 @@ No application data migration is required. The production `migrate` job changes 
 
 #### Automated
 
-- [ ] 1.1 Supabase reset completes without a missing seed-file error.
-- [ ] 1.2 Authentication setup creates the ignored Playwright storage state.
-- [ ] 1.3 Seed smoke passes independently and restores its initial state.
-- [ ] 1.4 Linting passes.
-- [ ] 1.5 Astro checks pass.
+- [x] 1.1 Supabase reset completes without a missing seed-file error.
+- [x] 1.2 Authentication setup creates the ignored Playwright storage state.
+- [x] 1.3 Seed smoke passes independently and restores its initial state.
+- [x] 1.4 Linting passes.
+- [x] 1.5 Astro checks pass.
 
 #### Manual
 
-- [ ] 1.6 Confirm generated storage state remains ignored.
-- [ ] 1.7 Confirm the existing local E2E workflow still works.
+- [x] 1.6 Confirm generated storage state remains ignored.
+- [x] 1.7 Confirm the existing local E2E workflow still works.
 
 ### Phase 2: CI-Safe Playwright Configuration
 

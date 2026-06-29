@@ -5,6 +5,7 @@ const baseURL = `http://localhost:${PORT}`;
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  testMatch: /.*\.(spec|setup)\.ts/,
   fullyParallel: true,
   reporter: "html",
   use: {
@@ -20,7 +21,17 @@ export default defineConfig({
   },
   projects: [
     {
+      name: "setup",
+      testMatch: /auth\.setup\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: { cookies: [], origins: [] },
+      },
+    },
+    {
       name: "chromium",
+      dependencies: ["setup"],
+      testIgnore: /auth\.setup\.ts/,
       use: { ...devices["Desktop Chrome"] },
     },
   ],

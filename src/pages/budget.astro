@@ -85,7 +85,7 @@ if (supabase && user) {
             ) : (
               <div class="mt-8">
                 <BudgetSetup
-                  client:load
+                  client:only="react"
                   initialCategories={categories}
                   initialIncome={income}
                   selectedMonth={selectedMonth}

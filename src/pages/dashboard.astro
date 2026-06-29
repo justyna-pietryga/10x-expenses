@@ -53,7 +53,12 @@ if (supabase && user) {
                 {loadError ?? "Could not load the dashboard summary"}
               </div>
             ) : (
-              <SummaryWorkspace client:load categories={categories} initialRules={rules} initialSummary={summary} />
+              <SummaryWorkspace
+                client:only="react"
+                categories={categories}
+                initialRules={rules}
+                initialSummary={summary}
+              />
             )
           }
         </div>

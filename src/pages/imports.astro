@@ -119,7 +119,7 @@ if (supabase && user) {
                   </div>
                 ) : null}
                 <ImportWorkspace
-                  client:load
+                  client:only="react"
                   categories={categories}
                   initialBatch={batch}
                   initialHistory={history}
