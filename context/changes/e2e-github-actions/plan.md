@@ -316,28 +316,28 @@ No application data migration is required. The production `migrate` job changes 
 
 #### Automated
 
-- [x] 2.1 Playwright lists authentication setup before Chromium product tests.
-- [x] 2.2 The full local E2E suite passes.
-- [x] 2.3 CI mode enforces one worker, retries, and focused-test protection.
-- [x] 2.4 Linting passes.
-- [x] 2.5 Astro checks pass.
+- [x] 2.1 Playwright lists authentication setup before Chromium product tests. â€” 040448a
+- [x] 2.2 The full local E2E suite passes. â€” 040448a
+- [x] 2.3 CI mode enforces one worker, retries, and focused-test protection. â€” 040448a
+- [x] 2.4 Linting passes. â€” 040448a
+- [x] 2.5 Astro checks pass. â€” 040448a
 
 #### Manual
 
-- [x] 2.6 Confirm local execution is not unnecessarily serialized.
-- [x] 2.7 Confirm browser and API fixtures share the generated session.
+- [x] 2.6 Confirm local execution is not unnecessarily serialized. â€” 040448a
+- [x] 2.7 Confirm browser and API fixtures share the generated session. â€” 040448a
 
 ### Phase 3: GitHub Actions E2E Integration
 
 #### Automated
 
-- [ ] 3.1 Workflow syntax and referenced scripts are valid.
-- [ ] 3.2 CI and E2E ordering matches the approved policy.
-- [ ] 3.3 Manual workflow dispatch is available.
-- [ ] 3.4 E2E provisions local Supabase and passes without production credentials.
-- [ ] 3.5 Playwright diagnostics upload on success and failure.
-- [ ] 3.6 Supabase cleanup runs on success and failure.
-- [ ] 3.7 Production migration requires both CI and E2E success.
+- [x] 3.1 Workflow syntax and referenced scripts are valid.
+- [x] 3.2 CI and E2E ordering matches the approved policy.
+- [x] 3.3 Manual workflow dispatch is available.
+- [x] 3.4 E2E provisions local Supabase and passes without production credentials.
+- [x] 3.5 Playwright diagnostics upload on success and failure.
+- [x] 3.6 Supabase cleanup runs on success and failure.
+- [x] 3.7 Production migration requires both CI and E2E success.
 
 #### Manual
 
