@@ -3,7 +3,7 @@ change_id: e2e-github-actions
 title: Set up E2E in the GitHub Actions workflow
 status: implementing
 created: 2026-06-23
-updated: 2026-06-23
+updated: 2026-06-29
 archived_at: null
 ---
 

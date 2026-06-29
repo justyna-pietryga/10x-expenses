@@ -301,31 +301,31 @@ No application data migration is required. The production `migrate` job changes 
 
 #### Automated
 
-- [x] 1.1 Supabase reset completes without a missing seed-file error.
-- [x] 1.2 Authentication setup creates the ignored Playwright storage state.
-- [x] 1.3 Seed smoke passes independently and restores its initial state.
-- [x] 1.4 Linting passes.
-- [x] 1.5 Astro checks pass.
+- [x] 1.1 Supabase reset completes without a missing seed-file error. — bd2d4c2
+- [x] 1.2 Authentication setup creates the ignored Playwright storage state. — bd2d4c2
+- [x] 1.3 Seed smoke passes independently and restores its initial state. — bd2d4c2
+- [x] 1.4 Linting passes. — bd2d4c2
+- [x] 1.5 Astro checks pass. — bd2d4c2
 
 #### Manual
 
-- [x] 1.6 Confirm generated storage state remains ignored.
-- [x] 1.7 Confirm the existing local E2E workflow still works.
+- [x] 1.6 Confirm generated storage state remains ignored. — bd2d4c2
+- [x] 1.7 Confirm the existing local E2E workflow still works. — bd2d4c2
 
 ### Phase 2: CI-Safe Playwright Configuration
 
 #### Automated
 
-- [ ] 2.1 Playwright lists authentication setup before Chromium product tests.
-- [ ] 2.2 The full local E2E suite passes.
-- [ ] 2.3 CI mode enforces one worker, retries, and focused-test protection.
-- [ ] 2.4 Linting passes.
-- [ ] 2.5 Astro checks pass.
+- [x] 2.1 Playwright lists authentication setup before Chromium product tests.
+- [x] 2.2 The full local E2E suite passes.
+- [x] 2.3 CI mode enforces one worker, retries, and focused-test protection.
+- [x] 2.4 Linting passes.
+- [x] 2.5 Astro checks pass.
 
 #### Manual
 
-- [ ] 2.6 Confirm local execution is not unnecessarily serialized.
-- [ ] 2.7 Confirm browser and API fixtures share the generated session.
+- [x] 2.6 Confirm local execution is not unnecessarily serialized.
+- [x] 2.7 Confirm browser and API fixtures share the generated session.
 
 ### Phase 3: GitHub Actions E2E Integration
 
