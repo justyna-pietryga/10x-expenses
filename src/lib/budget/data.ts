@@ -77,6 +77,14 @@ export async function upsertMonthlyIncome(
   return data;
 }
 
+export async function deleteMonthlyIncome(supabase: BudgetClient, userId: string, month: string) {
+  const { error } = await supabase.from("monthly_incomes").delete().eq("user_id", userId).eq("month", month);
+
+  if (error) {
+    throw new BudgetError(error.message, { status: 500 });
+  }
+}
+
 export async function createCategory(
   supabase: BudgetClient,
   userId: string,
