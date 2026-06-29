@@ -1,194 +1,213 @@
-# 10x Astro Starter
+# Expenses
 
-![](./public/template.png)
+Expenses is a personal finance web app for importing monthly bank statements, mapping transactions into your own budget categories, and reviewing spending against percentage-based limits.
 
-A modern, opinionated starter template for building fast, accessible web applications.
+The product is built for a single user account. Each user signs in, defines monthly income and category limits, imports supported bank CSV files, reviews categorization, saves reusable rules, and then checks a monthly dashboard that shows spending by category, imported income, excluded rows, and review warnings.
+
+## What the App Does
+
+- Authenticates users with Supabase Auth.
+- Stores monthly income or estimated income for each month.
+- Lets users define custom budget categories with percentage caps.
+- Imports supported bank statement CSV files into monthly batches.
+- Replaces a previous import for the same bank and month after explicit confirmation.
+- Lets users review imported transactions before they count as trusted dashboard data.
+- Saves reusable categorization rules, for example matching `Lidl` to `Food`.
+- Builds a monthly dashboard showing spend vs. income and category usage vs. limits.
+
+## Main User Flow
+
+The app is organized around this core flow:
+
+1. `Auth`
+   Create an account or sign in at `/auth/signup` and `/auth/signin`.
+2. `Budget setup`
+   Open `/budget`, set monthly income, and create active budget categories whose limit total stays within 100%.
+3. `Import`
+   Open `/imports`, choose a supported bank, upload a CSV statement, preview the parsed rows, and confirm replacement if the same bank-month batch already exists.
+4. `Review`
+   Check imported transactions, adjust categories, include or exclude rows, and optionally create reusable rules. The batch remains pending until review is completed.
+5. `Dashboard`
+   Open `/dashboard` to see monthly totals, category usage, incomplete review warnings, excluded transactions, and rule management.
+
+## Supported Bank Formats
+
+The current import surface is intentionally narrow and explicit. The app supports:
+
+- `Revolut CSV`
+- `ING CSV`
+
+Current import behavior:
+
+- Only `.csv` uploads are accepted.
+- The user must choose the bank before previewing the file.
+- `Revolut` and `ING` are the only accepted bank values in the API.
+- Cashflow type is inferred from the amount sign by default:
+  negative values become `expense`, zero or positive values become `income`.
+- Re-importing the same `(user, bank, statement month)` replaces the previous batch instead of duplicating rows.
 
 ## Tech Stack
 
-- [Astro](https://astro.build/) v6 - Modern web framework with server-first rendering
-- [React](https://react.dev/) v19 - UI library for interactive components
-- [TypeScript](https://www.typescriptlang.org/) v5 - Type-safe JavaScript
-- [Tailwind CSS](https://tailwindcss.com/) v4 - Utility-first CSS framework
-- [Supabase](https://supabase.com/) - Authentication and backend-as-a-service
-- [Cloudflare Workers](https://workers.cloudflare.com/) - Edge deployment runtime
+- `Astro` for server-rendered pages
+- `React` for interactive islands
+- `TypeScript`
+- `Tailwind CSS`
+- `Supabase` for auth and Postgres
+- `Cloudflare` adapter and Wrangler-based deployment
+- `Vitest` for integration tests
+- `Playwright` for E2E coverage
 
-## Prerequisites
+## Local Development
 
-- Node.js v22.14.0 (as specified in `.nvmrc`)
-- npm (comes with Node.js)
+### Prerequisites
 
-## Getting Started
+- `Node.js` 22
+- `npm`
+- `Docker`
+- `Supabase CLI`
 
-1. Clone the repository:
-
-```bash
-git clone https://github.com/przeprogramowani/10x-astro-starter.git
-cd 10x-astro-starter
-```
-
-2. Install dependencies:
+### 1. Install dependencies
 
 ```bash
 npm install
 ```
 
-3. Set up Supabase and configure environment variables — see [Supabase Configuration](#supabase-configuration) below.
+### 2. Configure environment variables
 
-4. Create a `.dev.vars` file for local Cloudflare dev secrets:
-
-```bash
-cp .env.example .dev.vars
-```
-
-5. Run the development server:
-
-```bash
-npm run dev
-```
-
-## Available Scripts
-
-- `npm run dev` - Start development server (Cloudflare workerd runtime)
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
-- `npm run lint` - Run ESLint with type-checked rules
-- `npm run lint:fix` - Auto-fix ESLint issues
-- `npm run format` - Run Prettier
-- `npm run test:e2e` - Run Playwright browser tests
-- `npm run test:e2e:headed` - Run Playwright tests in a visible browser
-- `npm run test:e2e:install` - Install Playwright browser binaries
-
-## Playwright E2E Setup
-
-Use the seed spec in `tests/e2e/seed.spec.ts` as the starter pattern for future browser tests.
-
-1. Install Playwright browsers:
-
-```bash
-npm run test:e2e:install
-```
-
-2. Run the seed test:
-
-```bash
-npm run test:e2e
-```
-
-## Project Structure
-
-```md
-.
-├── src/
-│ ├── layouts/ # Astro layouts
-│ ├── pages/ # Astro pages
-│ │ └── api/ # API endpoints
-│ ├── components/ # UI components (Astro & React)
-│ └── assets/ # Static assets
-├── public/ # Public assets
-├── wrangler.jsonc # Cloudflare Workers config
-```
-
-## Supabase Configuration
-
-This project uses [Supabase](https://supabase.com/) for authentication. Environment variables are declared via Astro's `astro:env` schema and are treated as **server-only secrets** — they are never exposed to the client.
-
-### First-time setup (local, no cloud project needed)
-
-Requires [Docker](https://www.docker.com/) and ~7 GB RAM.
-
-1. Create your `.env` file:
+Create local env files from the example:
 
 ```bash
 cp .env.example .env
+cp .env.example .dev.vars
 ```
 
-2. Initialize the local Supabase project (creates a `supabase/` config folder):
+Both files need:
 
 ```bash
-npx supabase init
+SUPABASE_URL=...
+SUPABASE_KEY=...
 ```
 
-3. Start the local stack (downloads Docker images on first run):
+### 3. Start local Supabase
+
+If this is your first local run:
 
 ```bash
 npx supabase start
 ```
 
-4. Copy the credentials printed by the CLI into your `.env` and `.dev.vars`:
+This project keeps local Supabase config in [`supabase/config.toml`](/C:/Users/justy/10xdevs/supabase/config.toml:1). The local defaults are:
 
-```
+- API: `http://127.0.0.1:54321`
+- DB: `54322`
+- Studio: `http://127.0.0.1:54323`
+- Inbucket: `http://127.0.0.1:54324`
+
+Use the local anon key printed by `supabase start` together with:
+
+```bash
 SUPABASE_URL=http://127.0.0.1:54321
-SUPABASE_KEY=<anon key from CLI output>
+SUPABASE_KEY=<local anon key>
 ```
 
-5. To stop the stack when done:
+### 4. Apply migrations
+
+The dev script pushes the local schema before starting Astro:
+
+```bash
+npm run dev
+```
+
+Equivalent schema command:
+
+```bash
+supabase db push --local
+```
+
+### 5. Run the app
+
+```bash
+npm run dev
+```
+
+Then open `http://localhost:4321`.
+
+### Local auth note
+
+Local Supabase config already disables email confirmation in [`supabase/config.toml`](/C:/Users/justy/10xdevs/supabase/config.toml:112), so local sign-up can be used immediately without inbox confirmation.
+
+### Stop local Supabase
 
 ```bash
 npx supabase stop
 ```
 
-The local Studio UI is available at `http://localhost:54323`.
+## Project Routes
 
-No database tables or migrations are required — this project uses Supabase Auth's built-in `auth.users` table only.
+- `/` - landing page
+- `/auth/signin` - sign in
+- `/auth/signup` - sign up
+- `/budget` - monthly income and category setup
+- `/imports` - statement upload, history, and review
+- `/dashboard` - monthly summary and rules
 
-### Using a cloud Supabase project instead
+Protected routes are enforced in [`src/middleware.ts`](/C:/Users/justy/10xdevs/src/middleware.ts:1).
 
-If you prefer to use a hosted Supabase project, add these variables to your `.env` and `.dev.vars` files:
+## Test and Validation Commands
 
-| Variable       | Description                                                |
-| -------------- | ---------------------------------------------------------- |
-| `SUPABASE_URL` | Project URL from Supabase dashboard → Settings → API       |
-| `SUPABASE_KEY` | `anon` public key from Supabase dashboard → Settings → API |
+Use these repo commands during development:
 
+```bash
+npm run lint
+npm run typecheck
+npm run check
+npm test
+npm run build
 ```
-SUPABASE_URL=https://<project-ref>.supabase.co
-SUPABASE_KEY=<anon-key>
+
+E2E commands:
+
+```bash
+npm run test:e2e:install
+npm run test:e2e
+npm run test:e2e:headed
 ```
 
-### Email confirmation in local development
+The repository-specific handoff gate is:
 
-By default Supabase requires email confirmation before a user can sign in. To skip this during local development:
+```bash
+npm run lint
+npm run check
+npm run build
+```
 
-1. Open the Supabase dashboard for your project
-2. Go to **Authentication → Email → Confirm email**
-3. Toggle it **off**
+## Repository Structure
 
-Users can then sign in immediately after sign-up without clicking a confirmation link.
-
-### Auth routes
-
-| Route                 | Description                                                             |
-| --------------------- | ----------------------------------------------------------------------- |
-| `/auth/signin`        | Email/password sign-in form                                             |
-| `/auth/signup`        | Email/password sign-up form                                             |
-| `/auth/confirm-email` | Post-signup "check your inbox" page                                     |
-| `/dashboard`          | Example protected page (redirects to `/auth/signin` if unauthenticated) |
-
-Route protection is handled in `src/middleware.ts`. Add paths to the `PROTECTED_ROUTES` array there to require authentication.
+```text
+src/
+  components/        UI and interactive islands
+  layouts/           Astro layouts
+  lib/               finance, auth, summary, and import logic
+  pages/             routes and API handlers
+supabase/
+  migrations/        local schema history
+tests/
+  *.test.ts          Vitest integration coverage
+  e2e/               Playwright browser tests
+context/
+  foundation/        PRD, stack, infra, and test-plan docs
+```
 
 ## Deployment
 
-This project deploys to [Cloudflare Workers](https://workers.cloudflare.com/).
-
-1. Build the project:
+The project is currently shaped for `Cloudflare Workers + Pages` with Wrangler. Build with:
 
 ```bash
 npm run build
 ```
 
-2. Deploy with Wrangler:
+Deploy with:
 
 ```bash
 npx wrangler deploy
 ```
-
-Set `SUPABASE_URL` and `SUPABASE_KEY` as secrets in your Cloudflare dashboard or via `npx wrangler secret put`.
-
-## CI
-
-GitHub Actions runs lint + build on every push and PR to `master`. Configure `SUPABASE_URL` and `SUPABASE_KEY` as repository secrets in GitHub for the build step.
-
-## License
-
-MIT
