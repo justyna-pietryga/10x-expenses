@@ -46,16 +46,17 @@ jobs:
         run: npx supabase db reset --local --no-seed --yes
       - name: Export local Supabase app env
         run: |
-          while IFS='=' read -r name value; do
-            case "$name" in
-              API_URL)
-                echo "SUPABASE_URL=$value" >> "$GITHUB_ENV"
-                ;;
-              ANON_KEY)
-                echo "SUPABASE_KEY=$value" >> "$GITHUB_ENV"
-                ;;
-            esac
-          done < <(npx supabase status -o env)
+          status_output="$(npx supabase status -o env)"
+          api_url="$(printf '%s\n' "$status_output" | sed -n 's/^API_URL=\"\(.*\)\"$/\1/p')"
+          anon_key="$(printf '%s\n' "$status_output" | sed -n 's/^ANON_KEY=\"\(.*\)\"$/\1/p')"
+
+          if [ -z "$api_url" ] || [ -z "$anon_key" ]; then
+            echo "Failed to resolve local Supabase app env from supabase status -o env" >&2
+            exit 1
+          fi
+
+          echo "SUPABASE_URL=$api_url" >> "$GITHUB_ENV"
+          echo "SUPABASE_KEY=$anon_key" >> "$GITHUB_ENV"
       - name: Run E2E suite
         run: npm run test:e2e
       - name: Upload Playwright HTML report
